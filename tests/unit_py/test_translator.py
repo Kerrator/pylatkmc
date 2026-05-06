@@ -1,0 +1,271 @@
+"""Tests for the catalogue → Process translator (M-A.3, M-A.4)."""
+
+from __future__ import annotations
+
+import csv
+import math
+
+import pytest
+
+from pylatkmc.processes import Action, Condition, CoordOffset, Process
+from pylatkmc.rate_expression import KB_EV_PER_K
+from pylatkmc.translator import (
+    ANCHOR,
+    BULK_1NN_DIRS,
+    BULK_2NN_DIRS,
+    SURFACE_1NN_INPLANE_DIRS,
+    FamilyBucketRow,
+    load_family_rate_table,
+    parse_bucket_key,
+    translate_simple_hop_family,
+    translate_surface_1NN_inplane,
+)
+
+
+# ---------------------------------------------------------------------------
+# parse_bucket_key
+# ---------------------------------------------------------------------------
+
+def test_parse_bucket_two_axis() -> None:
+    assert parse_bucket_key("nv1=2_nv2=0") == {"nv1": 2, "nv2": 0}
+
+
+def test_parse_bucket_one_axis() -> None:
+    assert parse_bucket_key("nv1=4") == {"nv1": 4}
+
+
+def test_parse_bucket_li_prefix() -> None:
+    assert parse_bucket_key("li=1_nv1=3") == {"li": 1, "nv1": 3}
+
+
+def test_parse_bucket_rejects_star() -> None:
+    with pytest.raises(ValueError):
+        parse_bucket_key("*")
+
+
+def test_parse_bucket_rejects_empty() -> None:
+    with pytest.raises(ValueError):
+        parse_bucket_key("")
+
+
+def test_parse_bucket_rejects_no_eq() -> None:
+    with pytest.raises(ValueError):
+        parse_bucket_key("nv1_2")
+
+
+# ---------------------------------------------------------------------------
+# Direction sets — sanity checks
+# ---------------------------------------------------------------------------
+
+def test_surface_1NN_4_directions() -> None:
+    assert len(SURFACE_1NN_INPLANE_DIRS) == 4
+    # All in-plane (dk=0)
+    assert all(d.dk == 0 for d in SURFACE_1NN_INPLANE_DIRS)
+    # Unique
+    assert len(set(SURFACE_1NN_INPLANE_DIRS)) == 4
+
+
+def test_bulk_1NN_12_directions() -> None:
+    assert len(BULK_1NN_DIRS) == 12
+    assert len(set(BULK_1NN_DIRS)) == 12
+
+
+def test_bulk_2NN_6_directions() -> None:
+    assert len(BULK_2NN_DIRS) == 6
+    # All ±2 along an axis
+    assert all(abs(d.di) + abs(d.dj) + abs(d.dk) == 2 for d in BULK_2NN_DIRS)
+
+
+# ---------------------------------------------------------------------------
+# load_family_rate_table — fixture CSV
+# ---------------------------------------------------------------------------
+
+def _write_fixture(path, rows: list[dict]) -> None:
+    fields = [
+        "family_id", "family_name", "family_bucket_id", "family_bucket_name",
+        "site_motion_template", "environment_rule",
+        "n_events", "Ea_mean_eV", "Ea_std_eV", "Ea_min_eV", "Ea_max_eV",
+        "Ea_median_eV", "source_filter", "representative_row_indices",
+    ]
+    with open(path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=fields)
+        w.writeheader()
+        for r in rows:
+            full = {k: r.get(k, "") for k in fields}
+            w.writerow(full)
+
+
+def test_load_skips_zero_event_rows(tmp_path) -> None:
+    """Buckets with n_events=0 are placeholder rows; skip them."""
+    csv_path = tmp_path / "fp.csv"
+    _write_fixture(csv_path, [
+        {"family_id": "x", "family_bucket_id": "nv1=0",
+         "n_events": "0", "Ea_mean_eV": "0.5", "Ea_std_eV": "0",
+         "Ea_min_eV": "0", "Ea_max_eV": "0"},
+        {"family_id": "x", "family_bucket_id": "nv1=1",
+         "n_events": "10", "Ea_mean_eV": "0.6", "Ea_std_eV": "0.01",
+         "Ea_min_eV": "0.55", "Ea_max_eV": "0.65"},
+    ])
+    rows = load_family_rate_table(csv_path)
+    assert len(rows) == 1
+    assert rows[0].family_bucket_id == "nv1=1"
+
+
+def test_load_skips_nan_Ea_rows(tmp_path) -> None:
+    """fit_barrier=False families have Ea=NaN; skip."""
+    csv_path = tmp_path / "fp.csv"
+    _write_fixture(csv_path, [
+        {"family_id": "concerted_multisite", "family_bucket_id": "n_moved=3",
+         "n_events": "5", "Ea_mean_eV": "nan", "Ea_std_eV": "0",
+         "Ea_min_eV": "0", "Ea_max_eV": "0"},
+        {"family_id": "x", "family_bucket_id": "nv1=0",
+         "n_events": "10", "Ea_mean_eV": "0.5", "Ea_std_eV": "0.01",
+         "Ea_min_eV": "0.45", "Ea_max_eV": "0.55"},
+    ])
+    rows = load_family_rate_table(csv_path)
+    assert len(rows) == 1
+    assert rows[0].family_id == "x"
+
+
+def test_load_missing_file(tmp_path) -> None:
+    with pytest.raises(FileNotFoundError):
+        load_family_rate_table(tmp_path / "nope.csv")
+
+
+# ---------------------------------------------------------------------------
+# translate_surface_1NN_inplane — happy path
+# ---------------------------------------------------------------------------
+
+def _row(family_id: str, bucket: str, n: int, Ea: float, std: float = 0.01) -> FamilyBucketRow:
+    return FamilyBucketRow(
+        family_id=family_id, family_bucket_id=bucket,
+        n_events=n, Ea_mean_eV=Ea, Ea_std_eV=std,
+        Ea_min_eV=Ea - 3 * std, Ea_max_eV=Ea + 3 * std,
+    )
+
+
+def test_translate_surface_1NN_one_bucket_emits_4_processes() -> None:
+    """One bucket × 4 in-plane directions = 4 Processes."""
+    rows = [_row("surface_1NN_inplane", "nv1=0_nv2=0", 591, 1.017)]
+    out = translate_surface_1NN_inplane(rows, k0_Hz=1.0e13, T_K=500.0)
+    assert len(out) == 4
+    assert all(isinstance(p, Process) for p in out)
+    assert all(p.family_id == "surface_1NN_inplane" for p in out)
+    assert all(p.Ea_eV == pytest.approx(1.017) for p in out)
+
+
+def test_translate_surface_1NN_other_families_ignored() -> None:
+    """Rows from other families are filtered out."""
+    rows = [
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 591, 1.017),
+        _row("subsurface_1NN_inplane", "nv1=0_nv2=0", 100, 0.7),  # different family
+        _row("bulk_1NN_inplane", "nv1=0", 50, 0.6),
+    ]
+    out = translate_surface_1NN_inplane(rows)
+    assert len(out) == 4  # only surface_1NN_inplane × 4 dirs
+    assert all(p.family_id == "surface_1NN_inplane" for p in out)
+
+
+def test_translate_emits_distinct_directions() -> None:
+    """The 4 emitted Processes have 4 distinct mover-direction Conditions."""
+    rows = [_row("surface_1NN_inplane", "nv1=0_nv2=0", 591, 1.017)]
+    out = translate_surface_1NN_inplane(rows)
+    # Find the mover direction (the non-anchor Condition's coord) per Process
+    mover_coords = []
+    for p in out:
+        non_anchor = [c.coord for c in p.conditions if c.coord != ANCHOR]
+        assert len(non_anchor) == 1
+        mover_coords.append(non_anchor[0])
+    assert len(set(mover_coords)) == 4
+    assert set(mover_coords) == set(SURFACE_1NN_INPLANE_DIRS)
+
+
+def test_translate_actions_swap_anchor_and_mover() -> None:
+    """Each emitted Process has 2 Actions: anchor ← Ni, direction ← Vacant."""
+    rows = [_row("surface_1NN_inplane", "nv1=0_nv2=0", 591, 1.017)]
+    out = translate_surface_1NN_inplane(rows, mover_species="Ni")
+    for p in out:
+        assert len(p.actions) == 2
+        anchor_action = next(a for a in p.actions if a.coord == ANCHOR)
+        assert anchor_action.before == "Vacant"
+        assert anchor_action.after == "Ni"
+        # The other action is the mover-direction site, Ni → Vacant
+        mover_action = next(a for a in p.actions if a.coord != ANCHOR)
+        assert mover_action.before == "Ni"
+        assert mover_action.after == "Vacant"
+
+
+def test_translate_rate_is_arrhenius() -> None:
+    """rate_constant = k0 * exp(-Ea_mean / kT)."""
+    rows = [_row("surface_1NN_inplane", "nv1=0_nv2=0", 591, 0.6)]
+    out = translate_surface_1NN_inplane(rows, k0_Hz=1.0e13, T_K=500.0)
+    expected = 1.0e13 * math.exp(-0.6 / (KB_EV_PER_K * 500.0))
+    for p in out:
+        assert isinstance(p.rate_constant, float)
+        assert p.rate_constant == pytest.approx(expected)
+
+
+def test_translate_processes_have_unique_names() -> None:
+    """No two emitted Processes can share a name (decision-tree codegen
+    would conflict)."""
+    rows = [
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 591, 1.017),
+        _row("surface_1NN_inplane", "nv1=1_nv2=0", 11118, 0.646),
+        _row("surface_1NN_inplane", "nv1=2_nv2=0", 4407, 0.459),
+    ]
+    out = translate_surface_1NN_inplane(rows)
+    names = [p.name for p in out]
+    assert len(names) == len(set(names)) == 12  # 3 buckets × 4 dirs
+
+
+def test_translate_process_names_are_valid_c_identifiers() -> None:
+    """Required by the IR validator and by the codegen step."""
+    import re
+    rows = [_row("surface_1NN_inplane", "nv1=2_nv2=0", 4407, 0.459)]
+    out = translate_surface_1NN_inplane(rows)
+    for p in out:
+        assert re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", p.name), p.name
+
+
+def test_translate_warns_on_high_scatter() -> None:
+    """High Ea_std buckets trigger the on_scatter_warn callback."""
+    rows = [
+        _row("surface_1NN_inplane", "nv1=2_nv2=2", 1550, 0.66, std=0.33),  # wide
+        _row("surface_1NN_inplane", "nv1=4_nv2=2", 6574, 0.35, std=0.03),  # tight
+    ]
+    warnings_seen: list[str] = []
+    out = translate_surface_1NN_inplane(rows, on_scatter_warn=warnings_seen.append)
+    assert len(out) == 8  # 2 buckets × 4 dirs
+    assert len(warnings_seen) == 1
+    assert "nv1=2_nv2=2" in warnings_seen[0]
+
+
+# ---------------------------------------------------------------------------
+# translate_simple_hop_family — generic helper used by other families
+# ---------------------------------------------------------------------------
+
+def test_translate_simple_hop_bulk_12_directions() -> None:
+    """Used for bulk_1NN_inplane: 12 directions per bucket."""
+    rows = [_row("bulk_1NN_inplane", "nv1=4_nv2=2", 1000, 0.4)]
+    out = translate_simple_hop_family(
+        rows=rows,
+        family_id="bulk_1NN_inplane",
+        directions=BULK_1NN_DIRS,
+        mover_species="Ni",
+        k0_Hz=1.0e13,
+        T_K=500.0,
+    )
+    assert len(out) == 12
+
+
+def test_translate_simple_hop_empty_when_no_matching_family() -> None:
+    rows = [_row("surface_1NN_inplane", "nv1=0_nv2=0", 1, 1.0)]
+    out = translate_simple_hop_family(
+        rows=rows,
+        family_id="bulk_1NN_inplane",  # not in rows
+        directions=BULK_1NN_DIRS,
+        mover_species="Ni",
+        k0_Hz=1.0e13,
+        T_K=500.0,
+    )
+    assert out == []
