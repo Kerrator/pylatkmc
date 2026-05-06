@@ -1,0 +1,72 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pytest:
+    name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install MPI (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenmpi-dev openmpi-bin cmake
+
+      - name: Install MPI (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install open-mpi cmake
+
+      - name: Install pylatkmc + dev extras
+        run: pip install -e ".[dev]"
+
+      - name: Run unit tests
+        run: pytest tests/unit_py/ -v --tb=short
+
+      - name: Smoke-check codegen + CMake configure
+        run: |
+          pylatkmc-gen build models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
+          cmake -B build -DMODEL=ni_fe_cr_v1
+          cmake --build build -j 2
+
+      - name: Verify binary exists
+        run: |
+          test -x build/pylatkmc_ni_fe_cr_v1
+          file build/pylatkmc_ni_fe_cr_v1
+
+  lint:
+    name: ruff + mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: ruff check
+        run: ruff check pylatkmc/ tests/ tools/
+      - name: ruff format --check
+        run: ruff format --check pylatkmc/ tests/ tools/
+      - name: mypy
+        run: mypy pylatkmc/
+        continue-on-error: true   # mypy strict mode may trip — flag, don't gate
