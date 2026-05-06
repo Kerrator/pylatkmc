@@ -118,9 +118,22 @@ def _most_shared_coord(
             counter[c.coord] += 1
     if not counter:
         return None
-    # Stable: ties broken by lex order of the coord
-    most = max(counter.items(), key=lambda kv: (kv[1], -hash(kv[0])))
+    # Deterministic tie-break: prefer the lexicographically-smallest coord
+    # representation so two runs with identical inputs produce byte-identical
+    # generated C. Using `-hash(...)` would be subject to PYTHONHASHSEED
+    # randomisation and break reproducibility across processes.
+    most = max(counter.items(), key=lambda kv: (kv[1], _coord_sort_key(kv[0])))
     return most[0]
+
+
+def _coord_sort_key(coord: CoordOffset) -> tuple:
+    """Stable sort key for a CoordOffset.
+
+    Returns a tuple of the coord's string representation that orders
+    coords deterministically across Python processes (i.e. without
+    relying on `hash`).
+    """
+    return (str(coord),)
 
 
 def _partition_by_species(

@@ -339,3 +339,68 @@ int main(void) {
         f"{program}"
     )
     assert obj.exists()
+
+
+# ---------------------------------------------------------------------------
+# Reproducibility: two runs with identical input produce byte-identical C
+# ---------------------------------------------------------------------------
+
+
+def test_compile_is_deterministic_across_processes(tmp_path) -> None:
+    """Codegen must NOT depend on PYTHONHASHSEED. Two subprocess invocations
+    with the same input must produce byte-identical proclist content.
+
+    Regression test for the M-E hash-randomisation bug: `_most_shared_coord`
+    used to break ties via `-hash(coord)`, which depends on the
+    randomly-seeded Python hash and changed across invocations.
+    """
+    procs_pickle = tmp_path / "procs.json"
+    procs_pickle.write_text("dummy")
+
+    snippet = r"""
+import json, sys
+from pylatkmc.decision_tree import (compile_decision_tree, emit_apply_actions,
+                                     emit_process_enum, emit_rate_table)
+from pylatkmc.processes import Action, Condition, CoordOffset, Process
+
+ANCHOR = CoordOffset(code="NC_ANCHOR")
+PX = CoordOffset(code="NC_NN1_PX")
+MX = CoordOffset(code="NC_NN1_MX")
+PY = CoordOffset(code="NC_NN1_PY")
+MY = CoordOffset(code="NC_NN1_MY")
+
+def hop(d):
+    return Process(
+        name=f"hop_{d.code.removeprefix('NC_').lower()}",
+        family_id="x", Ea_eV=0.6, rate_constant=1.0e7,
+        conditions=(Condition(coord=ANCHOR, species="Vacant"),
+                    Condition(coord=d, species="Ni")),
+        actions=(Action(coord=ANCHOR, before="Vacant", after="Ni"),
+                 Action(coord=d, before="Ni", after="Vacant")),
+    )
+
+procs = [hop(PX), hop(MX), hop(PY), hop(MY)]
+out = (emit_process_enum(procs)
+       + emit_rate_table(procs)
+       + emit_apply_actions(procs)
+       + compile_decision_tree(procs, "touchup_a"))
+sys.stdout.write(out)
+"""
+
+    import os
+    # Run twice with DIFFERENT PYTHONHASHSEEDs — this is the actual
+    # threat. With the bug, these two invocations would produce
+    # different output.
+    env_a = {**os.environ, "PYTHONHASHSEED": "1"}
+    env_b = {**os.environ, "PYTHONHASHSEED": "424242"}
+
+    r1 = subprocess.run(["python3", "-c", snippet], env=env_a,
+                        capture_output=True, text=True, check=True)
+    r2 = subprocess.run(["python3", "-c", snippet], env=env_b,
+                        capture_output=True, text=True, check=True)
+
+    assert r1.stdout == r2.stdout, (
+        "decision_tree codegen is non-deterministic across PYTHONHASHSEEDs. "
+        f"len(r1)={len(r1.stdout)}, len(r2)={len(r2.stdout)}, "
+        f"first divergence at char {next((i for i, (a, b) in enumerate(zip(r1.stdout, r2.stdout)) if a != b), None)}"
+    )

@@ -1,47 +1,63 @@
 # pylatkmc Architecture
 
 **Audience:** new readers of the pylatkmc codebase, future-self after a context drift, anyone making non-trivial changes.
-**Last updated:** 2026-04-19 (after M4 species harness).
+**Last updated:** 2026-05-06 (v0.2.0 — pattern-DB cutover).
 
 ---
 
 ## TL;DR — three layers
 
 ```
-                  ┌─ pylatkmc/ ─────────────────────────┐
-                  │ Python: ModelSpec → C source + .kmcrt    │
-                  │   spec.py        TOML schema + validators│
-                  │   loader.py      .toml → ModelSpec       │
-                  │   codegen.py     ModelSpec → C templates │
-                  │   ratebuilder.py CSV     → .kmcrt cube   │
-                  └────────────┬─────────────────────────────┘
+                  ┌─ pylatkmc/ ─────────────────────────────────┐
+                  │ Python: ModelSpec + family CSV → proclist.c │
+                  │   spec.py         TOML schema + validators  │
+                  │   loader.py       .toml → ModelSpec         │
+                  │   processes.py    Process / Condition /     │
+                  │                   Action / Bystander IR     │
+                  │   translator.py   family CSV → list[Process]│
+                  │   decision_tree.py list[Process] → C source │
+                  │   codegen.py      generate() entry point    │
+                  └────────────┬────────────────────────────────┘
                                │ generates
                                ▼
-                  ┌─ models/<name>/generated/ ──────────────┐
-                  │ events.h    ratetable.h                 │
-                  │ ratetable.c avail.c   key_spec.json     │
-                  └────────────┬─────────────────────────────┘
+                  ┌─ models/<name>/generated/ ──────────────────┐
+                  │ proclist.c                                  │
+                  │ proclist.h                                  │
+                  └────────────┬────────────────────────────────┘
                                │ compiled with
                                ▼
-                  ┌─ runtime/ (static, model-agnostic) ─────┐
-                  │ src/core/    {kmc,lattice,state,rng,... │
-                  │ src/io/      config_reader, initconfig, │
-                  │              xyz_writer, pykmc_out      │
-                  │ src/mpi/     replica.c (MPI_Gather)     │
-                  │ src/main.c                              │
-                  └────────────┬─────────────────────────────┘
+                  ┌─ runtime/ (static, model-agnostic) ─────────┐
+                  │ src/core/                                   │
+                  │   lattice / coord_codes      (geometry)     │
+                  │   state / state_actions      (mutation)     │
+                  │   avail_sites                (BKL index)    │
+                  │   active_filter              (active gate)  │
+                  │   kmc                        (step loop)    │
+                  │   rng                        (splitmix64)   │
+                  │ src/io/      initconfig, xyz, pykmc.out     │
+                  │ src/mpi/     replica.c (MPI_Gather)         │
+                  │ src/main.c                                  │
+                  └────────────┬────────────────────────────────┘
                                │ CMake links to
                                ▼
-                  build/pylatkmc_<MODEL>     <-- per-model binary
+                  build/pylatkmc_<MODEL>     ← per-model binary
 ```
 
 Three layers, one direction of dependency:
 
-1. **Python codegen** (`pylatkmc/`) — turns a TOML model spec into specialised C source files and a binary rate cube. Run once per model change.
-2. **Generated C** (`models/<name>/generated/`) — schema-specialised `events.h`, `ratetable.{h,c}`, `avail.c`. Replaces equivalents that would otherwise live in `runtime/src/core/`.
-3. **Static C runtime** (`runtime/`) — backbone shared across every model: state, lattice, RNG, MPI, IO. Never regenerated.
+1. **Python codegen** (`pylatkmc/`) — translates the curated FCC family
+   catalogue into a list of `Process` descriptors, then emits a single
+   per-model `proclist.c` (decision tree + apply functions + rate
+   table). Run once per (model, T) pair.
+2. **Generated C** (`models/<name>/generated/proclist.{c,h}`) — bundles
+   everything model-specific into one compilation unit.
+3. **Static C runtime** (`runtime/`) — backbone shared across every
+   model. Never regenerated.
 
-Everything model-specific is **baked at codegen time** so the runtime hot loop is branch-free over the rate-cube key.
+Everything model-specific is **baked at codegen time** (Process names,
+rate constants, action specifics). The runtime hot loop is a tight
+sequence of `active_filter_rescan` → `avail_sites_clear` → per-site
+`touchup_a` → `avail_sites_select` → `apply_table[proc]`.
 
 ---
 
@@ -49,293 +65,247 @@ Everything model-specific is **baked at codegen time** so the runtime hot loop i
 
 ```
 pylatkmc/
-├── CMakeLists.txt              # ingests one model dir; -DMODEL=<name>; -DREQUIRE_GENERATED=ON
+├── CMakeLists.txt              # ingests one model dir; -DMODEL=<name>
 ├── README.md                   # hub: quickstart + pointers to this docs/ dir
 ├── pyproject.toml              # installable pylatkmc Python package
-├── pylatkmc/              # Python package (~600 LOC)
-│   ├── __init__.py             # public API: load, ModelSpec, generate, build_rate_table
-│   ├── spec.py                 # pydantic ModelSpec, KeyAxis, Shell
+├── pylatkmc/                   # Python codegen package
+│   ├── __init__.py             # public API: load, ModelSpec, generate
+│   ├── spec.py                 # pydantic ModelSpec
 │   ├── loader.py               # TOML → ModelSpec
-│   ├── codegen.py              # kmos-style #@..@# preprocessor + generate()
-│   ├── ratebuilder.py          # curated CSV → .kmcrt; seven-tier fallback chain
-│   ├── kmcfmt.py               # binary header helpers
-│   ├── cli.py                  # `pylatkmc-gen` console-script (build / rate / provenance / info / clean)
-│   └── templates/              # .tmpl files: events.h ratetable.{h,c} avail.c
-├── runtime/                    # static C backbone
-│   └── src/
-│       ├── core/               # kmc, lattice, state, rng, kmcfmt, json_mini
-│       │   ├── events_base.h   # permanent Species / SiteClass / DirectionFamily / MotifFamily
-│       │   ├── avail_runtime.h # extern interface; impl provided by generated avail.c
-│       │   └── avail.h         # AvailEvents struct + signatures
-│       ├── io/                 # config_reader, initconfig, xyz_writer, pykmc_out
-│       ├── mpi/                # replica.c (MPI_Gather aggregator) — model-agnostic
-│       └── main.c              # CLI entry point
-├── models/                     # one subdir per compiled model
-│   └── ni_fe_cr_v1/
-│       ├── ni_fe_cr_v1.kmcspec.toml
-│       ├── generated/          # codegen output (regenerated by `pylatkmc-gen build`)
-│       └── examples/           # .kmcinit + input.ini + .kmcrt for the canonical test case
-├── tests/
-│   └── unit_py/                # pytest (62 tests as of 2026-04-19): spec load, codegen, ratebuilder, compile
-├── tools/                      # user-facing CLIs
-│   ├── kmcfmt.py
-│   ├── build_initial_config.py # generate a slab.kmcinit (`--composition` for alloys)
-│   ├── compare_msd_vs_pykmc.py
-│   └── compare_species_aware.py
-└── docs/                       # this dir
-    ├── ARCHITECTURE.md         # ← you are here
-    ├── PYKMC_INTEGRATION.md
-    └── KMOS_COMPARISON.md
+│   ├── processes.py            # Process / Condition / Action / Bystander
+│   ├── translator.py           # family CSV → list[Process]
+│   ├── decision_tree.py        # list[Process] → C (M-B emitters)
+│   ├── rate_expression.py      # arrhenius_scalar, BoostFit
+│   ├── codegen.py              # generate(spec, out_dir) — emits proclist.{c,h}
+│   └── cli.py                  # `pylatkmc-gen build / info / processes / clean`
+├── runtime/src/                # Static C runtime (model-agnostic)
+│   ├── core/                   # the heart of the runtime
+│   │   ├── lattice.{h,c}       # immutable lattice + coord_table
+│   │   ├── coord_codes.{h,c}   # NeighbourCode enum + canonical deltas
+│   │   ├── state.{h,c}         # mutable per-replica species + vac_list
+│   │   ├── state_actions.c     # state_apply_actions
+│   │   ├── avail_sites.{h,c}   # O(1) swap-last add/del + BKL select
+│   │   ├── active_filter.{h,c} # coord-based active-site gate
+│   │   ├── kmc.{h,c}           # per-step main loop
+│   │   ├── rng.{h,c}           # splitmix64 RNG
+│   │   ├── events_base.h       # SP_VACANT, SP_NI, …
+│   │   ├── kmcfmt.{h,c}        # mmap-and-validate-magic helper for .kmcinit
+│   │   └── json_mini.{h,c}     # tiny JSON header parser
+│   ├── io/                     # I/O modules
+│   │   ├── config_reader.{h,c} # input.ini parser
+│   │   ├── initconfig.{h,c}    # .kmcinit lattice loader
+│   │   ├── xyz_writer.{h,c}    # trajectory writer
+│   │   └── pykmc_out.{h,c}     # per-step log
+│   ├── mpi/
+│   │   └── replica.{h,c}       # per-replica context + MPI_Gather aggregator
+│   └── main.c                  # binary entry point
+├── models/<name>/              # one subdir per compiled model
+│   ├── <name>.kmcspec.toml     # the spec
+│   ├── generated/              # output of `pylatkmc-gen build`
+│   │   ├── proclist.c          # ~5k lines for production
+│   │   └── proclist.h          # public symbol declarations
+│   └── examples/               # input.ini, .kmcinit fixtures
+├── tests/unit_py/              # 162 pytests
+├── tools/                      # build_initial_config, compare harnesses
+└── docs/                       # this directory
 ```
 
 ---
 
-## The model spec
+## The data plane: Process IR
 
-A pylatkmc model is fully specified by one TOML file. The pydantic schema in `pylatkmc/spec.py` validates it at load time. Everything the codegen and rate builder do is a pure function of `ModelSpec`.
+`pylatkmc/processes.py` defines the IR. See
+[`PATTERN_DB.md`](PATTERN_DB.md#data-plane-process-ir) for the full
+schema. Highlights:
 
-The canonical example, `models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml`, declares:
+- **`CoordOffset(code: NeighbourCode)`** — names a specific neighbour
+  direction relative to the anchor. The runtime resolves it via
+  `lat->coord_table[site * N + nc]`.
+- **`Process`** — `name + family_id + Ea_eV + rate_constant + conditions
+  + actions + bystanders`. Frozen + hashable for golden-file tests.
+- **Multi-site events** = `len(actions) >= 2`. The runtime applies them
+  atomically.
 
-```toml
-name    = "ni_fe_cr_v1"
-lattice = "fcc"
-species = ["Vacant", "Ni", "Fe", "Cr"]   # Vacant first by validator
-
-[[shells]]
-name = "nn1"
-cutoff_mult = 1.05    # FCC 1NN at d_nn
-
-[[shells]]
-name = "nn2"
-cutoff_mult = 1.50    # FCC 2NN at sqrt(2) * d_nn
-
-[[key.axes]]
-name = "mover_species"
-kind = "enum"
-max  = 3              # Ni / Fe / Cr (Vacant excluded — mover is occupied)
-skip_vacant = true
-
-[[key.axes]]
-name  = "n_vac_nn1"
-kind  = "count"
-shell = "nn1"
-match = "vac"
-max   = 5
-
-# … six more axes for n_Fe/n_Cr per shell (see toml file) …
-
-[rate_data]
-primary         = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/classified_events_with_families.csv"
-family_table    = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv"
-fallback_scalar = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table.csv"
-temperature_K   = 500.0
-k0_Hz           = 1.0e13
-```
-
-What the spec declares:
-
-| Section | Carries | Used by |
-|---|---|---|
-| `name` | binary suffix (`pylatkmc_<name>`) | CMake, codegen, rate builder |
-| `lattice` | scope-locked to `"fcc"` for now | codegen |
-| `species` | enum order; first element MUST be `"Vacant"` | codegen (events.h), rate builder (mover map) |
-| `shells` | named neighbour shells with cutoff multipliers | codegen (avail.c scan loops) |
-| `key.axes` | ordered list of user-axes; each is `enum` or `count` | codegen (RateKey struct, ratetable_key), rate builder (group-by columns) |
-| `rate_data.*` | CSV paths + T, k0 | rate builder |
-
-Two axes are **always implicit and always first**: `site_class` (3 values) and `direction` (5 values). They never appear in `key.axes`. Everything else is user-declared.
+The IR is consumed by the catalogue translator (`translator.py`),
+the decision-tree codegen (`decision_tree.py`), and the build entry
+point (`codegen.py:generate`).
 
 ---
 
-## The 9-axis rate-cube key
+## The matching plane: decision tree
 
-For `ni_fe_cr_v1`:
-
-```
-axis 0  site_class       (3)   surface / subsurface / bulk_like
-axis 1  direction        (5)   <110>/<100>/<111>/<001>/unresolved
-axis 2  mover_species    (3)   Ni / Fe / Cr
-axis 3  n_vac_nn1        (5)   0..4
-axis 4  n_Fe_nn1         (5)   0..4
-axis 5  n_Cr_nn1         (5)   0..4
-axis 6  n_vac_nn2        (5)
-axis 7  n_Fe_nn2         (5)
-axis 8  n_Cr_nn2         (5)
-                         ──
-cube = 3·5·3·5·5·5·5·5·5 = 703,125 entries × 12 bytes = 8.4 MB on disk
-```
-
-`n_Ni_*` is intentionally **not stored** — it's derivable as `shell_size − n_vac − n_Fe − n_Cr`.
-
-`ModelSpec.strides()` computes row-major strides from the axis maxes; `ratetable_key()` (in the generated `ratetable.h`) is a single inline expression:
+`pylatkmc/decision_tree.py` is a port of kmos's
+[`_write_optimal_iftree`](../../kmos-main/kmos/io/__init__.py#L2568) to
+C-emission. Given a list[Process], it greedily finds the most-shared
+`CoordOffset` across remaining Conditions, emits a `switch` on that
+coord's species, and recurses into per-species branches:
 
 ```c
-static inline int32_t ratetable_key(const RateTable *rt, const RateKey *k) {
-    return
-        (int32_t)k->site_class * rt->strides[0]
-      + (int32_t)k->direction * rt->strides[1]
-      + (int32_t)k->mover_species * rt->strides[2]
-      + (int32_t)k->n_vac_nn1 * rt->strides[3]
-      + (int32_t)k->n_Fe_nn1 * rt->strides[4]
-      + (int32_t)k->n_Cr_nn1 * rt->strides[5]
-      + (int32_t)k->n_vac_nn2 * rt->strides[6]
-      + (int32_t)k->n_Fe_nn2 * rt->strides[7]
-      + (int32_t)k->n_Cr_nn2 * rt->strides[8]
-    ;
+void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
+    switch (st->species[site]) {                      // most-shared coord = NC_ANCHOR
+        case SP_VACANT:
+            switch (st->species[lat->coord_table[site * N + NC_NN1_PX]]) {
+                case SP_NI:
+                    avail_sites_add(as, P_surface_1NN_inplane__nv1_0__nn1_px__ni, site);
+                    break;
+                case SP_FE:
+                    avail_sites_add(as, P_surface_1NN_inplane__nv1_0__nn1_px__fe, site);
+                    break;
+                …
+            }
+            …
+    }
 }
 ```
 
-A rate-cube lookup is one branch-free integer expression and one mmap'd float load. That's the entire hot path.
-
-`ModelSpec.validate()` rejects schemas whose entry product exceeds `MAX_CUBE_ENTRIES = 100_000_000` — about a 1.2 GB cube. Anything bigger is almost certainly a mistake.
-
----
-
-## Codegen pipeline
-
-`pylatkmc.codegen.evaluate_template` is a port of the kmos preprocessor at `kmos-main/kmos/utils/__init__.py:1449`:
-
-| Line shape | Effect |
-|---|---|
-| `#@ <text>\n` | literal output line; `{name}` and `{name.upper()}` substituted via Python f-string against `exec` locals |
-| `#@\n` (bare) | emit a single newline |
-| any other line | executed verbatim as Python (control flow, computations, var assignments) |
-
-Convention for literal `{` and `}` in C output: double them as `{{` / `}}` (f-string convention). All four templates already follow that rule. See `tests/unit_py/test_preprocessor.py` for the full semantic spec (16 tests covering substitution, loops, conditionals, brace escaping, error surfacing).
-
-The four templates live in `pylatkmc/templates/`:
-
-| Template | Generates | Highlights |
-|---|---|---|
-| `events.h.tmpl` | `RateKey` struct (one `uint8_t` per axis), `Event` struct (`EVENT_BASE_FIELDS` + key) | matches `ModelSpec.all_axes()` order |
-| `ratetable.h.tmpl` | `RateTable` struct, inline `ratetable_key`, accessors | strides+axis_maxes sized to `len(spec.all_axes())` |
-| `ratetable.c.tmpl` | mmap loader; validates `n_axes`, `n_entries`, `axis_maxes[]` against compile-time constants | catches spec/cube drift at load time |
-| `avail.c.tmpl` | `MOVER_SP_IDX[]` map, one `scan_<shell>()` per shell, `avail_rebuild_all()` | scan loops emit per-species counters; rebuild walks every vacancy and emits one Event per occupied 1NN/2NN edge |
-
-Generated files are written to `models/<name>/generated/`. The `generate()` function also emits `key_spec.json` — a human-readable mirror of the schema for the `pylatkmc-gen provenance` tool and any debugging.
-
-CMake's include-path order puts `models/<name>/generated/` **before** `runtime/src/core/`, so generated `events.h` / `ratetable.h` shadow any same-named files in the runtime tree (there used to be scaffold stubs there in M1; M2 deleted them once the codegen was the only path forward).
+For ni_fe_cr_v1's 358 Processes, the tree depth is ~7 levels and
+`touchup_a` is ~5000 lines.
 
 ---
 
-## Rate-cube builder & seven-tier fallback chain
+## The execution plane: runtime per-step loop
 
-`pylatkmc.ratebuilder.build()` reads `classified_events_with_families.csv` and produces a `.kmcrt` binary that matches the spec's shape. It walks five tiers in order; each tier only touches cells the previous tiers left as `NaN`:
+`runtime/src/core/kmc.c:kmc_step_once`:
 
-| Tier | Source | What it does | Where in code |
-|---|---|---|---|
-| **1 — direct** | curated CSV groupby | event-count-weighted mean barrier per exact axis tuple → Arrhenius rate | `ratebuilder.build` lines 564-589 |
-| **2 — element drop** | already-filled cells | for each axis in `_TIER2_DROP_ORDER` (`n_Cr_nn2 → n_Fe_nn2 → n_vac_nn2 → n_Cr_nn1 → n_Fe_nn1`), copy axis-0 slice across the axis into still-NaN cells | `_apply_tier2_fallback`, lines 244-267 |
-| **5 — cross-class** | already-filled donor classes | recipient `site_class` borrows from donors per `_CROSS_CLASS_DONORS` (e.g. surface ← subsurface ← bulk) | `_apply_cross_class_fallback`, lines 273-302 |
-| **6 — family bucket** | `rate_lookup_table_family.csv` | bucket-aware lookup: cube cell at `n_vac_nn1=V` fills from family bucket `nv1=V+1` (mover offset) only if that bucket exists | `_apply_tier6_family`, lines 384-441 |
-| **7 — scalar legacy** | `rate_lookup_table.csv` | last-resort `<110>_inplane`-only fallback keyed on `n_vacant_inplane_nn` | `_apply_tier7_scalar`, lines 447-501 |
-
-Tiers 3 (collapse mover_species) and 4 (walk n_vac_nn1 down) from the original plan were folded into tiers 1+2 in practice — the element-drop logic walks vacancy axes too.
-
-### Worked example
-
-Take cell `(surface, <110>_inplane, mover=Ni, n_vac_nn1=0, n_Fe_nn1=0, n_Cr_nn1=0, n_vac_nn2=0, n_Fe_nn2=0, n_Cr_nn2=0)` — a fresh isolated vacancy on a pure-Ni surface, no neighbours of interest in either shell. After M3b on the current 100Ni-only catalogue:
-
-1. **Tier 1**: pyKMC's 100Ni training never produces this exact tuple (real surface vacancies always have `n_vac_nn1 ≥ 4` because the surface atom that hops in has 4 in-plane vacant 1NN once the vacancy fills its old site). NaN.
-2. **Tier 2**: drop `n_Cr_nn2` first — but axis is already 0. Then `n_Fe_nn2`: same. Skip through. Tier 2 only helps when the cell has nonzero alloy axes; here it doesn't.
-3. **Tier 5**: borrow from `(subsurface, <110>, mover=Ni, n_vac_nn1=0, ...)` — also NaN. Then bulk_like — also NaN. No help.
-4. **Tier 6**: `(surface, <110>)` maps to family `surface_1NN_inplane`. Cube `n_vac_nn1=0` → mover bucket `nv1=1`. The family table has `surface_1NN_inplane` at buckets `nv1=4..8` only — no `nv1=1` data. **No fill.**
-5. **Tier 7**: `<110>_inplane` qualifies for scalar legacy. The legacy CSV has barriers keyed by `n_vacant_inplane_nn=0,1,2,3,4,5,6,7,8`. Lookup `n=0` → Ea = 0.509 eV → rate 7.4×10⁷ Hz at T=500K. **Filled.**
-
-That last step is what keeps single-vacancy 100Ni surface dynamics physically correct in pylatkmc today. The M3b validation gate confirmed it: 100k surface `<110>` hops, zero subsurface migration, zero exchange — matches Arrhenius prediction.
-
-The bucket-aware tier-6 trick is non-obvious enough to flag separately:
-
-> **Family buckets are indexed by the moving atom's nv1, not the vacancy's.** For 1NN hops, `mover_nv1 = vacancy_n_vac_nn1 + 1`. The cube's `n_vac_nn1` axis is the vacancy-perspective count. A naive "fill all cells in slab from family-averaged Ea" — what M3b shipped first — produced unphysical kinetics because cells at `n_vac_nn1=0` (isolated vacancy) got rates derived from training events at `nv1=4..8` (multi-vacancy clusters). The bucket-matching constraint stays honest with the training distribution. See `_apply_tier6_family` line 411 and `_MOVER_NV1_OFFSET = 1` at line 322.
-
----
-
-## Runtime — what the C binary does
-
-The static backbone in `runtime/src/` is independent of any model. All schema specifics enter via the generated `events.h`, `ratetable.{h,c}`, `avail.c`.
-
-Per-step flow inside the main loop (`runtime/src/core/kmc.c`):
-
-1. **Enumerate events** — `avail_rebuild_all()` (generated). For each vacancy:
-   1. Walk the 1NN CSR shell of its site, accumulating `n_vac`, `n_Fe`, `n_Cr` and recording occupied edge indices.
-   2. Walk the 2NN CSR shell similarly.
-   3. For each occupied 1NN edge: build a `RateKey` (with `mover_species = MOVER_SP_IDX[species[t]]`), call `ratetable_key`, look up the rate. If finite and >0, append an `Event` to `av->events`, push the cumulative rate to `av->cum_rates`.
-   4. Same for 2NN edges.
-2. **Pick an event** — `avail_select(av, target, ...)` binary-searches `cum_rates` for the smallest index ≥ `target` (where `target = U * r_tot`, U uniform in `[0, 1)`). Standard BKL.
-3. **Apply the hop** — `state_swap_hop()` swaps the species at `vac_origin` and `vac_dest`, updates `vac_list` / `vac_idx_of`, advances unwrapped position vectors for MSD.
-4. **Advance time** — `dt = -ln(U) / r_tot`; accumulate.
-5. **Log** — `pykmc_out_write_row(...)` writes one line to the per-rank `pykmc.out`. Sample frame to `kmcout.xyz` if `step % sample_every == 0`.
-6. **Repeat** until `max_steps` or `max_time_s`.
-
-M1's strategy is **full event rebuild every step** — `O(n_vac × 18)` for FCC. At ≤ 100 vacancies on a 22×22×20 slab and ~100 ns per event, this is well under 100 µs per step. Incremental `avail_sites` add/del (the kmos-style O(1) swap trick) is the natural M5/M6 speedup but isn't needed yet.
-
----
-
-## MPI ensemble
-
-`runtime/src/mpi/replica.c` is **model-agnostic**: every rank does an identical `avail_rebuild_all` + `avail_select` loop with a different RNG seed (splitmix64 from `base_seed + rank`). At the end, `MPI_Gather` collects each rank's `ReplicaStats` struct — fixed-size, no model-specific fields — onto rank 0, which writes one `aggregate_summary.json`. Per-rank summaries (with the more model-specific motif/direction histograms in `pykmc.out`-style logs) are written from each rank.
-
-The single `aggregate_summary.json` carries:
-
-```json
+```c
+int kmc_step_once(KmcContext *ctx,
+                  int32_t *out_proc, int32_t *out_site, double *out_dt)
 {
-  "n_replicas": 4,
-  "n_steps_mean": 100000,
-  "total_time_s_mean": 1.535e-3,
-  "total_time_s_std":  3.34e-6,
-  "mean_msd_A2_mean":  4.916e5,
-  "mean_msd_A2_std":   2.91e5,
-  "motif_counts_sum":     { "subsurface_1nn_translation": 400000, ... },
-  "direction_counts_sum": { "<110>_inplane": 400000, ... }
+    active_filter_rescan(ctx->af, ctx->lat, ctx->st);
+    avail_sites_clear(ctx->as);
+    int32_t n_active = active_filter_n_active(ctx->af);
+    for (int32_t i = 0; i < n_active; ++i) {
+        touchup_a(ctx->lat, ctx->st, ctx->as,
+                  active_filter_site_at(ctx->af, i));
+    }
+    avail_sites_refresh_cum_rates(ctx->as);
+    double r_tot = avail_sites_r_tot(ctx->as);
+    if (r_tot <= 0.0) return -ENODATA;
+
+    double r1, r2;
+    rng_next2(ctx->rng, &r1, &r2);
+    double dt = -log(r2) / r_tot;
+    int32_t proc, site;
+    avail_sites_select(ctx->as, r1 * r_tot, &proc, &site);
+    apply_event(ctx, proc, site);                // dispatches via apply_table[proc]
+
+    ctx->st->time_s += dt;
+    ctx->st->step   += 1;
+    /* … out params … */
+    return 0;
 }
 ```
 
-This is what the comparison harnesses (`tools/compare_msd_vs_pykmc.py`, `tools/compare_species_aware.py`) read.
+### Runtime data structures
+
+- **`Lattice`** — immutable per-model geometry. Loaded from .kmcinit.
+  Carries `positions`, `nn1`/`nn2` CSR adjacency, and the per-site
+  `coord_table` (built once at startup by `lattice_build_coord_table`).
+- **`State`** — mutable per-replica state. Triple: `species[]`,
+  `vac_list[]`, `vac_idx_of[]`. Plus `unwrapped_xyz[]` for MSD.
+- **`AvailSites`** — per-step event-availability index. Dual-index
+  `site_at[proc][k]` + `slot_of[proc][site]` for O(1) add/del. Plus
+  `rates[proc]` (set once at startup) and `cum_rates[proc]` (refreshed
+  per step).
+- **`ActiveFilter`** — bitmap + packed list of "sites worth running
+  touchup at". Static mask (geometry-derived) + dynamic mask (vacancies
+  and their 1NN).
+- **`Rng`** — splitmix64; seeded per-replica from `(base_seed, rank)`.
+
+### MPI ensemble
+
+`runtime/src/mpi/replica.c` runs one independent simulation per MPI
+rank. After `kmc_run` returns, rank 0 collects each replica's
+`ReplicaStats` via `MPI_Gather` and writes `aggregate_summary.json`
+to `output_root/`.
 
 ---
 
-## Tests
+## Model spec (TOML)
 
-62 pytests (as of 2026-04-19) under `tests/unit_py/`:
+A `.kmcspec.toml` declares:
 
-| File | What it covers | Count |
-|---|---|---|
-| `test_spec_load.py` | TOML loader, ModelSpec invariants (Vacant-first, axis-name uniqueness, cube-size cap) | 16 |
-| `test_preprocessor.py` | `evaluate_template` semantics: substitution, loops, conditionals, brace escaping, error surfacing | 16 |
-| `test_codegen.py` | Generated files have correct shape: RateKey field order matches spec, all axes referenced in `ratetable_key`, per-shell species counters present, MOVER_SP_IDX populated | 12 |
-| `test_codegen_compiles.py` | End-to-end: generate → cmake configure → cmake build → assert binary exists. ~1.75 s per fresh build. | 2 |
-| `test_ratebuilder.py` | DataFrame prep, motif derivation, tier-2 element drops, tier-5 cross-class, tier-6 bucket parsing & matching | 16 |
+- `name`, `lattice = "fcc"`
+- `species = ["Vacant", "Ni", "Fe", "Cr"]` — first MUST be Vacant
+- `[shells]` — neighbour shells (1NN, 2NN, …) by cutoff multiplier
+- `[rate_data]` — paths to the catalogue CSVs and physics parameters
+  (T, k0)
 
-Run all: `cd pylatkmc && pytest tests/unit_py/ -q`.
+Example: [`models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml`](../models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml).
 
-C-level tests (in `tests/unit_c/`) are deferred to M5+; the codegen-compile test is the current gate that proves runtime backbone + generated C link cleanly.
+The TOML schema is enforced by Pydantic in `pylatkmc/spec.py`.
+
+---
+
+## Build
+
+```bash
+pylatkmc-gen build models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
+# Pipeline:
+#   ModelSpec → load_family_rate_table → translate_all → list[Process]
+#                                                          │
+#   compile_decision_tree                                  │
+#   emit_process_enum                                      │
+#   emit_rate_table                                        ▼
+#   emit_apply_actions                              proclist.{c,h}
+
+cmake -B build -DMODEL=ni_fe_cr_v1
+cmake --build build -j 4
+# → build/pylatkmc_ni_fe_cr_v1
+```
+
+CMake `file(GLOB)` picks up:
+- All `runtime/src/{core,io,mpi}/*.c` (the static backbone)
+- `models/<MODEL>/generated/*.c` (proclist.c)
+- Compiles them into `pylatkmc_lib` (static archive)
+- Links `runtime/src/main.c` against it → final binary
+
+---
+
+## Run
+
+```bash
+cd models/ni_fe_cr_v1/examples
+mpirun -n 4 ../../../build/pylatkmc_ni_fe_cr_v1 input.ini
+cat output/aggregate_summary.json
+```
+
+`input.ini` declares step caps, the .kmcinit path, the output root,
+T, and the RNG seed. See
+[`runtime/src/io/config_reader.h`](../runtime/src/io/config_reader.h)
+for the field set.
 
 ---
 
 ## Validation status & known limitations
 
-What's validated (M3a/M3b gate, single-vacancy 100Ni at T=500K on a 192-site mini-slab):
-- 100,000 surface `<110>` hops, zero subsurface migration, zero exchange — matches Arrhenius prediction (`<1` exchange expected at this time scale).
-- Per-step physics is provenance-traceable via `pylatkmc-gen provenance`.
-
-What's deliberately out of scope:
-- **Multi-site / concerted events.** Single-vacancy 1NN/2NN hops only. No kmos-style `actions` tuples.
-- **3NN or longer shells.** CSR carries 1NN + 2NN; the spec only references those.
-- **Non-cubic lattices.** `lattice = "fcc"` is the only choice; HCP/BCC need new neighbour-graph generation.
-- **Incremental matching.** Full event rebuild every step (`O(n_vac × 18)`); kmos's `avail_sites` swap trick is a future M6 candidate.
-- **OTF rate modulation.** Rates are pre-exponentiated at build time and frozen until the next `pylatkmc-gen rate`.
-- **Basin acceleration.** Unlike pyKMC, pylatkmc does no basin detection or super-event compression — it computes raw kinetics. This is on purpose: pylatkmc is the lower-level engine; basin logic, if useful, lives one layer up.
-- **Restart / checkpoint resume.** Each run starts from `.kmcinit`.
-
-What was uncovered in M4 and is still open:
-- The curated catalogue `classified_events_with_families.csv` currently contains **only 100Ni events**. The 62 alloy sims in `Data/Research/Ni_Slab_Alloys/` exist but were never fed through `apps/PyKMC_Analysis/Analysis/classify_lattice_events.ipynb`. Until they are, the species axes in the rate cube can't be populated by tier-1 direct aggregation. Full diagnosis: `pylatkmc_m4_species_report.md` (upstream workspace doc) (workspace-level docs, not this dir).
+- ✅ **End-to-end pattern-DB pipeline.** Smoke run on ni_fe_cr_v1
+  (8×8×3 slab, 1 surface vacancy, T=500 K, 100k steps × 2 ranks):
+  `mean_msd_A2 = 6.79e5 Å²` vs cube baseline `7.79e5 Å²` — within 13%.
+- ✅ **162 unit tests passing**, including ctypes tests against the
+  real `Lattice` / `State` / `AvailSites` types and a `cc -Werror`
+  compile gate on the generated proclist.
+- ⚠️ **Single-vacancy MSD only.** Multi-vacancy concerted events
+  emit a one-time stderr warning and skip MSD updates (slot identity
+  is approximate when more than one vacancy is involved). Per-vacancy
+  ID-based unwrapped_xyz is a v0.3 candidate.
+- ⚠️ **Per-bucket rate aggregation.** Each `(family, bucket)` emits one
+  Process per direction with a shared bucket-mean rate. If intra-bucket
+  Ea scatter is wide (>0.05 eV with ≥10 events), `pylatkmc-gen
+  processes` emits a warning. Per-arrangement Processes (one per
+  catalogue row instead of per bucket) are a v0.3 candidate.
+- ⚠️ **PBC-aliased `±z` 2NN codes.** In thin slabs, `NC_NN2_PZ` and
+  `NC_NN2_MZ` may resolve to the same neighbour through the z PBC.
+  The runtime accepts this; the same physical event may be
+  enumerated under two Process IDs. Not corrected in v0.2.
 
 ---
 
 ## Where to read next
 
-- **[`PYKMC_INTEGRATION.md`](PYKMC_INTEGRATION.md)** — the end-to-end pipeline from a pyKMC simulation to a running pylatkmc binary, including the new-model tutorial.
-- **[`KMOS_COMPARISON.md`](KMOS_COMPARISON.md)** — same-and-different vs. kmos, what we borrowed, what we deliberately didn't.
-- **[`../README.md`](../README.md)** — top-level hub with quickstart commands.
-- **`pylatkmc_m4_species_report.md` (upstream workspace doc)** — M4 validation findings, including the upstream training-data gap.
-- **`3D_MIGRATION_NOTE.md` (upstream workspace doc)** — the 3D taxonomy (motif families, site classes, direction families) that pylatkmc inherits.
+- [`PATTERN_DB.md`](PATTERN_DB.md) — full architectural reference.
+- [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) — worked example.
+- [`KMOS_COMPARISON.md`](KMOS_COMPARISON.md) — what we ported, what's
+  still kmos-different.
+- [`PYKMC_INTEGRATION.md`](PYKMC_INTEGRATION.md) — interaction with the
+  upstream pyKMC pipeline.

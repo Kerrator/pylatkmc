@@ -4740,42 +4740,42 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX]]) {
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX]]) {
                 case SP_NI:
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_0__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_0__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_0__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_0__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_4__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_0__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_1__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_2__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_3__nn1_mx__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_4__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_0__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_0__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_0__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_0__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_4__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_0__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_2__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_3__nn1_px__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_4__nn1_px__ni, site);
                     break;
                 default: break;
             }
@@ -4818,112 +4818,42 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX]]) {
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX]]) {
                 case SP_NI:
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_0__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_0__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_0__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_0__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_4__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_0__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_2__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_3__nn1_px__ni, site);
-                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_4__nn1_px__ni, site);
-                    break;
-                default: break;
-            }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM]]) {
-                case SP_NI:
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_5__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_down_mm__ni, site);
-                    break;
-                default: break;
-            }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP]]) {
-                case SP_NI:
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_5__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_0__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_0__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_1_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_0__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_2_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_0__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_3_nv2_4__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_0__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_1__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_2__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_3__nn1_mx__ni, site);
+                    avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_4__nn1_mx__ni, site);
                     break;
                 default: break;
             }
@@ -4997,32 +4927,73 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP]]) {
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP]]) {
                 case SP_NI:
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_5__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_down_mp__ni, site);
+                    break;
+                default: break;
+            }
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM]]) {
+                case SP_NI:
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_5__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_down_mm__ni, site);
                     break;
                 default: break;
             }
@@ -5055,35 +5026,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM]]) {
-                case SP_NI:
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni, site);
-                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni, site);
-                    break;
-                default: break;
-            }
             switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM]]) {
                 case SP_NI:
                     avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_pm__ni, site);
@@ -5113,21 +5055,85 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PY]]) {
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP]]) {
                 case SP_NI:
-                    avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_py__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni, site);
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MZ]]) {
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM]]) {
                 case SP_NI:
-                    avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_mz__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_2__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_interlayer_hop__nv1_3__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_2__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_lateral__nv1_4__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni, site);
+                    avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni, site);
                     break;
                 default: break;
             }
             switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PZ]]) {
                 case SP_NI:
                     avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_pz__ni, site);
+                    break;
+                default: break;
+            }
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PY]]) {
+                case SP_NI:
+                    avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_py__ni, site);
+                    break;
+                default: break;
+            }
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PX]]) {
+                case SP_NI:
+                    avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_px__ni, site);
+                    break;
+                default: break;
+            }
+            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MZ]]) {
+                case SP_NI:
+                    avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_mz__ni, site);
                     break;
                 default: break;
             }
@@ -5140,12 +5146,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
             switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MX]]) {
                 case SP_NI:
                     avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_mx__ni, site);
-                    break;
-                default: break;
-            }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PX]]) {
-                case SP_NI:
-                    avail_sites_add(as, P_subsurface_2nn_diagonal__nv1_3__nn2_px__ni, site);
                     break;
                 default: break;
             }

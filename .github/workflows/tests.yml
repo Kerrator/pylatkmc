@@ -14,7 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -42,8 +42,10 @@ jobs:
       - name: Run unit tests
         run: pytest tests/unit_py/ -v --tb=short
 
-      - name: Smoke-check codegen + CMake configure
+      - name: Smoke-check codegen + CMake build
         run: |
+          # v0.2 single-step build: pylatkmc-gen build emits proclist.{c,h};
+          # CMake links it against the static runtime backbone.
           pylatkmc-gen build models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
           cmake -B build -DMODEL=ni_fe_cr_v1
           cmake --build build -j 2
@@ -52,6 +54,26 @@ jobs:
         run: |
           test -x build/pylatkmc_ni_fe_cr_v1
           file build/pylatkmc_ni_fe_cr_v1
+
+      - name: Smoke-check 1000-step run
+        if: runner.os == 'Linux'
+        run: |
+          # Tiny end-to-end run on the example to gate regressions in
+          # the runtime hot path (active_filter, avail_sites, decision
+          # tree, apply functions, MSD bookkeeping).
+          cd models/ni_fe_cr_v1/examples
+          # Override max_steps to keep CI fast.
+          sed 's/^max_steps.*/max_steps      = 1000/' input.ini > input_ci.ini
+          mpirun --oversubscribe -n 2 ../../../build/pylatkmc_ni_fe_cr_v1 input_ci.ini
+          test -f output/aggregate_summary.json
+          # Sanity: MSD must be finite and positive.
+          python3 -c "
+          import json
+          a = json.load(open('output/aggregate_summary.json'))
+          assert a['n_success'] == a['n_replicas'], f'replica failures: {a}'
+          assert a['mean_msd_A2_mean'] > 0, f'MSD non-positive: {a}'
+          print(f'CI smoke: n_replicas={a[\"n_replicas\"]}, MSD={a[\"mean_msd_A2_mean\"]:.3e}')
+          "
 
   lint:
     name: ruff + mypy
