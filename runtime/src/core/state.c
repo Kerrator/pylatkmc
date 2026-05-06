@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "events.h"
+#include "events_base.h"   /* SP_VACANT */
 
 int state_alloc(State *st, int32_t n_sites, int32_t n_vac_max)
 {

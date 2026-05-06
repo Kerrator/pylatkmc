@@ -29,55 +29,102 @@
 #include "lattice.h"
 #include "state.h"
 
-/* Forward declarations so make_state() can call free_state() on error. */
+/* Forward declarations so builders can call free() on error paths. */
+void pylatkmc_test_free_lattice(Lattice *lat);
 void pylatkmc_test_free_state(State *st);
 
-/* Build a minimal Lattice. We populate only the fields that downstream
- * modules currently read:
- *   - n_sites
- *   - nn1_offsets, nn1_indices
- * Everything else (positions, layer_index, site_class, NN2 CSR, mmap
- * bookkeeping) is left zero / NULL. Callers that test code reading
- * those fields should extend this helper.
+/* Build a minimal Lattice. The earliest test (test_active_filter) only
+ * needs nn1_offsets/nn1_indices populated, but later tests
+ * (test_coord_table) need the full geometry: positions, cell, nn_dist,
+ * AND nn2 CSR so lattice_build_coord_table can walk both shells.
  *
- * Inputs are int32_t arrays; we malloc-and-copy so the Python-side
- * arrays can go out of scope without dangling.
+ * We provide ONE builder with optional inputs:
+ *   - if positions is NULL, lat->positions stays NULL (caller can skip
+ *     functions that need it)
+ *   - if nn2_offsets is NULL, lat->nn2_offsets/nn2_indices stay NULL
+ *
+ * Inputs are int32_t / float arrays; we malloc-and-copy so the
+ * Python-side arrays can go out of scope without dangling.
  *
  * Returns a malloc'd Lattice* that the caller must free via
  * pylatkmc_test_free_lattice(). */
-Lattice *pylatkmc_test_make_lattice(int32_t n_sites,
-                                    const int32_t *nn1_offsets,
-                                    const int32_t *nn1_indices)
+Lattice *pylatkmc_test_make_lattice_full(int32_t n_sites,
+                                         const float   *positions,    /* [n_sites*3] or NULL */
+                                         const float   *cell,         /* [3] or NULL */
+                                         float          nn_dist,
+                                         const int32_t *nn1_offsets,
+                                         const int32_t *nn1_indices,
+                                         const int32_t *nn2_offsets,  /* or NULL */
+                                         const int32_t *nn2_indices)
 {
     if (n_sites <= 0 || !nn1_offsets || !nn1_indices) return NULL;
     Lattice *lat = calloc(1, sizeof *lat);
     if (!lat) return NULL;
 
     lat->n_sites = n_sites;
+    lat->nn_dist = nn_dist;
+    if (cell) {
+        lat->cell[0] = cell[0]; lat->cell[1] = cell[1]; lat->cell[2] = cell[2];
+    }
+
+    if (positions) {
+        size_t pos_bytes = (size_t)n_sites * 3 * sizeof(float);
+        lat->positions = malloc(pos_bytes);
+        if (!lat->positions) { free(lat); return NULL; }
+        memcpy(lat->positions, positions, pos_bytes);
+    }
 
     size_t off_bytes = (size_t)(n_sites + 1) * sizeof(int32_t);
     lat->nn1_offsets = malloc(off_bytes);
-    if (!lat->nn1_offsets) { free(lat); return NULL; }
+    if (!lat->nn1_offsets) { pylatkmc_test_free_lattice(lat); return NULL; }
     memcpy(lat->nn1_offsets, nn1_offsets, off_bytes);
 
-    int32_t n_edges = nn1_offsets[n_sites];
-    if (n_edges < 0) { free(lat->nn1_offsets); free(lat); return NULL; }
-    if (n_edges > 0) {
-        size_t idx_bytes = (size_t)n_edges * sizeof(int32_t);
+    int32_t M1 = nn1_offsets[n_sites];
+    if (M1 < 0) { pylatkmc_test_free_lattice(lat); return NULL; }
+    if (M1 > 0) {
+        size_t idx_bytes = (size_t)M1 * sizeof(int32_t);
         lat->nn1_indices = malloc(idx_bytes);
-        if (!lat->nn1_indices) {
-            free(lat->nn1_offsets); free(lat); return NULL;
-        }
+        if (!lat->nn1_indices) { pylatkmc_test_free_lattice(lat); return NULL; }
         memcpy(lat->nn1_indices, nn1_indices, idx_bytes);
     }
+
+    if (nn2_offsets) {
+        lat->nn2_offsets = malloc(off_bytes);
+        if (!lat->nn2_offsets) { pylatkmc_test_free_lattice(lat); return NULL; }
+        memcpy(lat->nn2_offsets, nn2_offsets, off_bytes);
+        int32_t M2 = nn2_offsets[n_sites];
+        if (M2 > 0 && nn2_indices) {
+            size_t idx_bytes = (size_t)M2 * sizeof(int32_t);
+            lat->nn2_indices = malloc(idx_bytes);
+            if (!lat->nn2_indices) { pylatkmc_test_free_lattice(lat); return NULL; }
+            memcpy(lat->nn2_indices, nn2_indices, idx_bytes);
+        }
+    }
+
     return lat;
+}
+
+/* Convenience wrapper: backwards-compatible 1NN-only builder. */
+Lattice *pylatkmc_test_make_lattice(int32_t n_sites,
+                                    const int32_t *nn1_offsets,
+                                    const int32_t *nn1_indices)
+{
+    return pylatkmc_test_make_lattice_full(
+        n_sites,
+        /*positions=*/NULL, /*cell=*/NULL, /*nn_dist=*/0.0f,
+        nn1_offsets, nn1_indices,
+        /*nn2_offsets=*/NULL, /*nn2_indices=*/NULL);
 }
 
 void pylatkmc_test_free_lattice(Lattice *lat)
 {
     if (!lat) return;
+    free(lat->positions);
     free(lat->nn1_offsets);
     free(lat->nn1_indices);
+    free(lat->nn2_offsets);
+    free(lat->nn2_indices);
+    free(lat->coord_table);
     free(lat);
 }
 

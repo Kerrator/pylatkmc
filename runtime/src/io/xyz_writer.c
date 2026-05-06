@@ -3,7 +3,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "events.h"
+#include "events_base.h"   /* Species enum (SP_VACANT, SP_NI, SP_FE, SP_CR) */
 
 int xyz_open(XyzWriter *w, const char *path, const Lattice *lat, double T_K)
 {

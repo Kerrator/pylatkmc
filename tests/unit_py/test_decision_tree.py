@@ -1,4 +1,4 @@
-"""Tests for the decision-tree codegen (M-B)."""
+"""Tests for the decision-tree codegen (M-B + M-D-Prep updates)."""
 
 from __future__ import annotations
 
@@ -15,17 +15,18 @@ from pylatkmc.decision_tree import (
 )
 from pylatkmc.processes import Action, Condition, CoordOffset, Process
 
-ANCHOR = CoordOffset(di=0, dj=0, dk=0, sublattice="a")
-PX = CoordOffset(di=1, dj=0, dk=0, sublattice="a")
-MX = CoordOffset(di=-1, dj=0, dk=0, sublattice="a")
-PY = CoordOffset(di=0, dj=1, dk=0, sublattice="a")
+ANCHOR = CoordOffset(code="NC_ANCHOR")
+PX = CoordOffset(code="NC_NN1_PX")
+MX = CoordOffset(code="NC_NN1_MX")
+PY = CoordOffset(code="NC_NN1_PY")
+NN2_PX = CoordOffset(code="NC_NN2_PX")
 
 
 def _vac_to(direction: CoordOffset, mover: str = "Ni", name_suffix: str = "") -> Process:
-    sign = lambda v: "p" if v >= 0 else "m"  # noqa: E731
-    name = (f"hop_{sign(direction.di)}{abs(direction.di)}"
-            f"_{sign(direction.dj)}{abs(direction.dj)}"
-            f"_{sign(direction.dk)}{abs(direction.dk)}{name_suffix}")
+    """Vacancy at anchor + mover at `direction` → swap. Process name is
+    derived from the direction's NeighbourCode for stable C identifiers."""
+    code = direction.code.removeprefix("NC_").lower()
+    name = f"hop_{code}{name_suffix}"
     return Process(
         name=name,
         family_id="testfam",
@@ -50,8 +51,8 @@ def _vac_to(direction: CoordOffset, mover: str = "Ni", name_suffix: str = "") ->
 def test_enum_includes_n_procs() -> None:
     procs = [_vac_to(PX), _vac_to(PY)]
     out = emit_process_enum(procs)
-    assert "P_hop_p1_p0_p0" in out
-    assert "P_hop_p0_p1_p0" in out
+    assert "P_hop_nn1_px" in out
+    assert "P_hop_nn1_py" in out
     assert "N_PROCS" in out
 
 
@@ -92,21 +93,24 @@ def test_rate_table_rejects_string_expression() -> None:
 def test_apply_actions_one_function_per_process() -> None:
     procs = [_vac_to(PX), _vac_to(PY)]
     out = emit_apply_actions(procs)
-    assert "static void apply_actions_hop_p1_p0_p0(int site)" in out
-    assert "static void apply_actions_hop_p0_p1_p0(int site)" in out
+    assert "static HopOutcome apply_actions_hop_nn1_px(State *st, const Lattice *lat, int site)" in out
+    assert "static HopOutcome apply_actions_hop_nn1_py(State *st, const Lattice *lat, int site)" in out
     assert "static const ApplyFn apply_table[N_PROCS]" in out
 
 
 def test_apply_actions_anchor_uses_site_directly() -> None:
-    """The anchor coord (0,0,0,a) → species[site] = ..., not a coord_at call."""
+    """The anchor coord (NC_ANCHOR) → `site` in the StateAction.site
+    field; the +x direction uses `coord_table` lookup."""
     procs = [_vac_to(PX)]
     out = emit_apply_actions(procs)
-    assert "species[site] = SP_NI" in out         # anchor action
-    assert "coord_at(site, 1, 0, 0" in out         # +x direction action
+    # The anchor StateAction's .site field is `site` (not a coord_table lookup).
+    assert ".site = site," in out
+    # The +x StateAction's .site field uses coord_table.
+    assert "coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX]" in out
 
 
 def test_apply_actions_multi_site_emits_n_assignments() -> None:
-    """A 3-action Process emits 3 species[...] = ... assignments."""
+    """A 3-action Process emits a StateAction[3] array."""
     p = Process(
         name="triple",
         family_id="x",
@@ -124,13 +128,43 @@ def test_apply_actions_multi_site_emits_n_assignments() -> None:
         ),
     )
     out = emit_apply_actions([p])
-    # 3 lines of `species[...] = SP_...;` inside apply_actions_triple
     body_match = re.search(
-        r"apply_actions_triple\(int site\) \{(.*?)\}", out, re.DOTALL
+        r"apply_actions_triple\(State \*st, const Lattice \*lat, int site\) \{(.*?)^}",
+        out, re.DOTALL | re.MULTILINE,
     )
     assert body_match is not None
     body = body_match.group(1)
-    assert body.count("species[") == 3
+    assert "StateAction acts[3]" in body
+    # 3 .site = ... lines (one per action).
+    assert body.count(".site = ") == 3
+
+
+def test_apply_actions_returns_hop_outcome_for_simple_hop() -> None:
+    """A 1-vacancy-out + 1-vacancy-in pattern should populate v_origin and v_dest."""
+    procs = [_vac_to(PX)]
+    out = emit_apply_actions(procs)
+    assert "v_origin = acts[0].site" in out      # action 0 is V→Ni at anchor
+    assert "v_dest = acts[1].site" in out         # action 1 is Ni→V at +x
+
+
+def test_apply_actions_returns_neg1_for_non_hop() -> None:
+    """A pure species swap (no vacancy involved) returns v_origin=-1, v_dest=-1."""
+    p = Process(
+        name="exchange",
+        family_id="x",
+        Ea_eV=0.5,
+        rate_constant=1e10,
+        conditions=(
+            Condition(coord=ANCHOR, species="Ni"),
+            Condition(coord=PX, species="Fe"),
+        ),
+        actions=(
+            Action(coord=ANCHOR, before="Ni", after="Fe"),
+            Action(coord=PX, before="Fe", after="Ni"),
+        ),
+    )
+    out = emit_apply_actions([p])
+    assert ".v_origin = -1, .v_dest = -1" in out
 
 
 # ---------------------------------------------------------------------------
@@ -140,29 +174,29 @@ def test_apply_actions_multi_site_emits_n_assignments() -> None:
 
 def test_compile_empty_returns_stub() -> None:
     out = compile_decision_tree([], "touchup_a")
-    assert "void touchup_a(int site)" in out
+    assert "void touchup_a(const Lattice *lat, const State *st," in out
     assert "no processes" in out
 
 
 def test_compile_single_process_emits_switch() -> None:
     procs = [_vac_to(PX)]
     out = compile_decision_tree(procs, "touchup_a")
-    assert "void touchup_a(int site)" in out
-    assert "switch (species[site])" in out  # anchor's coord uses `site` directly
+    assert "void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)" in out
+    assert "switch (st->species[site])" in out  # anchor uses st->species[site]
     assert "case SP_VACANT:" in out
-    assert "add_proc(P_hop_p1_p0_p0, site, rate_table[P_hop_p1_p0_p0].rate);" in out
+    assert "avail_sites_add(as, P_hop_nn1_px, site);" in out
 
 
 def test_compile_multiple_processes_share_anchor_branch() -> None:
-    """Multiple Processes whose anchor is `Vacant @ (0,0,0,a)` should
+    """Multiple Processes whose anchor is `Vacant @ NC_ANCHOR` should
     nest under a single `case SP_VACANT:` branch (greedy partitioning
     on the most-shared coord)."""
     procs = [_vac_to(PX), _vac_to(MX), _vac_to(PY)]
     out = compile_decision_tree(procs, "touchup_a")
     # Only one switch on the anchor's species (not 3 separate ones)
-    assert out.count("switch (species[site])") == 1
-    # All three Processes appear as add_proc calls
-    assert out.count("add_proc(P_") == 3
+    assert out.count("switch (st->species[site])") == 1
+    # All three Processes appear as avail_sites_add calls
+    assert out.count("avail_sites_add(as, P_") == 3
 
 
 def test_compile_rejects_duplicate_names() -> None:
@@ -196,9 +230,9 @@ def test_compile_disjoint_anchor_species_partitioned() -> None:
     out = compile_decision_tree([p_vac, p_ni], "touchup_a")
     assert "case SP_VACANT:" in out
     assert "case SP_NI:" in out
-    # Both Processes' add_proc lines present
-    assert "add_proc(P_hop_p1_p0_p0" in out
-    assert "add_proc(P_from_ni" in out
+    # Both Processes' avail_sites_add lines present
+    assert "avail_sites_add(as, P_hop_nn1_px" in out
+    assert "avail_sites_add(as, P_from_ni" in out
 
 
 # ---------------------------------------------------------------------------
@@ -214,38 +248,61 @@ def test_compile_output_compiles_under_stub_harness(tmp_path) -> None:
     """End-to-end: emit C for a 4-Process tree, splice it into a stub
     harness, compile with cc -c, expect no errors.
 
-    This catches typos in the emitted C and validates that the symbols
-    we reference (species[], SP_*, P_*, rate_table[], add_proc,
-    coord_at) match the harness's contract.
+    The stub harness provides the runtime symbols the codegen references:
+    Lattice, State, AvailSites, StateAction, SP_*, NC_*, N_NEIGHBOUR_CODES,
+    avail_sites_add, state_apply_actions.
     """
     procs = [_vac_to(PX), _vac_to(MX), _vac_to(PY)]
 
-    # The harness: stub declarations for every symbol the codegen uses.
     harness = """
 #include <stddef.h>
+#include <stdint.h>
 
 /* Species enum */
 typedef enum { SP_VACANT = 0, SP_NI = 1, SP_FE = 2, SP_CR = 3 } Species;
 
-/* Sublattice tags */
-typedef enum { SUB_A = 0, SUB_B = 1 } Sublattice;
+/* NeighbourCode enum (mirror of coord_codes.h) */
+typedef enum {
+    NC_ANCHOR = 0,
+    NC_NN1_PX, NC_NN1_MX, NC_NN1_PY, NC_NN1_MY,
+    NC_NN1_DOWN_PP, NC_NN1_DOWN_PM, NC_NN1_DOWN_MP, NC_NN1_DOWN_MM,
+    NC_NN1_UP_PP, NC_NN1_UP_PM, NC_NN1_UP_MP, NC_NN1_UP_MM,
+    NC_NN2_DIAG_PP, NC_NN2_DIAG_PM, NC_NN2_DIAG_MP, NC_NN2_DIAG_MM,
+    NC_NN2_PX, NC_NN2_MX, NC_NN2_PY, NC_NN2_MY, NC_NN2_PZ, NC_NN2_MZ,
+    N_NEIGHBOUR_CODES
+} NeighbourCode;
 
-/* The "lattice" is just a 1024-site flat array for this test. */
-static unsigned char species[1024];
+/* Minimal Lattice / State shims sufficient for the codegen's references. */
+typedef struct Lattice {
+    int32_t  *coord_table;
+} Lattice;
 
-/* coord_at: stub — for the test, just clamp into the array. */
-int coord_at(int site, int di, int dj, int dk, int sub) {
-    (void)di; (void)dj; (void)dk; (void)sub;
-    return (site + 17) & 1023;   /* arbitrary but valid */
+typedef struct State {
+    uint8_t  *species;
+} State;
+
+/* AvailSites is opaque to the codegen — only avail_sites_add() touches it. */
+typedef struct AvailSites AvailSites;
+
+/* StateAction matches the runtime's state.h definition. */
+typedef struct StateAction {
+    int32_t site;
+    uint8_t before;
+    uint8_t after;
+} StateAction;
+
+/* Stub APIs: signatures the codegen calls. */
+void avail_sites_add(AvailSites *as, int32_t proc, int32_t site) {
+    (void)as; (void)proc; (void)site;
 }
 
-/* add_proc: stub. */
-void add_proc(int proc, int site, double rate) {
-    (void)proc; (void)site; (void)rate;
+int state_apply_actions(State *st, const StateAction *acts, int32_t n,
+                        uint8_t vacant_sp) {
+    (void)st; (void)acts; (void)n; (void)vacant_sp;
+    return 0;
 }
 """
 
-    # Splice: enum, rate_table, apply_actions, then touchup
     program = (
         harness
         + emit_process_enum(procs)
@@ -254,12 +311,15 @@ void add_proc(int proc, int site, double rate) {
         + compile_decision_tree(procs, "touchup_a")
     )
     # Reference apply_table + rate_table so -Wunused-const-variable doesn't
-    # flag them. In production they're called by the runtime; the test
-    # harness just needs to satisfy the linter.
+    # flag them.
     program += """
 int main(void) {
-    apply_table[0](0);
-    return (int)rate_table[0].rate;
+    Lattice lat = { 0 };
+    State st = { 0 };
+    AvailSites *as = (AvailSites *)(uintptr_t)0;
+    HopOutcome ho = apply_table[0](&st, &lat, 0);
+    touchup_a(&lat, &st, as, 0);
+    return (int)rate_table[0].rate + ho.v_origin + ho.v_dest;
 }
 """
 

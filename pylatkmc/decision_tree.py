@@ -76,28 +76,29 @@ class _TreeBuilder:
 
 
 # ---------------------------------------------------------------------------
-# Coord encoding for the species_at() call in C
+# Coord encoding for the species_at() / apply call in C
 # ---------------------------------------------------------------------------
 
 
 def _coord_macro(coord: CoordOffset) -> str:
-    """C macro / function call for resolving a coord-offset to a site
-    index in the runtime's CSR neighbour list.
+    """C expression for resolving a CoordOffset to an absolute site index.
 
-    The runtime exposes a `coord_at(site, di, dj, dk, sublattice)`
-    function (defined in `runtime/src/core/lattice.c` for v2) that
-    maps an anchor `site` + an integer offset to a concrete site
-    index, applying PBC. For the anchor coord (0,0,0,a) we just use
-    `site` directly.
+    The runtime maintains, per Lattice, a flat lookup table:
+        lat->coord_table[site * N_NEIGHBOUR_CODES + nc]
+    populated at lattice load by `lattice_build_coord_table` (see
+    runtime/src/core/lattice.c). This function emits the C expression
+    that performs that lookup. For the anchor (`NC_ANCHOR`) it shortcuts
+    to `site` directly.
     """
-    if (coord.di, coord.dj, coord.dk, coord.sublattice) == (0, 0, 0, "a"):
+    if coord.code == "NC_ANCHOR":
         return "site"
-    return f"coord_at(site, {coord.di}, {coord.dj}, {coord.dk}, /*sub=*/SUB_{coord.sublattice.upper()})"
+    return f"lat->coord_table[site * N_NEIGHBOUR_CODES + {coord.code}]"
 
 
 def _species_at(coord: CoordOffset) -> str:
-    """C expression for the species at a coord, given the anchor `site`."""
-    return f"species[{_coord_macro(coord)}]"
+    """C expression for the species at a coord, given the anchor `site`
+    and the runtime's `species` array. Reads from `st->species[]`."""
+    return f"st->species[{_coord_macro(coord)}]"
 
 
 # ---------------------------------------------------------------------------
@@ -150,13 +151,14 @@ def _emit_subtree(
     processes_with_remaining: list[tuple[Process, list[Condition]]],
 ) -> None:
     """Recurse: emit a switch on the most-shared coord, then per-species
-    branches. Leaf = `add_proc(P, site, rate)`."""
+    branches. Leaf = `avail_sites_add(as, P_<name>, site)` — the rate
+    is set once at startup via `avail_sites_set_rate` from rate_table[]."""
 
-    # First: emit add_proc for any Process whose remaining-conditions list
-    # is empty (all conditions matched on the way down).
+    # First: emit avail_sites_add for any Process whose remaining-conditions
+    # list is empty (all conditions matched on the way down).
     for p, remaining in processes_with_remaining:
         if not remaining:
-            builder.emit(f"add_proc(P_{p.name}, site, rate_table[P_{p.name}].rate);")
+            builder.emit(f"avail_sites_add(as, P_{p.name}, site);")
 
     # Then: collect Processes that still have conditions.
     still_pending = [
@@ -199,27 +201,30 @@ def _emit_subtree(
 
 
 def compile_decision_tree(processes: list[Process], function_name: str) -> str:
-    """Compile a list of Processes into a C function body that, given an
-    anchor `site`, calls `add_proc(P_<name>, site, rate)` for every
-    eligible Process at that site.
+    """Compile a list of Processes into a C function `<function_name>(lat,
+    st, as, site)` that, given an anchor `site`, calls
+    `avail_sites_add(as, P_<name>, site)` for every eligible Process at
+    that site.
 
     Returns the full C source for the function (including the header
     line and braces).
 
     The generated function depends on:
-    - `species[]` — the runtime's per-site species array
-    - `SP_<NAME>` — species enum constants (SP_VACANT, SP_NI, …)
-    - `P_<name>` — Process enum constants (auto-generated from
-      `processes[*].name`)
-    - `rate_table[]` — array of RateConst, indexed by P_<name>
-    - `add_proc(P, site, rate)` — runtime API to register an event
-    - `coord_at(site, di, dj, dk, sub)` — neighbour resolver
-
-    These symbols are emitted by `pylatkmc.codegen` (M-D) at runtime
-    integration; the decision tree just references them.
+    - `Lattice *lat`     — provides `coord_table` for NeighbourCode resolution
+    - `State *st`        — provides `species[]` for condition checks
+    - `AvailSites *as`   — the per-step event-availability index
+    - `SP_<NAME>`        — species enum constants (from events_base.h)
+    - `P_<name>`         — Process enum constants (from `emit_process_enum`)
+    - `N_NEIGHBOUR_CODES` — sentinel from coord_codes.h
+    - `NC_<name>`        — NeighbourCode enum constants
+    - `avail_sites_add(as, P, site)` — runtime API to enrol a (proc, site)
     """
     if not processes:
-        return f"void {function_name}(int site) {{ /* no processes */ }}\n"
+        return (
+            f"void {function_name}(const Lattice *lat, const State *st,\n"
+            f"                {' ' * len(function_name)}AvailSites *as, int site)\n"
+            f"{{ (void)lat; (void)st; (void)as; (void)site; /* no processes */ }}\n"
+        )
 
     # Dedupe by name (translator already enforces uniqueness; double-check)
     seen: set[str] = set()
@@ -231,7 +236,10 @@ def compile_decision_tree(processes: list[Process], function_name: str) -> str:
         unique.append(p)
 
     builder = _TreeBuilder()
-    builder.emit(f"void {function_name}(int site) {{")
+    builder.emit(
+        f"void {function_name}(const Lattice *lat, const State *st, "
+        f"AvailSites *as, int site) {{"
+    )
     builder.push()
 
     # Initial state: every Process has its full conditions list to match.
@@ -279,26 +287,72 @@ def emit_rate_table(processes: list[Process]) -> str:
 
 
 def emit_apply_actions(processes: list[Process]) -> str:
-    """Emit one `static void apply_actions_<name>(int site)` per Process,
-    plus a dispatch table.
+    """Emit one apply function per Process plus a dispatch table.
 
-    The function applies all actions of the Process atomically:
-    `species[coord_at(site, ...)] = SP_AFTER` for each Action.
+    Each apply function builds a `StateAction[]` array from the Process's
+    actions list (with NeighbourCode resolution per-action) and calls
+    `state_apply_actions(st, acts, n, SP_VACANT)`. It returns a `HopOutcome`
+    struct identifying the vacancy origin / dest sites for the runtime's
+    MSD displacement bookkeeping.
+
+    Generated signature:
+        static HopOutcome apply_actions_<name>(State *st, const Lattice *lat, int site);
+
+    `HopOutcome.v_origin` = the absolute site of the action with
+    `before == "Vacant"` (if exactly one such action exists; -1 otherwise).
+    `HopOutcome.v_dest`   = the absolute site of the action with
+    `after == "Vacant"`  (if exactly one such action exists; -1 otherwise).
+    For a simple 1NN/2NN hop, both are well-defined and the runtime uses
+    them to update `unwrapped_xyz[v_idx]`. Multi-vacancy concerted events
+    leave one or both at -1, in which case the runtime skips the MSD
+    update with a one-time warning (decision (b) in the M-D plan).
     """
     if not processes:
-        return "/* no processes; apply_actions omitted */\n"
+        return (
+            "/* no processes; apply_actions omitted */\n"
+            "typedef struct { int v_origin; int v_dest; } HopOutcome;\n"
+            "typedef HopOutcome (*ApplyFn)(State *st, const Lattice *lat, int site);\n"
+            "static const ApplyFn apply_table[1] = { 0 };\n"
+        )
 
     out: list[str] = []
+    out.append("typedef struct { int v_origin; int v_dest; } HopOutcome;")
+    out.append("typedef HopOutcome (*ApplyFn)(State *st, const Lattice *lat, int site);")
+    out.append("")
+
     for p in processes:
-        out.append(f"static void apply_actions_{p.name}(int site) {{")
+        # Identify v_origin and v_dest by inspecting actions.
+        origin_idx: int | None = None
+        dest_idx: int | None = None
+        for i, a in enumerate(p.actions):
+            if a.before == "Vacant" and a.after != "Vacant":
+                origin_idx = i if origin_idx is None else None  # ambiguous if >1
+            if a.before != "Vacant" and a.after == "Vacant":
+                dest_idx = i if dest_idx is None else None
+
+        n_acts = len(p.actions)
+        out.append(f"static HopOutcome apply_actions_{p.name}(State *st, const Lattice *lat, int site) {{")
+        out.append(f"    (void)lat;")
+        out.append(f"    StateAction acts[{n_acts}] = {{")
         for a in p.actions:
             target = _coord_macro(a.coord)
-            out.append(f"    species[{target}] = SP_{a.after.upper()};")
+            out.append(f"        {{ .site = {target}, "
+                       f".before = SP_{a.before.upper()}, "
+                       f".after = SP_{a.after.upper()} }},")
+        out.append(f"    }};")
+        out.append(f"    (void)state_apply_actions(st, acts, {n_acts}, SP_VACANT);")
+
+        if origin_idx is not None and dest_idx is not None:
+            out.append(
+                f"    return (HopOutcome){{ .v_origin = acts[{origin_idx}].site, "
+                f".v_dest = acts[{dest_idx}].site }};"
+            )
+        else:
+            out.append(f"    return (HopOutcome){{ .v_origin = -1, .v_dest = -1 }};")
         out.append("}")
         out.append("")
 
-    # Dispatch table: index by P_<name>
-    out.append("typedef void (*ApplyFn)(int site);")
+    # Dispatch table.
     out.append("static const ApplyFn apply_table[N_PROCS] = {")
     for p in processes:
         out.append(f"    [P_{p.name}] = apply_actions_{p.name},")

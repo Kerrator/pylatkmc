@@ -12,44 +12,20 @@
 #include "kmc.h"
 #include "lattice.h"
 #include "state.h"
-#include "ratetable.h"
-#include "avail.h"
+#include "avail_sites.h"
+#include "active_filter.h"
 #include "rng.h"
 #include "../io/initconfig.h"
 #include "../io/xyz_writer.h"
 #include "../io/pykmc_out.h"
 
-/* String names for MotifFamily and DirectionFamily enums, used in JSON output.
- * These must stay in sync with:
- *   - the enum declarations in src/core/events.h
- *   - MOTIF_NAMES / DIR_NAMES in tools/build_binary_rate_table.py
- * The preprocessor also bakes motif_of_class_dir into the binary header, which
- * is the semantic source of truth — these arrays are display-only. */
-static const char *MOTIF_NAMES[] = {
-    "surface_1nn_translation",      "surface_2nn_translation",
-    "subsurface_1nn_translation",   "surface_subsurface_exchange",
-    "interlayer_translation",       "subsurface_exchange",
-    "concerted_3d",                 "unresolved_multisite",
-};
-static const char *DIR_NAMES[] = {
-    "<110>_inplane", "<100>_inplane", "<111>_interlayer",
-    "<001>_exchange", "unresolved",
-};
+/* The generated proclist.h provides pylatkmc_n_procs and pylatkmc_rate_table. */
+#include "proclist.h"
 
-/* Emit a "<label>": { "<name>": count, ... } object into fp. Shared by the
- * per-rank summary and the ensemble aggregate to keep the two layouts in sync. */
-static void emit_named_counts(FILE *fp, const char *label,
-                              const char *const *names, int n,
-                              const uint64_t *counts, const char *trailing)
-{
-    fprintf(fp, "  \"%s\": {\n", label);
-    for (int i = 0; i < n; ++i) {
-        fprintf(fp, "    \"%s\": %llu%s\n",
-                names[i], (unsigned long long)counts[i],
-                (i == n - 1) ? "" : ",");
-    }
-    fprintf(fp, "  }%s\n", trailing);
-}
+/* FCC bulk 1NN coordination. Sites with fewer 1NN are static-active in
+ * the active_filter (surface, edge, corner). Hardcoded for FCC; if/when
+ * we add BCC/HCP we'll plumb this through ModelSpec. */
+#define PYLATKMC_FCC_BULK_NN1   12
 
 static int ensure_dir(const char *path) {
     struct stat st;
@@ -75,7 +51,7 @@ int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nran
 
 static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
                                     const Lattice *lat, const State *st,
-                                    const RateTable *rt, const InputConfig *cfg)
+                                    double T_K, const InputConfig *cfg)
 {
     FILE *fp = fopen(path, "w");
     if (!fp) return;
@@ -90,15 +66,13 @@ static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
             "  \"n_steps\": %llu,\n"
             "  \"total_time_s\": %.9e,\n"
             "  \"mean_msd_A2\": %.6e,\n"
-            "  \"run_rc\": %d,\n",
-            rep->rank, lat->n_sites, st->n_vac, (double)rt->temperature_K,
+            "  \"run_rc\": %d,\n"
+            "  \"n_procs\": %d\n"
+            "}\n",
+            rep->rank, lat->n_sites, st->n_vac, T_K,
             (unsigned long long)cfg->base_seed,
             (unsigned long long)s->n_steps, s->total_time_s,
-            s->mean_msd_A2, s->run_rc);
-
-    emit_named_counts(fp, "motif_counts",     MOTIF_NAMES, 8, s->motif_counts,     ",");
-    emit_named_counts(fp, "direction_counts", DIR_NAMES,   5, s->direction_counts, "");
-    fputs("}\n", fp);
+            s->mean_msd_A2, s->run_rc, (int)pylatkmc_n_procs);
     fclose(fp);
 }
 
@@ -106,11 +80,11 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
 {
     if (!rep || !cfg) return -EINVAL;
 
-    Lattice   lat;
-    State     st;
-    RateTable rt;
-    AvailEvents av;
-    Rng       rng;
+    Lattice       lat = {0};
+    State         st  = {0};
+    AvailSites   *as  = NULL;
+    ActiveFilter *af  = NULL;
+    Rng           rng = {0};
 
     int rc = initconfig_load(cfg->initconfig_path, &lat, &st);
     if (rc != 0) {
@@ -118,25 +92,36 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
                 rep->rank, cfg->initconfig_path, rc);
         return rc;
     }
-    rc = ratetable_load(&rt, cfg->ratetable_path);
+
+    /* Build the per-site NeighbourCode lookup table once at startup. */
+    rc = lattice_build_coord_table(&lat);
     if (rc != 0) {
-        fprintf(stderr, "[rank %d] ratetable_load(%s) failed: %d\n",
-                rep->rank, cfg->ratetable_path, rc);
-        lattice_free(&lat); state_free(&st);
+        fprintf(stderr, "[rank %d] lattice_build_coord_table failed: %d\n",
+                rep->rank, rc);
+        state_free(&st); lattice_free(&lat);
         return rc;
     }
-    if (fabsf(rt.temperature_K - (float)cfg->temperature_K) > 0.5f) {
-        fprintf(stderr, "[rank %d] temperature mismatch: input says %.2f K, "
-                "rate table is for %.2f K\n",
-                rep->rank, cfg->temperature_K, (double)rt.temperature_K);
-        ratetable_free(&rt); lattice_free(&lat); state_free(&st);
-        return -EINVAL;
-    }
-    rc = avail_alloc(&av, st.n_vac_max);
+
+    /* Allocate avail_sites with N_PROCS from the generated proclist. */
+    rc = avail_sites_alloc(&as, pylatkmc_n_procs, lat.n_sites);
     if (rc != 0) {
-        ratetable_free(&rt); lattice_free(&lat); state_free(&st);
+        fprintf(stderr, "[rank %d] avail_sites_alloc failed: %d\n", rep->rank, rc);
+        state_free(&st); lattice_free(&lat);
         return rc;
     }
+    /* Seed per-proc rates from the generated rate_table. */
+    for (int32_t p = 0; p < pylatkmc_n_procs; ++p) {
+        avail_sites_set_rate(as, p, pylatkmc_rate_table[p].rate);
+    }
+
+    /* Allocate active_filter and precompute the static (geometry) mask. */
+    rc = active_filter_alloc(&af, lat.n_sites, PYLATKMC_FCC_BULK_NN1);
+    if (rc != 0) {
+        fprintf(stderr, "[rank %d] active_filter_alloc failed: %d\n", rep->rank, rc);
+        avail_sites_free(as); state_free(&st); lattice_free(&lat);
+        return rc;
+    }
+    active_filter_compute_static(af, &lat);
 
     rng_seed(&rng, cfg->base_seed, (uint32_t)rep->rank);
 
@@ -157,12 +142,13 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         .rng_replay_path = (cfg->rng_replay_path[0] ? cfg->rng_replay_path : NULL),
     };
     KmcContext ctx = {
-        .lat = &lat, .rt = &rt, .st = &st, .av = &av, .rng = &rng, .cfg = &run_cfg,
+        .lat = &lat, .st = &st, .as = as, .af = af, .rng = &rng,
+        .cfg = &run_cfg, .temperature_K = cfg->temperature_K,
     };
 
-    printf("[rank %d] run: %d sites, %d vacancies, T=%.1f K, max_steps=%llu\n",
-           rep->rank, lat.n_sites, st.n_vac, (double)rt.temperature_K,
-           (unsigned long long)cfg->max_steps);
+    printf("[rank %d] run: %d sites, %d vacancies, T=%.1f K, max_steps=%llu, n_procs=%d\n",
+           rep->rank, lat.n_sites, st.n_vac, cfg->temperature_K,
+           (unsigned long long)cfg->max_steps, (int)pylatkmc_n_procs);
 
     int run_rc = kmc_run(&ctx);
 
@@ -174,17 +160,17 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         double dz = st.unwrapped_xyz[3 * v + 2];
         msd_sum_A2 += dx * dx + dy * dy + dz * dz;
     }
-    rep->stats.n_steps       = st.step;
-    rep->stats.total_time_s  = st.time_s;
-    rep->stats.mean_msd_A2   = (st.n_vac > 0) ? (msd_sum_A2 / (double)st.n_vac) : 0.0;
-    rep->stats.run_rc        = run_rc;
-    memcpy(rep->stats.motif_counts,     st.motif_counts,     sizeof rep->stats.motif_counts);
-    memcpy(rep->stats.direction_counts, st.direction_counts, sizeof rep->stats.direction_counts);
+    rep->stats.n_steps      = st.step;
+    rep->stats.total_time_s = st.time_s;
+    rep->stats.mean_msd_A2  = (st.n_vac > 0) ? (msd_sum_A2 / (double)st.n_vac) : 0.0;
+    rep->stats.run_rc       = run_rc;
+    /* motif_counts / direction_counts are zeroed (cube-era fields, kept for
+     * MPI-ABI compatibility but no longer populated in v0.2). */
 
-    write_per_rank_summary(summary_path, rep, &lat, &st, &rt, cfg);
+    write_per_rank_summary(summary_path, rep, &lat, &st, cfg->temperature_K, cfg);
 
-    avail_free(&av);
-    ratetable_free(&rt);
+    active_filter_free(af);
+    avail_sites_free(as);
     state_free(&st);
     lattice_free(&lat);
     return run_rc;
@@ -231,7 +217,6 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
         free(times); free(msds); free(steps); free(gathered);
         return -ENOMEM;
     }
-    uint64_t motif_sum[8] = {0}, dir_sum[5] = {0};
     int n_success = 0, n_failed = 0;
     for (int i = 0; i < N; ++i) {
         times[i] = gathered[i].total_time_s;
@@ -239,8 +224,6 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
         steps[i] = (double)gathered[i].n_steps;
         if (gathered[i].run_rc == 0) n_success++;
         else                          n_failed++;
-        for (int m = 0; m < 8; ++m) motif_sum[m] += gathered[i].motif_counts[m];
-        for (int d = 0; d < 5; ++d) dir_sum[d]   += gathered[i].direction_counts[d];
     }
     double t_mean, t_std, m_mean, m_std, s_mean, s_std;
     mean_std(times, N, &t_mean, &t_std);
@@ -261,6 +244,7 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
             "  \"n_failed\": %d,\n"
             "  \"base_seed\": %llu,\n"
             "  \"temperature_K\": %.3f,\n"
+            "  \"n_procs\": %d,\n"
             "  \"n_steps_mean\": %.1f,\n"
             "  \"n_steps_std\":  %.1f,\n"
             "  \"total_time_s_mean\": %.9e,\n"
@@ -269,10 +253,9 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
             "  \"mean_msd_A2_std\":   %.6e,\n",
             N, n_success, n_failed,
             (unsigned long long)cfg->base_seed, cfg->temperature_K,
+            (int)pylatkmc_n_procs,
             s_mean, s_std, t_mean, t_std, m_mean, m_std);
 
-    emit_named_counts(fp, "motif_counts_sum",     MOTIF_NAMES, 8, motif_sum, ",");
-    emit_named_counts(fp, "direction_counts_sum", DIR_NAMES,   5, dir_sum,   ",");
     fputs("  \"replicas\": [\n", fp);
     for (int i = 0; i < N; ++i) {
         fprintf(fp,

@@ -26,11 +26,14 @@ emitted C against an expected list[Process] deterministically.
 
 Conventions:
 
-- `CoordOffset` uses `(di, dj, dk, sublattice)` integer offsets in the
-  lattice's primitive basis. For FCC two-basis (sublattice in {"a", "b"})
-  this expresses an arbitrary lattice neighbour without baking in the
-  Cartesian geometry. The runtime resolves coords against its CSR
-  neighbour list.
+- `CoordOffset` carries a single **`NeighbourCode`** string naming a
+  specific neighbour direction relative to the anchor (e.g. `"NC_NN1_PX"`,
+  `"NC_NN1_UP_PP"`). The runtime resolves these via a per-site lookup
+  table (see `runtime/src/core/coord_codes.h` for the canonical
+  Cartesian deltas, and `lattice_build_coord_table` for the resolver).
+  This replaces the older `(di, dj, dk, sublattice)` IR which couldn't
+  cleanly express FCC cross-layer 1NN — see § "The coord-resolution gap"
+  in `~/.claude/plans/eager-sauteeing-dragon.md`.
 - `Condition.species` and `Action.before`/`after` use the species names
   declared in the model spec (e.g. "Vacant", "Ni", "Fe", "Cr").
 - `Bystander.allowed_species` is a whitelist; sites whose species is
@@ -43,6 +46,9 @@ References:
   `_archive/kmos-main/kmos/types.py:2024–2255`
 - kmos's decision-tree compilation:
   `_archive/kmos-main/kmos/io/__init__.py:2568–2655`
+- kmos's `Coord(name, offset, layer)` direction-resolution scheme that
+  inspired the NeighbourCode design:
+  `_archive/kmos-main/kmos/types.py:1778`
 """
 
 from __future__ import annotations
@@ -55,27 +61,66 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 _FROZEN = ConfigDict(frozen=True, str_strip_whitespace=True)
 
 
+# Valid NeighbourCode names. MUST stay in sync with the C enum in
+# `runtime/src/core/coord_codes.h`. The order here is informational only;
+# only set membership matters for validation.
+NEIGHBOUR_CODES: tuple[str, ...] = (
+    "NC_ANCHOR",
+    # In-plane axial 1NN
+    "NC_NN1_PX", "NC_NN1_MX", "NC_NN1_PY", "NC_NN1_MY",
+    # Cross-layer 1NN going DOWN
+    "NC_NN1_DOWN_PP", "NC_NN1_DOWN_PM", "NC_NN1_DOWN_MP", "NC_NN1_DOWN_MM",
+    # Cross-layer 1NN going UP
+    "NC_NN1_UP_PP",   "NC_NN1_UP_PM",   "NC_NN1_UP_MP",   "NC_NN1_UP_MM",
+    # In-plane diagonal 2NN
+    "NC_NN2_DIAG_PP", "NC_NN2_DIAG_PM", "NC_NN2_DIAG_MP", "NC_NN2_DIAG_MM",
+    # Axial 2NN
+    "NC_NN2_PX", "NC_NN2_MX", "NC_NN2_PY", "NC_NN2_MY", "NC_NN2_PZ", "NC_NN2_MZ",
+)
+_NEIGHBOUR_CODE_SET = frozenset(NEIGHBOUR_CODES)
+
+# Type alias used by Condition/Action/Bystander field annotations. We use a
+# plain `str` + a field_validator (rather than a Literal[...]) so the IR can
+# evolve without forcing every Pydantic version to re-process a 23-element
+# Literal.
+NeighbourCodeStr = str
+
+
 class CoordOffset(BaseModel):
     """A site offset relative to a process's anchor site.
 
-    `(di, dj, dk)` are integer steps in the lattice's primitive basis.
-    `sublattice` selects which basis atom of a multi-basis lattice (FCC
-    has two basis atoms per primitive cell — "a" and "b"; BCC has one;
-    HCP has two; etc.).
+    A CoordOffset is named by a single **NeighbourCode** string (e.g.
+    `"NC_ANCHOR"` for the anchor itself, `"NC_NN1_PX"` for the +x in-plane
+    1NN, `"NC_NN1_UP_PP"` for the cross-layer-up 1NN with positive x and
+    positive y in-plane components). The complete set of valid codes is
+    in `NEIGHBOUR_CODES`; the canonical Cartesian delta of each code is
+    in `runtime/src/core/coord_codes.{h,c}`.
 
-    The anchor is the origin (0, 0, 0, "a") by convention. Conditions /
-    Actions / Bystanders all use offsets relative to that anchor.
+    For an anchor site `s`, the runtime resolves a CoordOffset via
+    `lat->coord_table[s * N_NEIGHBOUR_CODES + code_idx]`, which returns
+    the absolute site index of the named neighbour (or -1 if `s` doesn't
+    have that neighbour, e.g. a surface site has no `NC_NN1_UP_*`).
     """
 
     model_config = _FROZEN
 
-    di: int
-    dj: int
-    dk: int
-    sublattice: Literal["a", "b"]
+    code: NeighbourCodeStr = Field(
+        ...,
+        description="NeighbourCode name; must appear in NEIGHBOUR_CODES.",
+    )
+
+    @field_validator("code")
+    @classmethod
+    def _check_known(cls, v: str) -> str:
+        if v not in _NEIGHBOUR_CODE_SET:
+            raise ValueError(
+                f"unknown NeighbourCode {v!r}; valid codes are: "
+                f"{sorted(NEIGHBOUR_CODES)}"
+            )
+        return v
 
     def __str__(self) -> str:
-        return f"({self.di},{self.dj},{self.dk},{self.sublattice})"
+        return self.code
 
 
 class Condition(BaseModel):
@@ -245,10 +290,17 @@ class Process(BaseModel):
         return self
 
 
+# Convenience: an "anchor" CoordOffset that IS the anchor site itself.
+# Used widely by the translator.
+ANCHOR_COORD = CoordOffset(code="NC_ANCHOR")
+
+
 __all__ = (
     "CoordOffset",
     "Condition",
     "Action",
     "Bystander",
     "Process",
+    "NEIGHBOUR_CODES",
+    "ANCHOR_COORD",
 )

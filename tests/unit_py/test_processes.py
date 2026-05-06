@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from pylatkmc.processes import (
+    ANCHOR_COORD,
+    NEIGHBOUR_CODES,
     Action,
     Bystander,
     Condition,
@@ -19,32 +21,44 @@ from pylatkmc.processes import (
 # ---------------------------------------------------------------------------
 
 def test_coord_offset_basic() -> None:
-    c = CoordOffset(di=1, dj=0, dk=0, sublattice="a")
-    assert c.di == 1
-    assert c.sublattice == "a"
-    assert str(c) == "(1,0,0,a)"
+    c = CoordOffset(code="NC_NN1_PX")
+    assert c.code == "NC_NN1_PX"
+    assert str(c) == "NC_NN1_PX"
+
+
+def test_coord_offset_anchor_is_valid() -> None:
+    c = CoordOffset(code="NC_ANCHOR")
+    assert c.code == "NC_ANCHOR"
+    assert ANCHOR_COORD == c
 
 
 def test_coord_offset_is_frozen() -> None:
-    c = CoordOffset(di=0, dj=0, dk=0, sublattice="a")
+    c = CoordOffset(code="NC_NN1_PX")
     with pytest.raises(ValidationError):
-        c.di = 99
+        c.code = "NC_NN1_MX"
 
 
 def test_coord_offset_is_hashable() -> None:
     """Used as dict keys / set members in the decision-tree compiler."""
-    c1 = CoordOffset(di=1, dj=0, dk=0, sublattice="a")
-    c2 = CoordOffset(di=1, dj=0, dk=0, sublattice="a")
-    c3 = CoordOffset(di=0, dj=1, dk=0, sublattice="a")
+    c1 = CoordOffset(code="NC_NN1_PX")
+    c2 = CoordOffset(code="NC_NN1_PX")
+    c3 = CoordOffset(code="NC_NN1_PY")
     assert c1 == c2
     assert hash(c1) == hash(c2)
     assert c1 != c3
     assert {c1, c2, c3} == {c1, c3}
 
 
-def test_coord_offset_invalid_sublattice() -> None:
-    with pytest.raises(ValidationError):
-        CoordOffset(di=0, dj=0, dk=0, sublattice="c")  # type: ignore[arg-type]
+def test_coord_offset_invalid_code() -> None:
+    with pytest.raises(ValidationError, match="unknown NeighbourCode"):
+        CoordOffset(code="NC_NOT_A_THING")
+
+
+def test_coord_offset_all_known_codes_validate() -> None:
+    """Every entry in NEIGHBOUR_CODES is constructible."""
+    for code in NEIGHBOUR_CODES:
+        c = CoordOffset(code=code)
+        assert c.code == code
 
 
 # ---------------------------------------------------------------------------
@@ -52,23 +66,17 @@ def test_coord_offset_invalid_sublattice() -> None:
 # ---------------------------------------------------------------------------
 
 def test_condition_basic() -> None:
-    c = Condition(
-        coord=CoordOffset(di=1, dj=0, dk=0, sublattice="a"),
-        species="Vacant",
-    )
+    c = Condition(coord=CoordOffset(code="NC_NN1_PX"), species="Vacant")
     assert c.species == "Vacant"
 
 
 def test_condition_rejects_empty_species() -> None:
     with pytest.raises(ValidationError):
-        Condition(coord=CoordOffset(di=0, dj=0, dk=0, sublattice="a"), species="")
+        Condition(coord=ANCHOR_COORD, species="")
 
 
 def test_condition_strips_species_whitespace() -> None:
-    c = Condition(
-        coord=CoordOffset(di=0, dj=0, dk=0, sublattice="a"),
-        species="  Ni  ",
-    )
+    c = Condition(coord=ANCHOR_COORD, species="  Ni  ")
     assert c.species == "Ni"
 
 
@@ -77,22 +85,14 @@ def test_condition_strips_species_whitespace() -> None:
 # ---------------------------------------------------------------------------
 
 def test_action_basic() -> None:
-    a = Action(
-        coord=CoordOffset(di=0, dj=0, dk=0, sublattice="a"),
-        before="Vacant",
-        after="Ni",
-    )
+    a = Action(coord=ANCHOR_COORD, before="Vacant", after="Ni")
     assert a.before == "Vacant" and a.after == "Ni"
 
 
 def test_action_rejects_no_op() -> None:
     """before == after means no actual state change — caller error."""
     with pytest.raises(ValidationError, match="before == after"):
-        Action(
-            coord=CoordOffset(di=0, dj=0, dk=0, sublattice="a"),
-            before="Ni",
-            after="Ni",
-        )
+        Action(coord=ANCHOR_COORD, before="Ni", after="Ni")
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ def test_action_rejects_no_op() -> None:
 
 def test_bystander_basic() -> None:
     b = Bystander(
-        coord=CoordOffset(di=1, dj=0, dk=0, sublattice="a"),
+        coord=CoordOffset(code="NC_NN1_PX"),
         allowed_species=("Fe", "Cr"),
         flag="1nn",
     )
@@ -111,7 +111,7 @@ def test_bystander_basic() -> None:
 def test_bystander_rejects_duplicate_species() -> None:
     with pytest.raises(ValidationError, match="must be unique"):
         Bystander(
-            coord=CoordOffset(di=1, dj=0, dk=0, sublattice="a"),
+            coord=CoordOffset(code="NC_NN1_PX"),
             allowed_species=("Fe", "Fe"),
             flag="1nn",
         )
@@ -121,9 +121,11 @@ def test_bystander_rejects_duplicate_species() -> None:
 # Process — happy path
 # ---------------------------------------------------------------------------
 
-ANCHOR = CoordOffset(di=0, dj=0, dk=0, sublattice="a")
-NN1_X = CoordOffset(di=1, dj=0, dk=0, sublattice="a")
-NN1_Y = CoordOffset(di=0, dj=1, dk=0, sublattice="a")
+ANCHOR = ANCHOR_COORD
+NN1_PX = CoordOffset(code="NC_NN1_PX")
+NN1_PY = CoordOffset(code="NC_NN1_PY")
+NN1_MX = CoordOffset(code="NC_NN1_MX")
+NN2_PX = CoordOffset(code="NC_NN2_PX")
 
 
 def _simple_1NN_hop() -> Process:
@@ -135,11 +137,11 @@ def _simple_1NN_hop() -> Process:
         rate_constant=1.0e13,
         conditions=(
             Condition(coord=ANCHOR, species="Vacant"),
-            Condition(coord=NN1_X, species="Ni"),
+            Condition(coord=NN1_PX, species="Ni"),
         ),
         actions=(
             Action(coord=ANCHOR, before="Vacant", after="Ni"),
-            Action(coord=NN1_X, before="Ni", after="Vacant"),
+            Action(coord=NN1_PX, before="Ni", after="Vacant"),
         ),
     )
 
@@ -154,8 +156,11 @@ def test_process_simple_1NN_hop() -> None:
 
 
 def test_process_triple_hop_three_actions() -> None:
-    """Row shuffle: vacancy + Ni + Ni at sites 0, +x, +2x → row shuffles."""
-    nn2_x = CoordOffset(di=2, dj=0, dk=0, sublattice="a")
+    """Row shuffle: vacancy + Ni + Ni at sites 0, +x, +2x → row shuffles.
+
+    Note: with NeighbourCode IR, "+2x" is the axial 2NN code (NC_NN2_PX),
+    distinct from NC_NN1_PX. The vacancy hops 2 sites in x; the middle
+    Ni stays in place (no Action for it)."""
     p = Process(
         name="surface_1NN_inplane__nv1_0__triple",
         family_id="surface_1NN_inplane",
@@ -163,19 +168,18 @@ def test_process_triple_hop_three_actions() -> None:
         rate_constant=1.0e13,
         conditions=(
             Condition(coord=ANCHOR, species="Vacant"),
-            Condition(coord=NN1_X, species="Ni"),
-            Condition(coord=nn2_x, species="Ni"),
+            Condition(coord=NN1_PX, species="Ni"),
+            Condition(coord=NN2_PX, species="Ni"),
         ),
         actions=(
-            # The vacancy "moves" two sites; intermediate atoms shuffle.
+            # The vacancy "moves" two sites; intermediate atom stays put.
             Action(coord=ANCHOR, before="Vacant", after="Ni"),
-            Action(coord=nn2_x,  before="Ni",     after="Vacant"),
-            # Note: site +x remains "Ni" → "Ni" so it's NOT an Action.
+            Action(coord=NN2_PX, before="Ni",     after="Vacant"),
         ),
     )
     assert len(p.actions) == 2  # the row's middle atom doesn't change species
     assert p.actions[0].coord == ANCHOR
-    assert p.actions[1].coord == nn2_x
+    assert p.actions[1].coord == NN2_PX
 
 
 def test_process_with_bystanders() -> None:
@@ -187,19 +191,15 @@ def test_process_with_bystanders() -> None:
         rate_constant="k0 * exp(-Ea/kT) * boost_Fe_1nn**nr_Fe_1nn",
         conditions=(
             Condition(coord=ANCHOR, species="Vacant"),
-            Condition(coord=NN1_X, species="Ni"),
+            Condition(coord=NN1_PX, species="Ni"),
         ),
         actions=(
             Action(coord=ANCHOR, before="Vacant", after="Ni"),
-            Action(coord=NN1_X, before="Ni", after="Vacant"),
+            Action(coord=NN1_PX, before="Ni", after="Vacant"),
         ),
         bystanders=(
-            Bystander(coord=NN1_Y, allowed_species=("Fe",), flag="1nn"),
-            Bystander(
-                coord=CoordOffset(di=-1, dj=0, dk=0, sublattice="a"),
-                allowed_species=("Fe",),
-                flag="1nn",
-            ),
+            Bystander(coord=NN1_PY, allowed_species=("Fe",), flag="1nn"),
+            Bystander(coord=NN1_MX, allowed_species=("Fe",), flag="1nn"),
         ),
     )
     assert len(p.bystanders) == 2
@@ -247,11 +247,11 @@ def test_process_rejects_action_before_inconsistent_with_condition() -> None:
             rate_constant=1e13,
             conditions=(
                 Condition(coord=ANCHOR, species="Vacant"),
-                Condition(coord=NN1_X, species="Ni"),
+                Condition(coord=NN1_PX, species="Ni"),
             ),
             actions=(
-                # Action says "before=Fe" but Condition says "Ni" at NN1_X
-                Action(coord=NN1_X, before="Fe", after="Vacant"),
+                # Action says "before=Fe" but Condition says "Ni" at NN1_PX
+                Action(coord=NN1_PX, before="Fe", after="Vacant"),
             ),
         )
 
@@ -263,10 +263,10 @@ def test_process_rejects_coord_in_both_conditions_and_bystanders() -> None:
             family_id="x",
             Ea_eV=0.5,
             rate_constant=1e13,
-            conditions=(Condition(coord=NN1_X, species="Ni"),),
-            actions=(Action(coord=NN1_X, before="Ni", after="Vacant"),),
+            conditions=(Condition(coord=NN1_PX, species="Ni"),),
+            actions=(Action(coord=NN1_PX, before="Ni", after="Vacant"),),
             bystanders=(
-                Bystander(coord=NN1_X, allowed_species=("Fe",), flag="1nn"),
+                Bystander(coord=NN1_PX, allowed_species=("Fe",), flag="1nn"),
             ),
         )
 

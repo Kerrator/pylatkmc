@@ -59,8 +59,9 @@ def test_parse_bucket_rejects_no_eq() -> None:
 
 def test_surface_1NN_4_directions() -> None:
     assert len(SURFACE_1NN_INPLANE_DIRS) == 4
-    # All in-plane (dk=0)
-    assert all(d.dk == 0 for d in SURFACE_1NN_INPLANE_DIRS)
+    # All in-plane axial codes
+    inplane_codes = {"NC_NN1_PX", "NC_NN1_MX", "NC_NN1_PY", "NC_NN1_MY"}
+    assert {d.code for d in SURFACE_1NN_INPLANE_DIRS} == inplane_codes
     # Unique
     assert len(set(SURFACE_1NN_INPLANE_DIRS)) == 4
 
@@ -72,8 +73,10 @@ def test_bulk_1NN_12_directions() -> None:
 
 def test_bulk_2NN_6_directions() -> None:
     assert len(BULK_2NN_DIRS) == 6
-    # All ±2 along an axis
-    assert all(abs(d.di) + abs(d.dj) + abs(d.dk) == 2 for d in BULK_2NN_DIRS)
+    # All NC_NN2_* axial codes
+    axial_codes = {"NC_NN2_PX", "NC_NN2_MX", "NC_NN2_PY", "NC_NN2_MY",
+                   "NC_NN2_PZ", "NC_NN2_MZ"}
+    assert {d.code for d in BULK_2NN_DIRS} == axial_codes
 
 
 # ---------------------------------------------------------------------------

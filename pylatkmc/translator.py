@@ -58,7 +58,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
-from .processes import Action, Bystander, Condition, CoordOffset, Process
+from .processes import (
+    ANCHOR_COORD,
+    Action,
+    Bystander,
+    Condition,
+    CoordOffset,
+    Process,
+)
 from .rate_expression import arrhenius_scalar, bucket_warns_on_scatter
 
 # ---------------------------------------------------------------------------
@@ -157,56 +164,56 @@ def parse_bucket_key(bucket_id: str) -> dict[str, int]:
 
 
 # ---------------------------------------------------------------------------
-# Direction sets per family
+# Direction sets per family — using NeighbourCode IR
 # ---------------------------------------------------------------------------
+#
+# Each direction is a CoordOffset(code="NC_<NAME>"). The runtime resolves
+# each code via lattice->coord_table at touchup time. See
+# runtime/src/core/coord_codes.h for the canonical Cartesian deltas of
+# each code.
 
-# FCC(100) surface 1NN in-plane: 4 directions (±x, ±y) in the cubic
-# integer basis. The runtime's CSR neighbour list resolves these to
-# concrete site indices via `nn1_offsets`/`nn1_indices`.
+def _co(code: str) -> CoordOffset:
+    """Shorthand: build a CoordOffset from a NeighbourCode name."""
+    return CoordOffset(code=code)
+
+
+# FCC(100) surface 1NN in-plane: 4 axial directions.
 SURFACE_1NN_INPLANE_DIRS: tuple[CoordOffset, ...] = (
-    CoordOffset(di=+1, dj=0, dk=0, sublattice="a"),
-    CoordOffset(di=-1, dj=0, dk=0, sublattice="a"),
-    CoordOffset(di=0, dj=+1, dk=0, sublattice="a"),
-    CoordOffset(di=0, dj=-1, dk=0, sublattice="a"),
+    _co("NC_NN1_PX"), _co("NC_NN1_MX"),
+    _co("NC_NN1_PY"), _co("NC_NN1_MY"),
 )
 
-# FCC bulk 1NN: 12 directions in the cubic basis (face-centered).
-BULK_1NN_DIRS: tuple[CoordOffset, ...] = tuple(
-    CoordOffset(di=di, dj=dj, dk=dk, sublattice="a")
-    for di, dj, dk in [
-        # In-plane (4)
-        (+1, 0, 0), (-1, 0, 0), (0, +1, 0), (0, -1, 0),
-        # Up-cross-layer (4)
-        (+1, 0, +1), (-1, 0, +1), (0, +1, +1), (0, -1, +1),
-        # Down-cross-layer (4)
-        (+1, 0, -1), (-1, 0, -1), (0, +1, -1), (0, -1, -1),
-    ]
+# FCC bulk 1NN: 12 directions = 4 in-plane + 4 cross-layer-up + 4 cross-layer-down.
+BULK_1NN_DIRS: tuple[CoordOffset, ...] = (
+    # In-plane (4)
+    _co("NC_NN1_PX"), _co("NC_NN1_MX"), _co("NC_NN1_PY"), _co("NC_NN1_MY"),
+    # Cross-layer up (4)
+    _co("NC_NN1_UP_PP"),   _co("NC_NN1_UP_PM"),   _co("NC_NN1_UP_MP"),   _co("NC_NN1_UP_MM"),
+    # Cross-layer down (4)
+    _co("NC_NN1_DOWN_PP"), _co("NC_NN1_DOWN_PM"), _co("NC_NN1_DOWN_MP"), _co("NC_NN1_DOWN_MM"),
 )
 
-# FCC(100) surface 2NN: 4 in-plane diagonal directions.
-SURFACE_2NN_DIRS: tuple[CoordOffset, ...] = tuple(
-    CoordOffset(di=di, dj=dj, dk=0, sublattice="a")
-    for di, dj in [(+1, +1), (+1, -1), (-1, +1), (-1, -1)]
+# FCC(100) surface 2NN: 4 in-plane diagonals.
+SURFACE_2NN_DIRS: tuple[CoordOffset, ...] = (
+    _co("NC_NN2_DIAG_PP"), _co("NC_NN2_DIAG_PM"),
+    _co("NC_NN2_DIAG_MP"), _co("NC_NN2_DIAG_MM"),
 )
 
-# FCC bulk 2NN: 6 cubic axial directions.
-BULK_2NN_DIRS: tuple[CoordOffset, ...] = tuple(
-    CoordOffset(di=di, dj=dj, dk=dk, sublattice="a")
-    for di, dj, dk in [
-        (+2, 0, 0), (-2, 0, 0),
-        (0, +2, 0), (0, -2, 0),
-        (0, 0, +2), (0, 0, -2),
-    ]
+# FCC bulk 2NN: 6 axial directions (±x, ±y, ±z).
+BULK_2NN_DIRS: tuple[CoordOffset, ...] = (
+    _co("NC_NN2_PX"), _co("NC_NN2_MX"),
+    _co("NC_NN2_PY"), _co("NC_NN2_MY"),
+    _co("NC_NN2_PZ"), _co("NC_NN2_MZ"),
 )
 
 # Cross-layer 1NN directions (used by interlayer-hop families).
-INTERLAYER_1NN_DIRS_UP: tuple[CoordOffset, ...] = tuple(
-    CoordOffset(di=di, dj=dj, dk=+1, sublattice="a")
-    for di, dj in [(+1, 0), (-1, 0), (0, +1), (0, -1)]
+INTERLAYER_1NN_DIRS_UP: tuple[CoordOffset, ...] = (
+    _co("NC_NN1_UP_PP"), _co("NC_NN1_UP_PM"),
+    _co("NC_NN1_UP_MP"), _co("NC_NN1_UP_MM"),
 )
-INTERLAYER_1NN_DIRS_DOWN: tuple[CoordOffset, ...] = tuple(
-    CoordOffset(di=di, dj=dj, dk=-1, sublattice="a")
-    for di, dj in [(+1, 0), (-1, 0), (0, +1), (0, -1)]
+INTERLAYER_1NN_DIRS_DOWN: tuple[CoordOffset, ...] = (
+    _co("NC_NN1_DOWN_PP"), _co("NC_NN1_DOWN_PM"),
+    _co("NC_NN1_DOWN_MP"), _co("NC_NN1_DOWN_MM"),
 )
 
 
@@ -214,7 +221,7 @@ INTERLAYER_1NN_DIRS_DOWN: tuple[CoordOffset, ...] = tuple(
 # Process emission helpers
 # ---------------------------------------------------------------------------
 
-ANCHOR = CoordOffset(di=0, dj=0, dk=0, sublattice="a")
+ANCHOR = ANCHOR_COORD   # re-exported for backwards compatibility
 
 
 def _safe_name(*parts: str) -> str:
@@ -228,9 +235,13 @@ def _safe_name(*parts: str) -> str:
 
 
 def _direction_label(d: CoordOffset) -> str:
-    """Stable label for a CoordOffset, used in Process names."""
-    sign = lambda v: "p" if v >= 0 else "m"  # noqa: E731
-    return f"{sign(d.di)}{abs(d.di)}{sign(d.dj)}{abs(d.dj)}{sign(d.dk)}{abs(d.dk)}{d.sublattice}"
+    """Stable label for a CoordOffset, used in Process names.
+    With the NeighbourCode IR this is just the code name lower-cased and
+    stripped of the `nc_` prefix (so `NC_NN1_PX` → `nn1_px`)."""
+    code = d.code
+    if code.startswith("NC_"):
+        code = code[3:]
+    return code.lower()
 
 
 def _emit_simple_2action_hop(
