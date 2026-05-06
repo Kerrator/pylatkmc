@@ -6,7 +6,7 @@
 
 /* Immutable lattice topology. Loaded once from .kmcinit, shared across
  * MPI replicas on a node via OS page cache. */
-typedef struct {
+typedef struct Lattice {
     int32_t   n_sites;
     int32_t   n_layers;
     float     cell[3];              /* Lx, Ly, Lz in Å */
