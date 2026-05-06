@@ -92,8 +92,7 @@ pylatkmc/
 ├── models/<name>/    # one subdir per compiled model (TOML spec + generated/ + examples/)
 ├── tests/unit_py/    # 76 pytests
 ├── tools/            # compare harnesses, build_initial_config
-├── docs/             # ARCHITECTURE, HOW_IT_WORKS, PYKMC_INTEGRATION, KMOS_COMPARISON
-└── .agents/          # AI-coding-assistant instructions (see .agents/README.md)
+└── docs/             # ARCHITECTURE, HOW_IT_WORKS, PYKMC_INTEGRATION, KMOS_COMPARISON
 ```
 
 For each top-level subdir's contents and purpose, see

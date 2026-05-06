@@ -39,6 +39,19 @@ Thumbs.db
 *.swo
 *~
 
+# AI coding assistant configs and agent docs (kept locally, not shipped)
+.agents/
+AGENT.md
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+COPILOT.md
+.cursorrules
+.cursor/
+.aider*
+.claude/
+.codeium*
+
 # NOTE: We DO commit models/*/generated/*.{c,h,json} so users can compile
 # without running `pylatkmc-gen build` first. The committed generated
 # files are regenerated from the spec via codegen and are tested by

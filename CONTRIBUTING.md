@@ -66,8 +66,9 @@ For runtime / numerical issues (a simulation that "ran" but gave
 unexpected MSD or motif distributions), please also include the
 `output/aggregate_summary.json` if you have one, and the input spec's
 `temperature_K` and curated-catalogue source. Numerical issues are
-often upstream — see the rate-cube preprocessing caveat in
-[`.agents/AGENT.md`](.agents/AGENT.md).
+often upstream — the rate-cube preprocessing caveat is documented in
+[`docs/PYKMC_INTEGRATION.md`](docs/PYKMC_INTEGRATION.md) ("Critical:
+rate-cube preprocessing").
 
 ## Code style
 
@@ -78,8 +79,7 @@ often upstream — see the rate-cube preprocessing caveat in
 - **Commits**: imperative subject ("add", "fix", "rename"), under 72
   chars. Body wraps at 72.
 - **Docs**: when behavior changes, update both the code and the
-  matching section in `docs/`. README and `.agents/AGENT.md` are
-  separate audiences (human onboarding vs AI-agent context).
+  matching section in `docs/`.
 
 ## What's out of scope
 
