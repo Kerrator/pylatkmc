@@ -147,6 +147,74 @@ def cmd_provenance(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_processes(args: argparse.Namespace) -> int:
+    """Translate a curated catalogue into pattern-DB Processes and print a summary.
+
+    M-A.7 of the v2 redesign. Replaces `provenance` (which was tied to
+    the rate-cube format). Reports per-family Process counts, total
+    Process count, Ea range, and any wide-Ea-scatter or
+    unknown-family warnings.
+
+    The Processes themselves are NOT written to disk by this command
+    (that's `build` in v2). This is a read-only inspection tool.
+    """
+    from collections import Counter
+
+    from .loader import load
+    from .translator import load_family_rate_table, translate_all
+
+    spec_path = Path(args.spec).resolve()
+    spec = load(spec_path)
+
+    family_csv = Path(args.family_csv) if args.family_csv else Path(spec.rate_data.family_table)
+    if not family_csv.is_absolute():
+        # Relative to spec dir
+        family_csv = (spec_path.parent / family_csv).resolve()
+
+    if not family_csv.exists():
+        print(f"pylatkmc-gen processes: family rate table not found: {family_csv}",
+              file=sys.stderr)
+        return 1
+
+    rows = load_family_rate_table(family_csv)
+    print(f"Loaded {len(rows)} family-bucket rows from {family_csv.name}")
+
+    scatter_warnings: list[str] = []
+    unknown_families: list[str] = []
+    processes = translate_all(
+        rows,
+        k0_Hz=spec.rate_data.k0_Hz,
+        T_K=spec.rate_data.temperature_K,
+        on_scatter_warn=scatter_warnings.append,
+        on_unknown_family=unknown_families.append,
+    )
+
+    fam_proc_counts = Counter(p.family_id for p in processes)
+    print(f"\nTotal Processes: {len(processes)}")
+    print(f"Processes per family:")
+    for fid, n in sorted(fam_proc_counts.items()):
+        print(f"  {fid:42s} {n:>5} Processes")
+
+    if processes:
+        ea = [p.Ea_eV for p in processes]
+        print(f"\nEa_eV range: min={min(ea):.3f}  max={max(ea):.3f}")
+
+    if unknown_families:
+        print(f"\n⚠ Unknown families in catalogue (skipped):")
+        for f in sorted(set(unknown_families)):
+            print(f"  {f}")
+
+    if scatter_warnings:
+        print(f"\n⚠ {len(scatter_warnings)} wide-Ea-scatter buckets "
+              f"(per-bucket-mean rate may be unreliable):")
+        for w in scatter_warnings[:10]:
+            print(f"  {w}")
+        if len(scatter_warnings) > 10:
+            print(f"  ... and {len(scatter_warnings) - 10} more")
+
+    return 0
+
+
 def cmd_clean(args: argparse.Namespace) -> int:
     spec_path = Path(args.spec).resolve()
     out = _resolve_generated_dir(spec_path)
@@ -185,6 +253,16 @@ def _make_parser() -> argparse.ArgumentParser:
     p_prov.add_argument("-k", "--kmcrt", default=None,
                         help="Path to .kmcrt (default: <model_dir>/examples/<name>.kmcrt)")
     p_prov.set_defaults(func=cmd_provenance)
+
+    p_proc = sub.add_parser(
+        "processes",
+        help="Translate the curated catalogue into pattern-DB Processes and print a summary",
+    )
+    p_proc.add_argument("spec", help="Path to .kmcspec.toml")
+    p_proc.add_argument("--family-csv", default=None,
+                        help="Path to rate_lookup_table_family.csv "
+                             "(default: spec's rate_data.family_table)")
+    p_proc.set_defaults(func=cmd_processes)
 
     p_clean = sub.add_parser("clean", help="Remove <spec_dir>/generated/")
     p_clean.add_argument("spec", help="Path to .kmcspec.toml")

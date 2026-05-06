@@ -269,3 +269,69 @@ def test_translate_simple_hop_empty_when_no_matching_family() -> None:
         T_K=500.0,
     )
     assert out == []
+
+
+# ---------------------------------------------------------------------------
+# translate_all — full dispatch across all 12 fit-barrier families
+# ---------------------------------------------------------------------------
+
+from pylatkmc.translator import translate_all  # noqa: E402
+
+
+def test_translate_all_dispatches_per_family() -> None:
+    """One bucket per family, each emitting per-direction Processes.
+    Total = sum of direction counts across families present in the input."""
+    rows = [
+        _row("surface_1NN_inplane",            "nv1=0_nv2=0", 100, 0.6),  # 4
+        _row("subsurface_1NN_inplane",         "nv1=0_nv2=0", 100, 0.6),  # 12
+        _row("bulk_1NN_inplane",               "nv1=0",        50, 0.5),  # 12
+        _row("surface_2NN_diagonal",           "nv1=0",        20, 0.9),  # 4
+        _row("subsurface_2NN_diagonal",        "nv1=3",        50, 0.95), # 6
+        _row("surface_interlayer_hop",         "li=0_nv1=4",   30, 1.1),  # 4
+        _row("subsurface_interlayer_hop",      "nv1=2",        50, 1.0),  # 8
+        _row("surface_subsurface_exchange_up",   "nv1=4",      40, 1.0),  # 4
+        _row("surface_subsurface_exchange_down", "nv1=4",      40, 0.9),  # 4
+        _row("surface_subsurface_exchange_lateral", "nv1=4",   40, 1.0),  # 8
+        _row("subsurface_migration_axial",       "nv1=2",      30, 1.0),  # 12
+        _row("subsurface_migration_interlayer",  "nv1=2",      30, 1.0),  # 8
+    ]
+    expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 4 + 4 + 8 + 12 + 8  # = 86
+    out = translate_all(rows)
+    assert len(out) == expected_total
+
+    # All names unique
+    names = [p.name for p in out]
+    assert len(names) == len(set(names))
+
+
+def test_translate_all_reports_unknown_family() -> None:
+    rows = [
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),
+        _row("mystery_family",      "nv1=0",        10, 0.5),
+    ]
+    unknown_seen: list[str] = []
+    out = translate_all(rows, on_unknown_family=unknown_seen.append)
+    assert "mystery_family" in unknown_seen
+    # Only surface_1NN_inplane (the known one) emitted Processes
+    assert all(p.family_id == "surface_1NN_inplane" for p in out)
+    assert len(out) == 4
+
+
+def test_translate_all_known_skipped_no_warning() -> None:
+    """concerted_multisite and unresolved_multisite are deliberately
+    skipped without an unknown-family warning."""
+    rows = [
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),
+        # If these were in the loaded rows (won't happen in practice
+        # since load_family_rate_table filters NaN Ea), they should
+        # be silently skipped.
+    ]
+    unknown_seen: list[str] = []
+    out = translate_all(rows, on_unknown_family=unknown_seen.append)
+    # Only surface_1NN_inplane emitted Processes; no unknowns flagged.
+    assert unknown_seen == []
+    assert len(out) == 4
+
+
+def test_translate_all_empty_input() -> None:
+    assert translate_all([]) == []

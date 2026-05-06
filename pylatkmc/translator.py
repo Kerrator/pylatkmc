@@ -309,23 +309,93 @@ def translate_surface_1NN_inplane(
     mover_species: str = "Ni",
     on_scatter_warn: Optional[Callable[[str], None]] = None,
 ) -> list[Process]:
-    """The most populous family: FCC(100) surface 1NN in-plane hops.
-
-    For the 100Ni catalogue, mover_species is always "Ni". When alloy
-    catalogues become available, the caller passes the appropriate
-    mover_species (or iterates).
-
-    Emits 4 Processes per bucket (one per in-plane direction).
-    """
+    """FCC(100) surface 1NN in-plane: 4 dirs/bucket. ~35k catalogue events."""
     return translate_simple_hop_family(
-        rows=rows,
-        family_id="surface_1NN_inplane",
-        directions=SURFACE_1NN_INPLANE_DIRS,
-        mover_species=mover_species,
-        k0_Hz=k0_Hz,
-        T_K=T_K,
-        on_scatter_warn=on_scatter_warn,
+        rows, "surface_1NN_inplane", SURFACE_1NN_INPLANE_DIRS,
+        mover_species, k0_Hz, T_K, on_scatter_warn,
     )
+
+
+# ---------------------------------------------------------------------------
+# Per-family translators — table-driven dispatch
+# ---------------------------------------------------------------------------
+
+# Maps `family_id` → directions to emit Processes for. All families in this
+# table use the simple 2-action swap (anchor ↔ direction), differing only
+# in which neighbour-shell directions apply.
+_FAMILY_DIRECTIONS: dict[str, tuple[CoordOffset, ...]] = {
+    "surface_1NN_inplane":             SURFACE_1NN_INPLANE_DIRS,        # 4
+    "subsurface_1NN_inplane":          BULK_1NN_DIRS,                   # 12
+    "bulk_1NN_inplane":                BULK_1NN_DIRS,                   # 12
+    "surface_2NN_diagonal":            SURFACE_2NN_DIRS,                # 4
+    "subsurface_2NN_diagonal":         BULK_2NN_DIRS,                   # 6
+    "surface_interlayer_hop":          INTERLAYER_1NN_DIRS_DOWN,        # 4 (surface→subsurface)
+    "subsurface_interlayer_hop":       INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
+    "surface_subsurface_exchange_up":  INTERLAYER_1NN_DIRS_UP,          # 4
+    "surface_subsurface_exchange_down": INTERLAYER_1NN_DIRS_DOWN,       # 4
+    "surface_subsurface_exchange_lateral": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,
+    "subsurface_migration_axial":      BULK_1NN_DIRS,                   # 12
+    "subsurface_migration_interlayer": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
+}
+
+# Multi-site families with fit_barrier=False — visibility only, skip in v2.
+# These come into the catalogue with NaN Ea so load_family_rate_table()
+# already filters them out, but we list them here to be explicit.
+_FAMILIES_SKIPPED: frozenset[str] = frozenset({
+    "concerted_multisite",
+    "unresolved_multisite",
+})
+
+
+def translate_all(
+    rows: list[FamilyBucketRow],
+    k0_Hz: float = 1.0e13,
+    T_K: float = 500.0,
+    mover_species: str = "Ni",
+    on_scatter_warn: Optional[Callable[[str], None]] = None,
+    on_unknown_family: Optional[Callable[[str], None]] = None,
+) -> list[Process]:
+    """Translate every supported family in the catalogue into Processes.
+
+    Iterates `_FAMILY_DIRECTIONS` and dispatches each to
+    translate_simple_hop_family. Unknown family_ids in the catalogue
+    (i.e. families not in `_FAMILY_DIRECTIONS` and not in
+    `_FAMILIES_SKIPPED`) are reported via `on_unknown_family` and
+    skipped.
+
+    Returns a deduplicated, name-unique list[Process].
+    """
+    out: list[Process] = []
+
+    families_in_catalogue = {r.family_id for r in rows}
+    known = set(_FAMILY_DIRECTIONS.keys()) | _FAMILIES_SKIPPED
+    unknown = families_in_catalogue - known
+    for fid in sorted(unknown):
+        if on_unknown_family is not None:
+            on_unknown_family(fid)
+
+    for fid in sorted(_FAMILY_DIRECTIONS.keys()):
+        out.extend(translate_simple_hop_family(
+            rows=rows,
+            family_id=fid,
+            directions=_FAMILY_DIRECTIONS[fid],
+            mover_species=mover_species,
+            k0_Hz=k0_Hz,
+            T_K=T_K,
+            on_scatter_warn=on_scatter_warn,
+        ))
+
+    # Sanity: process names should be globally unique (decision-tree
+    # codegen requires it).
+    seen: set[str] = set()
+    for p in out:
+        if p.name in seen:
+            raise ValueError(
+                f"duplicate Process name in translator output: {p.name!r}. "
+                f"This is a translator bug — names should be globally unique."
+            )
+        seen.add(p.name)
+    return out
 
 
 __all__ = (
@@ -341,4 +411,5 @@ __all__ = (
     "ANCHOR",
     "translate_simple_hop_family",
     "translate_surface_1NN_inplane",
+    "translate_all",
 )
