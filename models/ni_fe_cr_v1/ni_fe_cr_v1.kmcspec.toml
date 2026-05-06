@@ -1,0 +1,91 @@
+# ni_fe_cr_v1 — default species-aware model for FCC Ni/Fe/Cr alloys.
+#
+# This is the MVP schema described in the pylatkmc plan:
+#   - 9 key axes (3 permanent + 6 user-specified)
+#   - cube size = 3 * 5 * 3 * 5 * 5 * 5 * 5 * 5 * 5 = 703,125 entries
+#   - on-disk mmap ~ 8.4 MB (f32 rate + f32 Ea + u32 count per entry)
+#
+# Generated C targets a binary named `pylatkmc_ni_fe_cr_v1`.
+
+name    = "ni_fe_cr_v1"
+lattice = "fcc"
+
+# First element MUST be "Vacant" (validated by ModelSpec).
+species = ["Vacant", "Ni", "Fe", "Cr"]
+
+[[shells]]
+name = "nn1"
+cutoff_mult = 1.05    # FCC 1NN at d_nn, generous tolerance
+
+[[shells]]
+name = "nn2"
+cutoff_mult = 1.50    # FCC 2NN at ~sqrt(2) * d_nn
+
+# ------------------------------------------------------------------
+# Key axes. Permanent axes site_class (3) and direction (5) are
+# prepended implicitly — do NOT list them here.
+#
+# The order below defines the major-to-minor order in the flat rate
+# cube. Placing `mover_species` early keeps Ni-vs-Fe rate stripes
+# contiguous in memory.
+# ------------------------------------------------------------------
+[[key.axes]]
+name = "mover_species"
+kind = "enum"
+max  = 3               # Ni / Fe / Cr (Vacant excluded; mover is occupied)
+skip_vacant = true
+
+[[key.axes]]
+name  = "n_vac_nn1"
+kind  = "count"
+shell = "nn1"
+match = "vac"
+max   = 5              # 0..4
+
+[[key.axes]]
+name  = "n_Fe_nn1"
+kind  = "count"
+shell = "nn1"
+match = "Fe"
+max   = 5
+
+[[key.axes]]
+name  = "n_Cr_nn1"
+kind  = "count"
+shell = "nn1"
+match = "Cr"
+max   = 5
+
+# n_Ni_nn1 is NOT stored — derivable from shell_size - n_vac - n_Fe - n_Cr.
+
+[[key.axes]]
+name  = "n_vac_nn2"
+kind  = "count"
+shell = "nn2"
+match = "vac"
+max   = 5
+
+[[key.axes]]
+name  = "n_Fe_nn2"
+kind  = "count"
+shell = "nn2"
+match = "Fe"
+max   = 5
+
+[[key.axes]]
+name  = "n_Cr_nn2"
+kind  = "count"
+shell = "nn2"
+match = "Cr"
+max   = 5
+
+# ------------------------------------------------------------------
+# Training data and physics parameters. Paths are relative to this
+# spec file's directory; the loader resolves them at load time.
+# ------------------------------------------------------------------
+[rate_data]
+primary         = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/classified_events_with_families.csv"
+family_table    = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv"
+fallback_scalar = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table.csv"
+temperature_K   = 500.0
+k0_Hz           = 1.0e13

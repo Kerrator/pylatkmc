@@ -1,0 +1,37 @@
+#@ /* events.h — GENERATED for model '{spec.name}'.
+#@  *
+#@  * DO NOT EDIT. Regenerate with `pylatkmc-gen build models/{spec.name}.kmcspec.toml`.
+#@  *
+#@  * This file replaces the scaffold stub in runtime/src/core/events.h via the
+#@  * CMake include-path order (generated/ is searched first).
+#@  */
+#@ #ifndef PYLATKMC_EVENTS_H
+#@ #define PYLATKMC_EVENTS_H
+#@
+#@ #include <stdint.h>
+#@ #include "events_base.h"   /* Species, SiteClass, DirectionFamily, MotifFamily */
+#@
+#@ /* Per-model rate-table key. Fields match ModelSpec.all_axes() order, which
+#@  * is what ratetable_key() below expects. Tightly packed to 1 byte per field
+#@  * because every axis's max fits in uint8_t (ModelSpec caps max at {spec.__class__.__module__}.MAX_COUNT_CAP). */
+#@ typedef struct RateKey {{
+axes = spec.all_axes()
+for axis_name, _ in axes:
+    #@     uint8_t {axis_name};
+#@ }} RateKey;
+#@
+#@ /* Event emitted by avail_rebuild_all. The runtime (kmc.c, pykmc_out.c) only
+#@  * reads the base fields. The RateKey below is carried alongside for logging
+#@  * and debug dumps — it's not touched by the hot path. */
+#@ typedef struct Event {{
+#@     EVENT_BASE_FIELDS
+#@     RateKey key;
+#@ }} Event;
+#@
+#@ /* Compile-time constants derived from the spec. Exposed so tests / tools
+#@  * can cross-check the shape without re-parsing the JSON header. */
+#@ #define PYLATKMC_MODEL_NAME "{spec.name}"
+#@ #define PYLATKMC_N_AXES     {len(axes)}
+#@ #define PYLATKMC_CUBE_SIZE  {spec.n_cube_entries()}
+#@
+#@ #endif /* PYLATKMC_EVENTS_H */

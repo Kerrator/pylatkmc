@@ -1,0 +1,148 @@
+/* ratetable.c — GENERATED for model 'ni_fe_cr_v1'.
+ *
+ * DO NOT EDIT. Regenerate with `pylatkmc-gen build models/ni_fe_cr_v1.kmcspec.toml`.
+ *
+ * mmap loader for the 9-axis binary rate table (.kmcrt v3).
+ */
+#include "ratetable.h"
+
+#include <errno.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+
+#include "kmcfmt.h"
+#include "json_mini.h"
+
+/* Keep the magic in sync with tools/build_binary_rate_table's RATETABLE_MAGIC. */
+static const char RATETABLE_MAGIC[8] = { 'K','M','C','R','T','v','0','1' };
+
+/* Expected shape constants — baked in from the spec so load-time shape
+ * mismatches are caught with a clear error rather than silent corruption. */
+static const int32_t EXPECTED_N_AXES   = 9;
+static const int32_t EXPECTED_N_ENTRIES = 703125;
+
+static const int32_t EXPECTED_AXIS_MAXES[9] = {
+    3,  /* site_class */
+    5,  /* direction */
+    3,  /* mover_species */
+    5,  /* n_vac_nn1 */
+    5,  /* n_Fe_nn1 */
+    5,  /* n_Cr_nn1 */
+    5,  /* n_vac_nn2 */
+    5,  /* n_Fe_nn2 */
+    5,  /* n_Cr_nn2 */
+};
+
+int ratetable_load(RateTable *out, const char *path)
+{
+    if (!out || !path) return -EINVAL;
+    memset(out, 0, sizeof(*out));
+
+    KmcMap map;
+    int rc = kmcfmt_mmap(&map, path, RATETABLE_MAGIC);
+    if (rc != 0) return rc;
+
+    long long n_axes = 0, n_entries_ll = 0;
+    double    temperature_K = 0.0, k0_Hz = 0.0;
+    long long strides_ll[9];
+    long long axis_maxes_ll[9];
+
+    if (json_find_int(map.header, map.header_len, "n_axes", &n_axes) != 0 ||
+        json_find_int(map.header, map.header_len, "n_entries", &n_entries_ll) != 0 ||
+        json_find_double(map.header, map.header_len, "temperature_K", &temperature_K) != 0 ||
+        json_find_double(map.header, map.header_len, "k0_Hz", &k0_Hz) != 0 ||
+        json_find_int_array(map.header, map.header_len, "strides",
+                            strides_ll, 9) != 0 ||
+        json_find_int_array(map.header, map.header_len, "axis_maxes",
+                            axis_maxes_ll, 9) != 0)
+    {
+        fprintf(stderr, "ratetable_load: missing/invalid header fields in %s\n", path);
+        kmcfmt_unmap(&map);
+        return -EPROTO;
+    }
+
+    if ((int32_t)n_axes != EXPECTED_N_AXES) {
+        fprintf(stderr, "ratetable_load: n_axes=%lld does not match model (expected %d)\n",
+                n_axes, EXPECTED_N_AXES);
+        kmcfmt_unmap(&map); return -EPROTO;
+    }
+    if ((int32_t)n_entries_ll != EXPECTED_N_ENTRIES) {
+        fprintf(stderr, "ratetable_load: n_entries=%lld does not match model (expected %d)\n",
+                n_entries_ll, EXPECTED_N_ENTRIES);
+        kmcfmt_unmap(&map); return -EPROTO;
+    }
+    for (int i = 0; i < EXPECTED_N_AXES; ++i) {
+        if ((int32_t)axis_maxes_ll[i] != EXPECTED_AXIS_MAXES[i]) {
+            fprintf(stderr,
+                    "ratetable_load: axis %d max=%lld does not match model (expected %d)\n",
+                    i, axis_maxes_ll[i], EXPECTED_AXIS_MAXES[i]);
+            kmcfmt_unmap(&map); return -EPROTO;
+        }
+    }
+
+    /* Optional motif lookup — present in v3 but tolerated missing for tests. */
+    int32_t motif_lookup_len = (int32_t)SC_COUNT * (int32_t)DF_COUNT;
+    uint8_t *motif_buf = NULL;
+    long long *motif_tmp = malloc((size_t)motif_lookup_len * sizeof *motif_tmp);
+    if (!motif_tmp) { kmcfmt_unmap(&map); return -ENOMEM; }
+    if (json_find_int_array(map.header, map.header_len, "motif_of_class_dir",
+                            motif_tmp, (size_t)motif_lookup_len) == 0)
+    {
+        motif_buf = malloc((size_t)motif_lookup_len);
+        if (!motif_buf) { free(motif_tmp); kmcfmt_unmap(&map); return -ENOMEM; }
+        for (int32_t i = 0; i < motif_lookup_len; ++i) motif_buf[i] = (uint8_t)motif_tmp[i];
+    } else {
+        motif_lookup_len = 0;
+    }
+    free(motif_tmp);
+
+    /* Payload: u32 n_entries, f32[n] rate, f32[n] Ea, u32[n] count. */
+    const unsigned char *pl = (const unsigned char *)map.payload;
+    size_t pn = map.payload_len;
+    if (pn < 4) { free(motif_buf); kmcfmt_unmap(&map); return -EPROTO; }
+
+    uint32_t n_entries = 0;
+    memcpy(&n_entries, pl, 4);
+    if ((int32_t)n_entries != EXPECTED_N_ENTRIES) {
+        fprintf(stderr, "ratetable_load: payload n_entries=%u mismatch (expected %d)\n",
+                n_entries, EXPECTED_N_ENTRIES);
+        free(motif_buf); kmcfmt_unmap(&map); return -EPROTO;
+    }
+
+    size_t off = 4;
+    const float    *rate  = (const float    *)(pl + off); off += (size_t)n_entries * sizeof(float);
+    const float    *Ea_eV = (const float    *)(pl + off); off += (size_t)n_entries * sizeof(float);
+    const uint32_t *count = (const uint32_t *)(pl + off); off += (size_t)n_entries * sizeof(uint32_t);
+    if (off > pn) {
+        fprintf(stderr, "ratetable_load: payload truncated (need %zu, have %zu)\n", off, pn);
+        free(motif_buf); kmcfmt_unmap(&map); return -EPROTO;
+    }
+
+    out->temperature_K      = (float)temperature_K;
+    out->k0_Hz              = (float)k0_Hz;
+    out->n_axes             = EXPECTED_N_AXES;
+    out->n_entries          = EXPECTED_N_ENTRIES;
+    for (int i = 0; i < EXPECTED_N_AXES; ++i) {
+        out->strides[i]     = (int32_t)strides_ll[i];
+        out->axis_maxes[i]  = (int32_t)axis_maxes_ll[i];
+    }
+    out->rate               = rate;
+    out->Ea_eV              = Ea_eV;
+    out->count              = count;
+    out->motif_of_class_dir = motif_buf;
+    out->motif_lookup_len   = motif_lookup_len;
+    out->_mmap_base         = map.base;
+    out->_mmap_size         = map.size;
+    return 0;
+}
+
+void ratetable_free(RateTable *rt)
+{
+    if (!rt) return;
+    free(rt->motif_of_class_dir);
+    if (rt->_mmap_base) munmap(rt->_mmap_base, rt->_mmap_size);
+    memset(rt, 0, sizeof(*rt));
+}

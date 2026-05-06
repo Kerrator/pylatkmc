@@ -1,0 +1,70 @@
+{
+  "name": "ni_fe_cr_v1",
+  "lattice": "fcc",
+  "species": [
+    "Vacant",
+    "Ni",
+    "Fe",
+    "Cr"
+  ],
+  "shells": [
+    {
+      "name": "nn1",
+      "cutoff_mult": 1.05
+    },
+    {
+      "name": "nn2",
+      "cutoff_mult": 1.5
+    }
+  ],
+  "axes": [
+    {
+      "name": "site_class",
+      "max": 3,
+      "stride": 234375
+    },
+    {
+      "name": "direction",
+      "max": 5,
+      "stride": 46875
+    },
+    {
+      "name": "mover_species",
+      "max": 3,
+      "stride": 15625
+    },
+    {
+      "name": "n_vac_nn1",
+      "max": 5,
+      "stride": 3125
+    },
+    {
+      "name": "n_Fe_nn1",
+      "max": 5,
+      "stride": 625
+    },
+    {
+      "name": "n_Cr_nn1",
+      "max": 5,
+      "stride": 125
+    },
+    {
+      "name": "n_vac_nn2",
+      "max": 5,
+      "stride": 25
+    },
+    {
+      "name": "n_Fe_nn2",
+      "max": 5,
+      "stride": 5
+    },
+    {
+      "name": "n_Cr_nn2",
+      "max": 5,
+      "stride": 1
+    }
+  ],
+  "n_cube_entries": 703125,
+  "temperature_K": 500.0,
+  "k0_Hz": 10000000000000.0
+}

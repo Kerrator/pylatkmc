@@ -1,0 +1,45 @@
+# Build outputs
+build/
+build_*/
+*.so
+*.dylib
+*.dll
+*.o
+*.a
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# Generated rate cubes (regenerable from curated CSV; large; T-specific)
+*.kmcrt
+*.kmcrt.bak
+
+# Run outputs (regenerable)
+models/*/examples/output/
+models/*/examples/output_*/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# NOTE: We DO commit models/*/generated/*.{c,h,json} so users can compile
+# without running `pylatkmc-gen build` first. The committed generated
+# files are regenerated from the spec via codegen and are tested by
+# tests/unit_py/test_codegen.py.
