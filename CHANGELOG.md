@@ -183,7 +183,7 @@ The original 9-axis flat rate cube. Replaced wholesale by v0.2.0.
 See `e9e973a` for the cutover commit and `docs/PATTERN_DB.md` for
 the design rationale.
 
-[Unreleased]: https://github.com/<owner>/pylatkmc/compare/v0.3.0...HEAD
-[0.3.0]: https://github.com/<owner>/pylatkmc/releases/tag/v0.3.0
-[0.2.0]: https://github.com/<owner>/pylatkmc/releases/tag/v0.2.0
-[0.1.0]: https://github.com/<owner>/pylatkmc/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Kerrator/pylatkmc/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Kerrator/pylatkmc/releases/tag/v0.3.0
+[0.2.0]: https://github.com/Kerrator/pylatkmc/releases/tag/v0.2.0
+[0.1.0]: https://github.com/Kerrator/pylatkmc/releases/tag/v0.1.0
