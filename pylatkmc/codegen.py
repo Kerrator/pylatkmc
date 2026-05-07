@@ -29,6 +29,7 @@ This replaces the M1-era cube codegen which emitted four separate
 templates (events.h, ratetable.h, ratetable.c, avail.c). The cube
 files and templates are scheduled for deletion in M-D.2.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -43,7 +44,6 @@ from pylatkmc.decision_tree import (
 from pylatkmc.processes import Process
 from pylatkmc.spec import ModelSpec
 from pylatkmc.translator import load_family_rate_table, translate_all
-
 
 # ---------------------------------------------------------------------------
 # kmos-style #@-prefixed template preprocessor (kept for backwards compat;
@@ -69,7 +69,7 @@ def evaluate_template(template: str, **context: Any) -> str:
         indent = raw_line[:indent_len]
 
         if lstripped.startswith(_PREFIX + " "):
-            literal = lstripped[len(_PREFIX) + 1:]
+            literal = lstripped[len(_PREFIX) + 1 :]
             if literal.endswith("\n"):
                 literal = literal[:-1]
             emit = "f" + repr(literal)
@@ -92,9 +92,7 @@ def evaluate_template(template: str, **context: Any) -> str:
     return namespace["result"]
 
 
-def render_template_file(
-    template_name: str, spec: ModelSpec, **extra: Any
-) -> str:
+def render_template_file(template_name: str, spec: ModelSpec, **extra: Any) -> str:
     """Legacy: render a .tmpl file. Kept for back-compat; new pipeline
     in `generate()` doesn't use templates."""
     path = _TEMPLATES_DIR / f"{template_name}.tmpl"
@@ -215,8 +213,8 @@ def _build_proclist_c(processes: list[Process], spec: ModelSpec) -> str:
     # Expose pylatkmc_n_procs / pylatkmc_rate_table / pylatkmc_apply_table
     # as `extern`-able linkage. The internal `rate_table` / `apply_table`
     # arrays are file-static; we re-export them through public wrappers.
-    n_procs = max(1, len(processes))   # avoid `[0]` arrays — C forbids
-    public_glue = f"""
+    n_procs = max(1, len(processes))  # avoid `[0]` arrays — C forbids
+    public_glue = """
 
 /* ---- Public linkage (mirrored in proclist.h) ----
  *
@@ -236,7 +234,7 @@ const int32_t pylatkmc_n_procs = 0;
 const RateConst *const pylatkmc_rate_table = NULL;
 const ApplyFn   *const pylatkmc_apply_table = NULL;
 """
-    _ = n_procs   # silence unused
+    _ = n_procs  # silence unused
     return preamble + body + public_glue
 
 
@@ -264,8 +262,7 @@ def _resolve_family_csv(spec: ModelSpec, spec_path: Path | None) -> Path:
     return csv
 
 
-def generate(spec: ModelSpec, out_dir: str | Path,
-             spec_path: Path | None = None) -> list[Path]:
+def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None) -> list[Path]:
     """Render `proclist.c` + `proclist.h` for `spec` and write them to
     `out_dir`. Returns the list of written paths.
 
@@ -292,9 +289,7 @@ def generate(spec: ModelSpec, out_dir: str | Path,
         rows,
         k0_Hz=spec.rate_data.k0_Hz,
         T_K=spec.rate_data.temperature_K,
-        on_unknown_family=lambda f: print(
-            f"pylatkmc-gen: skipping unknown family {f!r}"
-        ),
+        on_unknown_family=lambda f: print(f"pylatkmc-gen: skipping unknown family {f!r}"),
     )
 
     written: list[Path] = []

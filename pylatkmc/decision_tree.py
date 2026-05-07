@@ -36,10 +36,8 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Optional
 
 from .processes import Condition, CoordOffset, Process
-
 
 # ---------------------------------------------------------------------------
 # Internal: tree builder that accumulates C source
@@ -108,7 +106,7 @@ def _species_at(coord: CoordOffset) -> str:
 
 def _most_shared_coord(
     processes_with_remaining: list[tuple[Process, list[Condition]]],
-) -> Optional[CoordOffset]:
+) -> CoordOffset | None:
     """Return the CoordOffset that appears in the most Processes'
     remaining-conditions lists (or None if no Process has any condition
     left)."""
@@ -139,8 +137,7 @@ def _coord_sort_key(coord: CoordOffset) -> tuple:
 def _partition_by_species(
     processes_with_remaining: list[tuple[Process, list[Condition]]],
     coord: CoordOffset,
-) -> tuple[dict[str, list[tuple[Process, list[Condition]]]],
-            list[tuple[Process, list[Condition]]]]:
+) -> tuple[dict[str, list[tuple[Process, list[Condition]]]], list[tuple[Process, list[Condition]]]]:
     """Split the Process set into:
     - per-species partitions keyed on the species each Process expects
       at `coord` (with that condition removed from `remaining`)
@@ -215,7 +212,9 @@ def _shell_var_name(coord: CoordOffset, shell: str, species: str) -> str:
 
 def _emit_count_loop_body(
     builder: _TreeBuilder,
-    coord: CoordOffset, shell: str, species: str,
+    coord: CoordOffset,
+    shell: str,
+    species: str,
     var_name: str,
 ) -> None:
     """Emit the body of a count loop (declaration + walking) ASSUMING
@@ -229,10 +228,10 @@ def _emit_count_loop_body(
     offsets = "nn1_offsets" if shell == "1nn" else "nn2_offsets"
     indices = "nn1_indices" if shell == "1nn" else "nn2_indices"
     builder.emit(f"int {var_name} = -1;  /* sentinel: stub-site mover → no match */")
-    builder.emit(f"{{")
+    builder.emit("{")
     builder.push()
     builder.emit(f"int _m = {coord_macro};")
-    builder.emit(f"if (_m >= 0 && _m < lat->n_sites) {{")
+    builder.emit("if (_m >= 0 && _m < lat->n_sites) {")
     builder.push()
     builder.emit(f"{var_name} = 0;")
     builder.emit(f"for (int _i = lat->{offsets}[_m]; _i < lat->{offsets}[_m + 1]; ++_i) {{")
@@ -290,8 +289,7 @@ def _emit_leaf_adds(
     builder.emit("{")
     builder.push()
     builder.emit("/* shell-count loops for bucket-key gating */")
-    for (coord, shell, species), var in sorted(triples.items(),
-                                                key=lambda kv: kv[1]):
+    for (coord, shell, species), var in sorted(triples.items(), key=lambda kv: kv[1]):
         _emit_count_loop_body(builder, coord, shell, species, var)
 
     for p in sorted_procs:
@@ -328,9 +326,7 @@ def _emit_subtree(
         _emit_leaf_adds(builder, leaf_processes)
 
     # Then: collect Processes that still have conditions.
-    still_pending = [
-        (p, rem) for (p, rem) in processes_with_remaining if rem
-    ]
+    still_pending = [(p, rem) for (p, rem) in processes_with_remaining if rem]
     if not still_pending:
         return
 
@@ -409,8 +405,7 @@ def compile_decision_tree(processes: list[Process], function_name: str) -> str:
 
     builder = _TreeBuilder()
     builder.emit(
-        f"void {function_name}(const Lattice *lat, const State *st, "
-        f"AvailSites *as, int site) {{"
+        f"void {function_name}(const Lattice *lat, const State *st, AvailSites *as, int site) {{"
     )
     builder.push()
 
@@ -442,8 +437,10 @@ def emit_rate_table(processes: list[Process]) -> str:
     """
     if not processes:
         return "/* no processes; rate_table omitted */\n"
-    lines = ["typedef struct { double rate; double Ea_eV; } RateConst;",
-             "static const RateConst rate_table[N_PROCS] = {"]
+    lines = [
+        "typedef struct { double rate; double Ea_eV; } RateConst;",
+        "static const RateConst rate_table[N_PROCS] = {",
+    ]
     for p in processes:
         if not isinstance(p.rate_constant, (int, float)):
             raise NotImplementedError(
@@ -503,15 +500,19 @@ def emit_apply_actions(processes: list[Process]) -> str:
                 dest_idx = i if dest_idx is None else None
 
         n_acts = len(p.actions)
-        out.append(f"static HopOutcome apply_actions_{p.name}(State *st, const Lattice *lat, int site) {{")
-        out.append(f"    (void)lat;")
+        out.append(
+            f"static HopOutcome apply_actions_{p.name}(State *st, const Lattice *lat, int site) {{"
+        )
+        out.append("    (void)lat;")
         out.append(f"    StateAction acts[{n_acts}] = {{")
         for a in p.actions:
             target = _coord_macro(a.coord)
-            out.append(f"        {{ .site = {target}, "
-                       f".before = SP_{a.before.upper()}, "
-                       f".after = SP_{a.after.upper()} }},")
-        out.append(f"    }};")
+            out.append(
+                f"        {{ .site = {target}, "
+                f".before = SP_{a.before.upper()}, "
+                f".after = SP_{a.after.upper()} }},"
+            )
+        out.append("    };")
         out.append(f"    (void)state_apply_actions(st, acts, {n_acts}, SP_VACANT);")
 
         if origin_idx is not None and dest_idx is not None:
@@ -520,7 +521,7 @@ def emit_apply_actions(processes: list[Process]) -> str:
                 f".v_dest = acts[{dest_idx}].site }};"
             )
         else:
-            out.append(f"    return (HopOutcome){{ .v_origin = -1, .v_dest = -1 }};")
+            out.append("    return (HopOutcome){ .v_origin = -1, .v_dest = -1 };")
         out.append("}")
         out.append("")
 

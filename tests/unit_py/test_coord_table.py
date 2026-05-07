@@ -16,6 +16,7 @@ only), pass them into `_runtime_test_helpers.c::pylatkmc_test_make_lattice_full`
 then call `lattice_build_coord_table` and verify each NeighbourCode
 resolves correctly.
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -57,11 +58,22 @@ def liblat(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     libname = "libcoord_table.dylib" if os.uname().sysname == "Darwin" else "libcoord_table.so"
     libpath = builddir / libname
     cmd = [
-        "cc", "-std=c11", "-Wall", "-Wextra", "-Werror",
-        "-O2", "-DNDEBUG", "-fPIC", "-shared",
-        "-I", str(RUNTIME_CORE),
-        str(LATTICE_SRC), str(COORD_CODES_SRC), str(HELPERS_SRC),
-        "-o", str(libpath),
+        "cc",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-DNDEBUG",
+        "-fPIC",
+        "-shared",
+        "-I",
+        str(RUNTIME_CORE),
+        str(LATTICE_SRC),
+        str(COORD_CODES_SRC),
+        str(HELPERS_SRC),
+        "-o",
+        str(libpath),
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
@@ -81,13 +93,13 @@ def liblat(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     lib.pylatkmc_test_make_lattice_full.restype = ctypes.c_void_p
     lib.pylatkmc_test_make_lattice_full.argtypes = [
         ctypes.c_int32,
-        ctypes.POINTER(ctypes.c_float),     # positions (or NULL)
-        ctypes.POINTER(ctypes.c_float),     # cell (or NULL)
-        ctypes.c_float,                     # nn_dist
-        ctypes.POINTER(ctypes.c_int32),     # nn1_offsets
-        ctypes.POINTER(ctypes.c_int32),     # nn1_indices
-        ctypes.POINTER(ctypes.c_int32),     # nn2_offsets (or NULL)
-        ctypes.POINTER(ctypes.c_int32),     # nn2_indices (or NULL)
+        ctypes.POINTER(ctypes.c_float),  # positions (or NULL)
+        ctypes.POINTER(ctypes.c_float),  # cell (or NULL)
+        ctypes.c_float,  # nn_dist
+        ctypes.POINTER(ctypes.c_int32),  # nn1_offsets
+        ctypes.POINTER(ctypes.c_int32),  # nn1_indices
+        ctypes.POINTER(ctypes.c_int32),  # nn2_offsets (or NULL)
+        ctypes.POINTER(ctypes.c_int32),  # nn2_indices (or NULL)
     ]
     lib.pylatkmc_test_free_lattice.restype = None
     lib.pylatkmc_test_free_lattice.argtypes = [ctypes.c_void_p]
@@ -102,22 +114,22 @@ def liblat(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
 
 class _CLattice(ctypes.Structure):
     _fields_ = [
-        ("n_sites",        ctypes.c_int32),
-        ("n_layers",       ctypes.c_int32),
-        ("cell",           ctypes.c_float * 3),
-        ("nn_dist",        ctypes.c_float),
-        ("positions",      ctypes.c_void_p),
-        ("layer_index",    ctypes.c_void_p),
-        ("site_class",     ctypes.c_void_p),
-        ("nn1_offsets",    ctypes.c_void_p),
-        ("nn1_indices",    ctypes.c_void_p),
+        ("n_sites", ctypes.c_int32),
+        ("n_layers", ctypes.c_int32),
+        ("cell", ctypes.c_float * 3),
+        ("nn_dist", ctypes.c_float),
+        ("positions", ctypes.c_void_p),
+        ("layer_index", ctypes.c_void_p),
+        ("site_class", ctypes.c_void_p),
+        ("nn1_offsets", ctypes.c_void_p),
+        ("nn1_indices", ctypes.c_void_p),
         ("nn1_dir_family", ctypes.c_void_p),
-        ("nn2_offsets",    ctypes.c_void_p),
-        ("nn2_indices",    ctypes.c_void_p),
+        ("nn2_offsets", ctypes.c_void_p),
+        ("nn2_indices", ctypes.c_void_p),
         ("nn2_dir_family", ctypes.c_void_p),
-        ("coord_table",    ctypes.c_void_p),
-        ("_mmap_base",     ctypes.c_void_p),
-        ("_mmap_size",     ctypes.c_size_t),
+        ("coord_table", ctypes.c_void_p),
+        ("_mmap_base", ctypes.c_void_p),
+        ("_mmap_size", ctypes.c_size_t),
     ]
 
 
@@ -126,8 +138,9 @@ def _coord_at(lat_ptr: int, n_sites: int, site: int, nc: int) -> int:
     view = _CLattice.from_address(lat_ptr)
     if not view.coord_table:
         return -2
-    table = ctypes.cast(view.coord_table,
-                        ctypes.POINTER(ctypes.c_int32 * (n_sites * N_NEIGHBOUR_CODES)))
+    table = ctypes.cast(
+        view.coord_table, ctypes.POINTER(ctypes.c_int32 * (n_sites * N_NEIGHBOUR_CODES))
+    )
     return int(table.contents[site * N_NEIGHBOUR_CODES + nc])
 
 
@@ -151,12 +164,14 @@ def _build_fcc100_slab(nx: int, ny: int, nz: int, nn_d: float = 2.5):
                 sites.append((x, y, z))
     n = len(sites)
     positions = [c for site in sites for c in site]
-    cell = [nx * nn_d, ny * nn_d, nz * ls]   # match build_initial_config (no vacuum)
+    cell = [nx * nn_d, ny * nn_d, nz * ls]  # match build_initial_config (no vacuum)
 
     # Min-image displacement helper.
     def mi(d, L):
-        if d > 0.5 * L: return d - L
-        if d < -0.5 * L: return d + L
+        if d > 0.5 * L:
+            return d - L
+        if d < -0.5 * L:
+            return d + L
         return d
 
     def edges_at(cutoff_lo, cutoff_hi):
@@ -193,8 +208,14 @@ def _make_lattice(lib, nx, ny, nz, nn_d=2.5):
     n2o_arr = (ctypes.c_int32 * len(n2o))(*n2o)
     n2i_arr = (ctypes.c_int32 * max(1, len(n2i)))(*n2i) if n2i else (ctypes.c_int32 * 1)(0)
     lat = lib.pylatkmc_test_make_lattice_full(
-        n, pos_arr, cell_arr, ctypes.c_float(nn_d),
-        n1o_arr, n1i_arr, n2o_arr, n2i_arr,
+        n,
+        pos_arr,
+        cell_arr,
+        ctypes.c_float(nn_d),
+        n1o_arr,
+        n1i_arr,
+        n2o_arr,
+        n2i_arr,
     )
     if not lat:
         raise RuntimeError("pylatkmc_test_make_lattice_full returned NULL")
@@ -269,7 +290,7 @@ def test_in_plane_diagonal_2nn_resolves(liblat) -> None:
     lat, n, _ = _make_lattice(liblat, 4, 4, 3, nn_d)
     try:
         liblat.lattice_build_coord_table(lat)
-        s = 0 * 4 * 4 + 1 * 4 + 1   # (i=1, j=1, k=0)
+        s = 0 * 4 * 4 + 1 * 4 + 1  # (i=1, j=1, k=0)
         for nc in (NC_NN2_DIAG_PP, NC_NN2_DIAG_PM, NC_NN2_DIAG_MP, NC_NN2_DIAG_MM):
             assert _coord_at(lat, n, s, nc) >= 0, f"NC code {nc} unresolved"
     finally:
@@ -283,7 +304,7 @@ def test_cross_layer_up_codes_for_layer0_site(liblat) -> None:
     lat, n, sites = _make_lattice(liblat, 4, 4, 3, nn_d)
     try:
         liblat.lattice_build_coord_table(lat)
-        s = 1 * 4 + 1   # k=0 layer, interior
+        s = 1 * 4 + 1  # k=0 layer, interior
         for nc in (NC_NN1_UP_PP, NC_NN1_UP_PM, NC_NN1_UP_MP, NC_NN1_UP_MM):
             n_idx = _coord_at(lat, n, s, nc)
             assert n_idx >= 0, f"NC code {nc} unresolved at layer-0 site"
@@ -301,7 +322,7 @@ def test_cross_layer_down_for_top_layer_site(liblat) -> None:
     lat, n, sites = _make_lattice(liblat, nx, ny, nz, nn_d)
     try:
         liblat.lattice_build_coord_table(lat)
-        s = (nz - 1) * nx * ny + 1 * ny + 1   # top layer, interior
+        s = (nz - 1) * nx * ny + 1 * ny + 1  # top layer, interior
         for nc in (NC_NN1_DOWN_PP, NC_NN1_DOWN_PM, NC_NN1_DOWN_MP, NC_NN1_DOWN_MM):
             n_idx = _coord_at(lat, n, s, nc)
             assert n_idx >= 0, f"NC code {nc} unresolved at top-layer site"
@@ -321,7 +342,7 @@ def test_top_layer_has_no_up_codes(liblat) -> None:
     lat, n, _ = _make_lattice(liblat, nx, ny, nz)
     try:
         liblat.lattice_build_coord_table(lat)
-        s = (nz - 1) * nx * ny + 0   # top layer, corner
+        s = (nz - 1) * nx * ny + 0  # top layer, corner
         for nc in (NC_NN1_UP_PP, NC_NN1_UP_PM, NC_NN1_UP_MP, NC_NN1_UP_MM):
             assert _coord_at(lat, n, s, nc) == n  # stub site = n_sites
     finally:
@@ -338,7 +359,7 @@ def test_bottom_layer_has_no_down_codes(liblat) -> None:
     lat, n, sites = _make_lattice(liblat, nx, ny, nz)
     try:
         liblat.lattice_build_coord_table(lat)
-        s = 0 * nx * ny + 1 * ny + 1   # k=0, interior
+        s = 0 * nx * ny + 1 * ny + 1  # k=0, interior
         # If z PBC IS active (no vacuum), the down-neighbours wrap to the top
         # layer and their delta-z appears as +(nz-1)*ls — which doesn't match
         # the canonical -1/√2 delta. So they should NOT resolve to NC_NN1_DOWN_*.
@@ -356,7 +377,7 @@ def test_bottom_layer_has_no_down_codes(liblat) -> None:
                     dz -= Lz
                 elif dz < -Lz / 2:
                     dz += Lz
-                assert dz < 0, f"NC_NN1_DOWN_* resolved to a delta-z>0 neighbour"
+                assert dz < 0, "NC_NN1_DOWN_* resolved to a delta-z>0 neighbour"
     finally:
         liblat.pylatkmc_test_free_lattice(lat)
 
@@ -365,7 +386,7 @@ def test_full_bulk_site_has_all_12_1nn_codes(liblat) -> None:
     """A site with full 1NN coordination (12 neighbours) should have all 12
     1NN codes resolved (4 in-plane + 4 cross-layer-up + 4 cross-layer-down)."""
     nn_d = 2.5
-    nx, ny, nz = 4, 4, 5      # 5 layers — middle layer (k=2) is fully bulk-coordinated
+    nx, ny, nz = 4, 4, 5  # 5 layers — middle layer (k=2) is fully bulk-coordinated
     lat, n, _ = _make_lattice(liblat, nx, ny, nz, nn_d)
     try:
         liblat.lattice_build_coord_table(lat)
@@ -376,9 +397,7 @@ def test_full_bulk_site_has_all_12_1nn_codes(liblat) -> None:
         down_codes = (NC_NN1_DOWN_PP, NC_NN1_DOWN_PM, NC_NN1_DOWN_MP, NC_NN1_DOWN_MM)
 
         for nc in in_plane_codes + up_codes + down_codes:
-            assert _coord_at(lat, n, s, nc) >= 0, (
-                f"NC code {nc} unresolved at full-bulk site"
-            )
+            assert _coord_at(lat, n, s, nc) >= 0, f"NC code {nc} unresolved at full-bulk site"
     finally:
         liblat.pylatkmc_test_free_lattice(lat)
 
@@ -391,14 +410,12 @@ def test_no_two_codes_resolve_to_same_neighbour_for_bulk_site(liblat) -> None:
         liblat.lattice_build_coord_table(lat)
         s = 2 * 4 * 4 + 1 * 4 + 1  # bulk site
 
-        codes_1nn = list(range(NC_NN1_PX, NC_NN1_UP_MM + 1))   # 12 codes
+        codes_1nn = list(range(NC_NN1_PX, NC_NN1_UP_MM + 1))  # 12 codes
         seen = []
         for nc in codes_1nn:
             n_idx = _coord_at(lat, n, s, nc)
             if n_idx >= 0:
                 seen.append(n_idx)
-        assert len(seen) == len(set(seen)), (
-            f"duplicate neighbours across codes: {seen}"
-        )
+        assert len(seen) == len(set(seen)), f"duplicate neighbours across codes: {seen}"
     finally:
         liblat.pylatkmc_test_free_lattice(lat)

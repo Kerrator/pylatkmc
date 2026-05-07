@@ -12,6 +12,7 @@ companion `proclist.h`) bundling the Process catalogue, rate table,
 apply functions, and decision tree. The rate cube and .kmcrt format
 that earlier versions used are retired.
 """
+
 from __future__ import annotations
 
 from pylatkmc.codegen import generate

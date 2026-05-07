@@ -17,6 +17,7 @@ Usage:
         --xyz /path/to/initial_config.xyz \\
         --out /path/to/config.kmcinit
 """
+
 from __future__ import annotations
 
 import argparse
@@ -38,14 +39,11 @@ from build_initial_config import (
     DF_110_INPLANE,
     DF_111_INTERLAYER,
     DF_UNRESOLVED,
-    SC_BULK_LIKE,
-    SC_SUBSURFACE,
-    SC_SURFACE,
     SPECIES_ID,
     build_fcc100_slab,
     compute_neighbors_with_pbc,
 )
-from kmcfmt import INITCONFIG_MAGIC, write_header
+from kmcfmt import INITCONFIG_MAGIC
 
 LATTICE_RE = re.compile(r'Lattice="([^"]+)"')
 
@@ -78,8 +76,9 @@ def parse_xyz(xyz_path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return positions, species, cell
 
 
-def infer_slab_shape(cell: np.ndarray, positions: np.ndarray,
-                      nn_dist: float) -> tuple[int, int, int, float]:
+def infer_slab_shape(
+    cell: np.ndarray, positions: np.ndarray, nn_dist: float
+) -> tuple[int, int, int, float]:
     """Infer (nx, ny, nz, vacuum_layers) for an FCC(100) slab.
 
     nx, ny derived from the cell extent in xy (assuming nn_dist spacing
@@ -100,11 +99,14 @@ def infer_slab_shape(cell: np.ndarray, positions: np.ndarray,
     return nx, ny, nz, vacuum_layers
 
 
-def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
-                  primary_element: str = "Ni",
-                  cutoff_nn1: float = 1.10,
-                  cutoff_nn2: float = 1.45,
-                  n_adatom_layers: int = 0) -> dict:
+def build_kmcinit(
+    xyz_path: Path,
+    kmcinit_path: Path,
+    primary_element: str = "Ni",
+    cutoff_nn1: float = 1.10,
+    cutoff_nn2: float = 1.45,
+    n_adatom_layers: int = 0,
+) -> dict:
     positions_pykmc, species_pykmc, cell_pykmc = parse_xyz(xyz_path)
     a = A_LATTICE[primary_element]
     nn_dist = a / np.sqrt(2.0)
@@ -116,7 +118,10 @@ def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
     # n_adatom_layers > 0 adds extra empty layers above the top atom layer,
     # giving exchange-up events landing positions for adatoms.
     full_positions, layer_index, site_class, cell_pred = build_fcc100_slab(
-        nx, ny, nz, nn_dist,
+        nx,
+        ny,
+        nz,
+        nn_dist,
         vacuum_layers=vacuum_layers,
         n_adatom_layers=n_adatom_layers,
     )
@@ -126,11 +131,14 @@ def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
     # for the atom-occupied region. The adatom layers extend the cell in z;
     # we need to override the cell_z to match cell_pred (which already
     # accounts for n_adatom_layers + vacuum).
-    cell = np.array([
-        float(cell_pykmc[0]),
-        float(cell_pykmc[1]),
-        float(cell_pred[2]),
-    ], dtype=np.float32)
+    cell = np.array(
+        [
+            float(cell_pykmc[0]),
+            float(cell_pykmc[1]),
+            float(cell_pred[2]),
+        ],
+        dtype=np.float32,
+    )
 
     # Match pyKMC atoms to grid sites (tolerance: 10% of nn_dist).
     tol = 0.10 * nn_dist
@@ -198,7 +206,8 @@ def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
             for axis, lc in zip([0, 1, 2], cell):
                 if abs([dx, dy, dz][axis]) > 0.5 * lc:
                     delta = (dx, dy, dz)
-                    delta = list(delta); delta[axis] -= np.sign(delta[axis]) * lc
+                    delta = list(delta)
+                    delta[axis] -= np.sign(delta[axis]) * lc
                     dx, dy, dz = delta
             if abs(dz) < 0.1 * nn_dist:
                 # in-plane 1NN
@@ -214,7 +223,8 @@ def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
             dx, dy, dz = full_positions[n] - full_positions[s]
             for axis, lc in zip([0, 1, 2], cell):
                 if abs([dx, dy, dz][axis]) > 0.5 * lc:
-                    delta = list((dx, dy, dz)); delta[axis] -= np.sign(delta[axis]) * lc
+                    delta = list((dx, dy, dz))
+                    delta[axis] -= np.sign(delta[axis]) * lc
                     dx, dy, dz = delta
             if abs(dz) < 0.1 * nn_dist:
                 nn2_dir_family[slot] = DF_100_INPLANE
@@ -227,9 +237,9 @@ def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
     header = {
         "version": 1,
         "n_sites": n_sites_full,
-        "n_layers": nz + n_adatom_layers,    # total layers in the lattice grid
-        "n_atom_layers": nz,                  # initially atom-occupied
-        "n_adatom_layers": n_adatom_layers,   # initially vacant, above top atom layer
+        "n_layers": nz + n_adatom_layers,  # total layers in the lattice grid
+        "n_atom_layers": nz,  # initially atom-occupied
+        "n_adatom_layers": n_adatom_layers,  # initially vacant, above top atom layer
         "cell": [float(x) for x in cell],
         "nn_dist": nn_dist,
         "nn1_count": M1,
@@ -252,17 +262,17 @@ def build_kmcinit(xyz_path: Path, kmcinit_path: Path,
         f.write(struct.pack("<I", len(header_bytes)))
         f.write(header_bytes)
         # Payload: u32 payload_version, then arrays in initconfig.c's order
-        f.write(struct.pack("<I", 1))                              # payload_version
-        f.write(full_positions.astype(np.float32).tobytes())       # f32[N*3]
-        f.write(nn1_offsets.tobytes())                             # i32[N+1]
-        f.write(nn1_indices.tobytes())                             # i32[M1]
-        f.write(nn2_offsets.tobytes())                             # i32[N+1]
-        f.write(nn2_indices.tobytes())                             # i32[M2]
-        f.write(layer_index.astype(np.int8).tobytes())             # i8[N]
-        f.write(site_class.astype(np.uint8).tobytes())             # u8[N]
-        f.write(initial_species.tobytes())                         # u8[N]
-        f.write(nn1_dir_family.tobytes())                          # u8[M1]
-        f.write(nn2_dir_family.tobytes())                          # u8[M2]
+        f.write(struct.pack("<I", 1))  # payload_version
+        f.write(full_positions.astype(np.float32).tobytes())  # f32[N*3]
+        f.write(nn1_offsets.tobytes())  # i32[N+1]
+        f.write(nn1_indices.tobytes())  # i32[M1]
+        f.write(nn2_offsets.tobytes())  # i32[N+1]
+        f.write(nn2_indices.tobytes())  # i32[M2]
+        f.write(layer_index.astype(np.int8).tobytes())  # i8[N]
+        f.write(site_class.astype(np.uint8).tobytes())  # u8[N]
+        f.write(initial_species.tobytes())  # u8[N]
+        f.write(nn1_dir_family.tobytes())  # u8[M1]
+        f.write(nn2_dir_family.tobytes())  # u8[M2]
 
     return header
 
@@ -272,16 +282,23 @@ def main() -> int:
     ap.add_argument("--xyz", type=Path, required=True, help="pyKMC initial_config.xyz")
     ap.add_argument("--out", type=Path, required=True, help="output .kmcinit")
     ap.add_argument("--element", default="Ni", choices=list(SPECIES_ID))
-    ap.add_argument("--n-adatom-layers", type=int, default=0,
-                    help="Add this many empty FCC(100) layers above the top atom "
-                         "layer to give exchange-up events landing positions. "
-                         "Recommended: 3 to support adatom create/destroy cycles.")
+    ap.add_argument(
+        "--n-adatom-layers",
+        type=int,
+        default=0,
+        help="Add this many empty FCC(100) layers above the top atom "
+        "layer to give exchange-up events landing positions. "
+        "Recommended: 3 to support adatom create/destroy cycles.",
+    )
     args = ap.parse_args()
-    h = build_kmcinit(args.xyz, args.out, primary_element=args.element,
-                      n_adatom_layers=args.n_adatom_layers)
+    h = build_kmcinit(
+        args.xyz, args.out, primary_element=args.element, n_adatom_layers=args.n_adatom_layers
+    )
     print(f"wrote {args.out}")
-    print(f"  n_sites={h['n_sites']}, n_vacancies={h['n_vacancies']}, "
-          f"layout={h['nx']}x{h['ny']}x{h['nz']}")
+    print(
+        f"  n_sites={h['n_sites']}, n_vacancies={h['n_vacancies']}, "
+        f"layout={h['nx']}x{h['ny']}x{h['nz']}"
+    )
     print(f"  nn1_count={h['nn1_count']}, nn2_count={h['nn2_count']}")
     return 0
 

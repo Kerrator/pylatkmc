@@ -4,6 +4,7 @@ Adds the repo root to sys.path so `from pylatkmc import ...` resolves
 without needing an editable install. The package stays installable via
 `pip install -e .` for users who prefer that.
 """
+
 from __future__ import annotations
 
 import sys

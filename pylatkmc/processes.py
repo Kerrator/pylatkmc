@@ -57,7 +57,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-
 _FROZEN = ConfigDict(frozen=True, str_strip_whitespace=True)
 
 
@@ -67,15 +66,32 @@ _FROZEN = ConfigDict(frozen=True, str_strip_whitespace=True)
 NEIGHBOUR_CODES: tuple[str, ...] = (
     "NC_ANCHOR",
     # In-plane axial 1NN
-    "NC_NN1_PX", "NC_NN1_MX", "NC_NN1_PY", "NC_NN1_MY",
+    "NC_NN1_PX",
+    "NC_NN1_MX",
+    "NC_NN1_PY",
+    "NC_NN1_MY",
     # Cross-layer 1NN going DOWN
-    "NC_NN1_DOWN_PP", "NC_NN1_DOWN_PM", "NC_NN1_DOWN_MP", "NC_NN1_DOWN_MM",
+    "NC_NN1_DOWN_PP",
+    "NC_NN1_DOWN_PM",
+    "NC_NN1_DOWN_MP",
+    "NC_NN1_DOWN_MM",
     # Cross-layer 1NN going UP
-    "NC_NN1_UP_PP",   "NC_NN1_UP_PM",   "NC_NN1_UP_MP",   "NC_NN1_UP_MM",
+    "NC_NN1_UP_PP",
+    "NC_NN1_UP_PM",
+    "NC_NN1_UP_MP",
+    "NC_NN1_UP_MM",
     # In-plane diagonal 2NN
-    "NC_NN2_DIAG_PP", "NC_NN2_DIAG_PM", "NC_NN2_DIAG_MP", "NC_NN2_DIAG_MM",
+    "NC_NN2_DIAG_PP",
+    "NC_NN2_DIAG_PM",
+    "NC_NN2_DIAG_MP",
+    "NC_NN2_DIAG_MM",
     # Axial 2NN
-    "NC_NN2_PX", "NC_NN2_MX", "NC_NN2_PY", "NC_NN2_MY", "NC_NN2_PZ", "NC_NN2_MZ",
+    "NC_NN2_PX",
+    "NC_NN2_MX",
+    "NC_NN2_PY",
+    "NC_NN2_MY",
+    "NC_NN2_PZ",
+    "NC_NN2_MZ",
 )
 _NEIGHBOUR_CODE_SET = frozenset(NEIGHBOUR_CODES)
 
@@ -114,8 +130,7 @@ class CoordOffset(BaseModel):
     def _check_known(cls, v: str) -> str:
         if v not in _NEIGHBOUR_CODE_SET:
             raise ValueError(
-                f"unknown NeighbourCode {v!r}; valid codes are: "
-                f"{sorted(NEIGHBOUR_CODES)}"
+                f"unknown NeighbourCode {v!r}; valid codes are: {sorted(NEIGHBOUR_CODES)}"
             )
         return v
 
@@ -158,7 +173,7 @@ class Action(BaseModel):
     after: str = Field(..., min_length=1)
 
     @model_validator(mode="after")
-    def _check_state_change(self) -> "Action":
+    def _check_state_change(self) -> Action:
         if self.before == self.after:
             raise ValueError(
                 f"Action at {self.coord} has before == after == "
@@ -295,14 +310,12 @@ class Process(BaseModel):
     bystanders: tuple[Bystander, ...] = ()
 
     @model_validator(mode="after")
-    def _validate_action_before_matches_conditions(self) -> "Process":
+    def _validate_action_before_matches_conditions(self) -> Process:
         """Each Action's `before` should match a Condition's species at
         the same coord, OR the Action's coord must NOT have a matching
         Condition (in which case `before` is the implicit
         precondition the runtime will check at apply time)."""
-        cond_by_coord: dict[CoordOffset, str] = {
-            c.coord: c.species for c in self.conditions
-        }
+        cond_by_coord: dict[CoordOffset, str] = {c.coord: c.species for c in self.conditions}
         for a in self.actions:
             if a.coord in cond_by_coord:
                 expected = cond_by_coord[a.coord]
@@ -316,7 +329,7 @@ class Process(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _validate_bystander_no_overlap_with_conditions(self) -> "Process":
+    def _validate_bystander_no_overlap_with_conditions(self) -> Process:
         """A coord cannot be both a Condition and a Bystander."""
         cond_coords = {c.coord for c in self.conditions}
         for b in self.bystanders:
@@ -328,7 +341,7 @@ class Process(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _validate_shell_condition_no_overlap_with_bystanders(self) -> "Process":
+    def _validate_shell_condition_no_overlap_with_bystanders(self) -> Process:
         """A (coord, shell) pair must not appear in both ShellConditions
         and Bystanders — they answer overlapping but conflicting
         questions about the same shell. ShellCondition gates firing
@@ -347,11 +360,9 @@ class Process(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def _validate_Ea_finite(self) -> "Process":
+    def _validate_Ea_finite(self) -> Process:
         if not (self.Ea_eV >= 0):
-            raise ValueError(
-                f"Process {self.name!r}: Ea_eV must be non-negative; got {self.Ea_eV}"
-            )
+            raise ValueError(f"Process {self.name!r}: Ea_eV must be non-negative; got {self.Ea_eV}")
         return self
 
 

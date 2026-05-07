@@ -15,10 +15,10 @@ from pylatkmc.processes import (
     Process,
 )
 
-
 # ---------------------------------------------------------------------------
 # CoordOffset
 # ---------------------------------------------------------------------------
+
 
 def test_coord_offset_basic() -> None:
     c = CoordOffset(code="NC_NN1_PX")
@@ -29,7 +29,7 @@ def test_coord_offset_basic() -> None:
 def test_coord_offset_anchor_is_valid() -> None:
     c = CoordOffset(code="NC_ANCHOR")
     assert c.code == "NC_ANCHOR"
-    assert ANCHOR_COORD == c
+    assert c == ANCHOR_COORD
 
 
 def test_coord_offset_is_frozen() -> None:
@@ -65,6 +65,7 @@ def test_coord_offset_all_known_codes_validate() -> None:
 # Condition
 # ---------------------------------------------------------------------------
 
+
 def test_condition_basic() -> None:
     c = Condition(coord=CoordOffset(code="NC_NN1_PX"), species="Vacant")
     assert c.species == "Vacant"
@@ -84,6 +85,7 @@ def test_condition_strips_species_whitespace() -> None:
 # Action
 # ---------------------------------------------------------------------------
 
+
 def test_action_basic() -> None:
     a = Action(coord=ANCHOR_COORD, before="Vacant", after="Ni")
     assert a.before == "Vacant" and a.after == "Ni"
@@ -98,6 +100,7 @@ def test_action_rejects_no_op() -> None:
 # ---------------------------------------------------------------------------
 # Bystander
 # ---------------------------------------------------------------------------
+
 
 def test_bystander_basic() -> None:
     b = Bystander(
@@ -174,7 +177,7 @@ def test_process_triple_hop_three_actions() -> None:
         actions=(
             # The vacancy "moves" two sites; intermediate atom stays put.
             Action(coord=ANCHOR, before="Vacant", after="Ni"),
-            Action(coord=NN2_PX, before="Ni",     after="Vacant"),
+            Action(coord=NN2_PX, before="Ni", after="Vacant"),
         ),
     )
     assert len(p.actions) == 2  # the row's middle atom doesn't change species
@@ -209,6 +212,7 @@ def test_process_with_bystanders() -> None:
 # ---------------------------------------------------------------------------
 # Process — validation rules
 # ---------------------------------------------------------------------------
+
 
 def test_process_rejects_empty_actions() -> None:
     with pytest.raises(ValidationError):
@@ -265,9 +269,7 @@ def test_process_rejects_coord_in_both_conditions_and_bystanders() -> None:
             rate_constant=1e13,
             conditions=(Condition(coord=NN1_PX, species="Ni"),),
             actions=(Action(coord=NN1_PX, before="Ni", after="Vacant"),),
-            bystanders=(
-                Bystander(coord=NN1_PX, allowed_species=("Fe",), flag="1nn"),
-            ),
+            bystanders=(Bystander(coord=NN1_PX, allowed_species=("Fe",), flag="1nn"),),
         )
 
 
@@ -343,7 +345,9 @@ def test_shell_condition_negative_count_rejected() -> None:
     with pytest.raises(ValidationError):
         ShellCondition(
             coord=CoordOffset(code="NC_NN1_PX"),
-            shell="1nn", species="Vacant", count=-1,
+            shell="1nn",
+            species="Vacant",
+            count=-1,
         )
 
 
@@ -353,7 +357,8 @@ def test_shell_condition_unknown_shell_rejected() -> None:
         ShellCondition(
             coord=CoordOffset(code="NC_NN1_PX"),
             shell="3nn",  # type: ignore[arg-type]
-            species="Vacant", count=4,
+            species="Vacant",
+            count=4,
         )
 
 
@@ -361,11 +366,15 @@ def test_shell_condition_is_hashable() -> None:
     """Required for set-based deduplication in codegen."""
     sc1 = ShellCondition(
         coord=CoordOffset(code="NC_NN1_PX"),
-        shell="1nn", species="Vacant", count=4,
+        shell="1nn",
+        species="Vacant",
+        count=4,
     )
     sc2 = ShellCondition(
         coord=CoordOffset(code="NC_NN1_PX"),
-        shell="1nn", species="Vacant", count=4,
+        shell="1nn",
+        species="Vacant",
+        count=4,
     )
     assert sc1 == sc2
     assert hash(sc1) == hash(sc2)
@@ -379,7 +388,9 @@ def test_process_with_shell_conditions() -> None:
 
     sc = ShellCondition(
         coord=CoordOffset(code="NC_NN1_PX"),
-        shell="1nn", species="Vacant", count=4,
+        shell="1nn",
+        species="Vacant",
+        count=4,
     )
     p_gated = Process(
         name="hop_nv1_4",
@@ -392,8 +403,7 @@ def test_process_with_shell_conditions() -> None:
         ),
         actions=(
             Action(coord=ANCHOR_COORD, before="Vacant", after="Ni"),
-            Action(coord=CoordOffset(code="NC_NN1_PX"),
-                   before="Ni", after="Vacant"),
+            Action(coord=CoordOffset(code="NC_NN1_PX"), before="Ni", after="Vacant"),
         ),
         shell_conditions=(sc,),
     )
@@ -411,7 +421,9 @@ def test_process_rejects_shell_condition_overlap_with_bystander() -> None:
     with pytest.raises(ValidationError):
         Process(
             name="overlap",
-            family_id="x", Ea_eV=0.5, rate_constant=1.0,
+            family_id="x",
+            Ea_eV=0.5,
+            rate_constant=1.0,
             conditions=(Condition(coord=ANCHOR_COORD, species="Vacant"),),
             actions=(Action(coord=ANCHOR_COORD, before="Vacant", after="Ni"),),
             shell_conditions=(sc,),
@@ -423,11 +435,15 @@ def test_process_with_shell_conditions_serialises() -> None:
     """ShellConditions round-trip through JSON for golden-file tests."""
     sc = ShellCondition(
         coord=CoordOffset(code="NC_NN1_PX"),
-        shell="2nn", species="Vacant", count=1,
+        shell="2nn",
+        species="Vacant",
+        count=1,
     )
     p = Process(
         name="hop_with_sc",
-        family_id="x", Ea_eV=0.5, rate_constant=1.0,
+        family_id="x",
+        Ea_eV=0.5,
+        rate_constant=1.0,
         conditions=(Condition(coord=ANCHOR_COORD, species="Vacant"),),
         actions=(Action(coord=ANCHOR_COORD, before="Vacant", after="Ni"),),
         shell_conditions=(sc,),

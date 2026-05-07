@@ -8,6 +8,7 @@ Usage:
     pylatkmc-gen processes <spec.kmcspec.toml>  # translate catalogue → Processes (read-only summary)
     pylatkmc-gen clean <spec.kmcspec.toml>      # rm -rf generated/
 """
+
 from __future__ import annotations
 
 import argparse
@@ -71,8 +72,7 @@ def cmd_processes(args: argparse.Namespace) -> int:
         family_csv = (spec_path.parent / family_csv).resolve()
 
     if not family_csv.exists():
-        print(f"pylatkmc-gen processes: family rate table not found: {family_csv}",
-              file=sys.stderr)
+        print(f"pylatkmc-gen processes: family rate table not found: {family_csv}", file=sys.stderr)
         return 1
 
     rows = load_family_rate_table(family_csv)
@@ -104,8 +104,10 @@ def cmd_processes(args: argparse.Namespace) -> int:
             print(f"  {f}")
 
     if scatter_warnings:
-        print(f"\nWARNING: {len(scatter_warnings)} wide-Ea-scatter buckets "
-              f"(per-bucket-mean rate may be unreliable):")
+        print(
+            f"\nWARNING: {len(scatter_warnings)} wide-Ea-scatter buckets "
+            f"(per-bucket-mean rate may be unreliable):"
+        )
         for w in scatter_warnings[:10]:
             print(f"  {w}")
         if len(scatter_warnings) > 10:
@@ -145,9 +147,11 @@ def _make_parser() -> argparse.ArgumentParser:
         help="Translate the curated catalogue into pattern-DB Processes and print a summary",
     )
     p_proc.add_argument("spec", help="Path to .kmcspec.toml")
-    p_proc.add_argument("--family-csv", default=None,
-                        help="Path to rate_lookup_table_family.csv "
-                             "(default: spec's rate_data.family_table)")
+    p_proc.add_argument(
+        "--family-csv",
+        default=None,
+        help="Path to rate_lookup_table_family.csv (default: spec's rate_data.family_table)",
+    )
     p_proc.set_defaults(func=cmd_processes)
 
     p_clean = sub.add_parser("clean", help="Remove <spec_dir>/generated/")

@@ -15,6 +15,7 @@ slow the vacancy when Cr/Fe neighbors are present.
 Usage:
     python tools/compare_species_aware.py --model ni_fe_cr_v1 --temperatures 300 500 700
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,31 +35,52 @@ A_NI = 3.524
 NN_DIST = A_NI / np.sqrt(2.0)
 
 COMPOSITIONS: dict[str, str] = {
-    "100Ni":       "Ni100",
-    "95Ni_5Cr":    "Ni95_Cr5",
-    "95Ni_5Fe":    "Ni95_Fe5",
-    "90Ni_10Cr":   "Ni90_Cr10",
-    "90Ni_10Fe":   "Ni90_Fe10",
+    "100Ni": "Ni100",
+    "95Ni_5Cr": "Ni95_Cr5",
+    "95Ni_5Fe": "Ni95_Fe5",
+    "90Ni_10Cr": "Ni90_Cr10",
+    "90Ni_10Fe": "Ni90_Fe10",
 }
 
 
-def build_kmcinit(tmp: Path, nx: int, ny: int, nz: int, n_vac: int,
-                  composition: str, seed: int) -> Path:
+def build_kmcinit(
+    tmp: Path, nx: int, ny: int, nz: int, n_vac: int, composition: str, seed: int
+) -> Path:
     out = tmp / "config.kmcinit"
-    subprocess.check_call([
-        sys.executable, str(PYLATKMC_ROOT / "tools" / "build_initial_config.py"),
-        "--nx", str(nx), "--ny", str(ny), "--nz", str(nz),
-        "--composition", composition,
-        "--n-vacancies", str(n_vac),
-        "--seed", str(seed),
-        "-o", str(out),
-    ], stdout=subprocess.DEVNULL)
+    subprocess.check_call(
+        [
+            sys.executable,
+            str(PYLATKMC_ROOT / "tools" / "build_initial_config.py"),
+            "--nx",
+            str(nx),
+            "--ny",
+            str(ny),
+            "--nz",
+            str(nz),
+            "--composition",
+            composition,
+            "--n-vacancies",
+            str(n_vac),
+            "--seed",
+            str(seed),
+            "-o",
+            str(out),
+        ],
+        stdout=subprocess.DEVNULL,
+    )
     return out
 
 
-def run_pylatkmc(tmp: Path, model: str, ratetable: Path, initconfig: Path,
-                temperature_K: float, steps: int, replicas: int,
-                base_seed: int) -> dict:
+def run_pylatkmc(
+    tmp: Path,
+    model: str,
+    ratetable: Path,
+    initconfig: Path,
+    temperature_K: float,
+    steps: int,
+    replicas: int,
+    base_seed: int,
+) -> dict:
     input_ini = tmp / "input.ini"
     input_ini.write_text(f"""\
 [run]
@@ -82,10 +104,19 @@ rng_replay_path =
     binary = PYLATKMC_ROOT / "build" / f"pylatkmc_{model}"
     env = os.environ.copy()
     env["PATH"] = OPENMPI_BIN + ":" + env.get("PATH", "")
-    subprocess.check_call([
-        f"{OPENMPI_BIN}/mpirun", "--oversubscribe", "-n", str(replicas),
-        str(binary), str(input_ini),
-    ], cwd=str(tmp), env=env, stdout=subprocess.DEVNULL)
+    subprocess.check_call(
+        [
+            f"{OPENMPI_BIN}/mpirun",
+            "--oversubscribe",
+            "-n",
+            str(replicas),
+            str(binary),
+            str(input_ini),
+        ],
+        cwd=str(tmp),
+        env=env,
+        stdout=subprocess.DEVNULL,
+    )
     return json.loads((tmp / "output" / "aggregate_summary.json").read_text())
 
 
@@ -111,20 +142,20 @@ def print_row(row: dict) -> None:
     T = row["T_K"]
     top_motif = max(row["motifs"].items(), key=lambda kv: kv[1])[0] if row["motifs"] else "-"
     top_pct = 100 * row["motifs"].get(top_motif, 0) / max(1, row["n_events"])
-    print(f"  {tag:<10}  T={T:>5.0f}K  "
-          f"t={row['mean_time_s']:>10.3e}s  "
-          f"MSD={row['mean_msd_A2']:>10.3e}Å²  "
-          f"D={row['D_A2_per_s']:>10.3e}Å²/s  "
-          f"top_motif={top_motif:<25}({top_pct:>5.1f}%)")
+    print(
+        f"  {tag:<10}  T={T:>5.0f}K  "
+        f"t={row['mean_time_s']:>10.3e}s  "
+        f"MSD={row['mean_msd_A2']:>10.3e}Å²  "
+        f"D={row['D_A2_per_s']:>10.3e}Å²/s  "
+        f"top_motif={top_motif:<25}({top_pct:>5.1f}%)"
+    )
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--model", default="ni_fe_cr_v1")
-    ap.add_argument("--compositions", nargs="+",
-                    default=["100Ni", "95Ni_5Cr", "95Ni_5Fe"])
-    ap.add_argument("--temperatures", nargs="+", type=float,
-                    default=[300, 500, 700, 1000])
+    ap.add_argument("--compositions", nargs="+", default=["100Ni", "95Ni_5Cr", "95Ni_5Fe"])
+    ap.add_argument("--temperatures", nargs="+", type=float, default=[300, 500, 700, 1000])
     ap.add_argument("--nx", type=int, default=22)
     ap.add_argument("--ny", type=int, default=22)
     ap.add_argument("--nz", type=int, default=20)
@@ -132,8 +163,13 @@ def main() -> int:
     ap.add_argument("--n-replicas", type=int, default=4)
     ap.add_argument("--steps", type=int, default=100_000)
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("-o", "--out-json", type=Path, default=None,
-                    help="Optional path to write the full result table as JSON")
+    ap.add_argument(
+        "-o",
+        "--out-json",
+        type=Path,
+        default=None,
+        help="Optional path to write the full result table as JSON",
+    )
     args = ap.parse_args()
 
     # Sanity check
@@ -141,8 +177,7 @@ def main() -> int:
         if comp not in COMPOSITIONS:
             sys.exit(f"unknown composition {comp!r}; known: {sorted(COMPOSITIONS)}")
 
-    ratetable = (PYLATKMC_ROOT / "models" / args.model / "examples"
-                 / f"{args.model}.kmcrt")
+    ratetable = PYLATKMC_ROOT / "models" / args.model / "examples" / f"{args.model}.kmcrt"
     if not ratetable.is_file():
         sys.exit(f"error: {ratetable} not found; run `pylatkmc-gen rate ...` first")
     binary = PYLATKMC_ROOT / "build" / f"pylatkmc_{args.model}"
@@ -150,9 +185,11 @@ def main() -> int:
         sys.exit(f"error: {binary} not found; run `cmake --build build` first")
 
     print(f"Grid: compositions={args.compositions}  Ts={args.temperatures}")
-    print(f"Slab: {args.nx}×{args.ny}×{args.nz} = "
-          f"{args.nx*args.ny*args.nz} sites, n_vac={args.n_vacancies}, "
-          f"{args.n_replicas} replicas × {args.steps} steps")
+    print(
+        f"Slab: {args.nx}×{args.ny}×{args.nz} = "
+        f"{args.nx * args.ny * args.nz} sites, n_vac={args.n_vacancies}, "
+        f"{args.n_replicas} replicas × {args.steps} steps"
+    )
     print()
 
     all_rows: list[dict] = []
@@ -161,12 +198,23 @@ def main() -> int:
             with tempfile.TemporaryDirectory(prefix="pylatkmc_spec_") as tmp_str:
                 tmp = Path(tmp_str)
                 initconfig = build_kmcinit(
-                    tmp, args.nx, args.ny, args.nz, args.n_vacancies,
-                    COMPOSITIONS[comp], args.seed,
+                    tmp,
+                    args.nx,
+                    args.ny,
+                    args.nz,
+                    args.n_vacancies,
+                    COMPOSITIONS[comp],
+                    args.seed,
                 )
                 agg = run_pylatkmc(
-                    tmp, args.model, ratetable, initconfig,
-                    T, args.steps, args.n_replicas, args.seed,
+                    tmp,
+                    args.model,
+                    ratetable,
+                    initconfig,
+                    T,
+                    args.steps,
+                    args.n_replicas,
+                    args.seed,
                 )
             row = summarize(comp, T, agg)
             all_rows.append(row)
@@ -178,17 +226,16 @@ def main() -> int:
     baseline = "100Ni"
     if baseline in args.compositions:
         for T in args.temperatures:
-            base = next(r for r in all_rows
-                        if r["tag"] == baseline and r["T_K"] == T)
+            base = next(r for r in all_rows if r["tag"] == baseline and r["T_K"] == T)
             print(f"  T={T:>5.0f}K:  ", end="")
             parts: list[str] = []
             for comp in args.compositions:
                 if comp == baseline:
                     continue
-                r = next(rr for rr in all_rows
-                         if rr["tag"] == comp and rr["T_K"] == T)
-                ratio = (base["D_A2_per_s"] / r["D_A2_per_s"]
-                         if r["D_A2_per_s"] > 0 else float("nan"))
+                r = next(rr for rr in all_rows if rr["tag"] == comp and rr["T_K"] == T)
+                ratio = (
+                    base["D_A2_per_s"] / r["D_A2_per_s"] if r["D_A2_per_s"] > 0 else float("nan")
+                )
                 parts.append(f"{comp}: {ratio:.2f}×")
             print("  ".join(parts))
 

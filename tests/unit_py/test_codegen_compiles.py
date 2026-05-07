@@ -4,6 +4,7 @@ Skipped if the system doesn't have cmake or an MPI C compiler available.
 This is the gate that catches template bugs that produce syntactically
 invalid C — the pure-Python test_codegen.py misses those.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -43,9 +44,18 @@ def built_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
     # 3. Configure.
     cfg = subprocess.run(
-        ["cmake", "-B", str(build_dir), "-S", str(REPO_ROOT),
-         f"-DMODEL={spec.name}", "-DREQUIRE_GENERATED=ON"],
-        capture_output=True, text=True, check=False,
+        [
+            "cmake",
+            "-B",
+            str(build_dir),
+            "-S",
+            str(REPO_ROOT),
+            f"-DMODEL={spec.name}",
+            "-DREQUIRE_GENERATED=ON",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if cfg.returncode != 0:
         if "Could NOT find MPI" in cfg.stderr or "MPI" in cfg.stderr:
@@ -58,7 +68,9 @@ def built_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
     # 4. Build.
     bld = subprocess.run(
         ["cmake", "--build", str(build_dir), "-j", "4"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if bld.returncode != 0:
         raise AssertionError(
@@ -74,6 +86,7 @@ def built_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def test_generated_sources_compile(built_binary: Path) -> None:
     """Sanity: binary exists and is executable."""
     import os
+
     assert os.access(built_binary, os.X_OK), f"{built_binary} is not executable"
 
 

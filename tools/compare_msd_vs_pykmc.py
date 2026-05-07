@@ -15,6 +15,7 @@ Usage:
         --model ni_fe_cr_v1 \\
         --n-replicas 4 --steps 100000
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,9 +30,9 @@ from pathlib import Path
 import numpy as np
 
 PYLATKMC_ROOT = Path(__file__).resolve().parent.parent
-OPENMPI_BIN  = "/Users/stephenkerr/openmpi/bin"
+OPENMPI_BIN = "/Users/stephenkerr/openmpi/bin"
 
-A_NI = 3.524            # Ni lattice constant (used for all alloys)
+A_NI = 3.524  # Ni lattice constant (used for all alloys)
 NN_DIST = A_NI / np.sqrt(2.0)
 
 
@@ -60,7 +61,7 @@ def infer_slab_dims(pykmc_summary: dict, pykmc_dir: Path) -> tuple[int, int, int
     n_sites = n_atoms + n_vac
     nz = n_sites // (nx * ny)
     if nx * ny * nz != n_sites:
-        sys.exit(f"error: nx*ny*nz ({nx}*{ny}*{nz}={nx*ny*nz}) != n_sites ({n_sites})")
+        sys.exit(f"error: nx*ny*nz ({nx}*{ny}*{nz}={nx * ny * nz}) != n_sites ({n_sites})")
     return nx, ny, nz
 
 
@@ -81,7 +82,7 @@ def composition_from_summary(summary: dict) -> str:
             continue
         name = m.group(1)
         if name not in KNOWN:
-            break   # stop — we've left the element-fraction prefix
+            break  # stop — we've left the element-fraction prefix
         pairs.append((name, int(m.group(2))))
         if len(pairs) >= 3:
             break
@@ -92,23 +93,44 @@ def composition_from_summary(summary: dict) -> str:
     return "_".join(f"{n}{p}" for n, p in pairs)
 
 
-def build_kmcinit(tmp: Path, nx: int, ny: int, nz: int, n_vac: int,
-                  composition: str, seed: int) -> Path:
+def build_kmcinit(
+    tmp: Path, nx: int, ny: int, nz: int, n_vac: int, composition: str, seed: int
+) -> Path:
     out = tmp / "config.kmcinit"
-    subprocess.check_call([
-        sys.executable, str(PYLATKMC_ROOT / "tools" / "build_initial_config.py"),
-        "--nx", str(nx), "--ny", str(ny), "--nz", str(nz),
-        "--composition", composition,
-        "--n-vacancies", str(n_vac),
-        "--seed", str(seed),
-        "-o", str(out),
-    ], stdout=subprocess.DEVNULL)
+    subprocess.check_call(
+        [
+            sys.executable,
+            str(PYLATKMC_ROOT / "tools" / "build_initial_config.py"),
+            "--nx",
+            str(nx),
+            "--ny",
+            str(ny),
+            "--nz",
+            str(nz),
+            "--composition",
+            composition,
+            "--n-vacancies",
+            str(n_vac),
+            "--seed",
+            str(seed),
+            "-o",
+            str(out),
+        ],
+        stdout=subprocess.DEVNULL,
+    )
     return out
 
 
-def run_pylatkmc(tmp: Path, model: str, ratetable: Path, initconfig: Path,
-                temperature_K: float, steps: int, replicas: int,
-                base_seed: int = 42) -> dict:
+def run_pylatkmc(
+    tmp: Path,
+    model: str,
+    ratetable: Path,
+    initconfig: Path,
+    temperature_K: float,
+    steps: int,
+    replicas: int,
+    base_seed: int = 42,
+) -> dict:
     input_ini = tmp / "input.ini"
     input_ini.write_text(f"""\
 [run]
@@ -134,20 +156,31 @@ rng_replay_path =
         sys.exit(f"error: binary not found: {binary}; run `cmake --build build` first")
     env = os.environ.copy()
     env["PATH"] = OPENMPI_BIN + ":" + env.get("PATH", "")
-    subprocess.check_call([
-        f"{OPENMPI_BIN}/mpirun", "--oversubscribe", "-n", str(replicas),
-        str(binary), str(input_ini),
-    ], cwd=str(tmp), env=env, stdout=subprocess.DEVNULL)
+    subprocess.check_call(
+        [
+            f"{OPENMPI_BIN}/mpirun",
+            "--oversubscribe",
+            "-n",
+            str(replicas),
+            str(binary),
+            str(input_ini),
+        ],
+        cwd=str(tmp),
+        env=env,
+        stdout=subprocess.DEVNULL,
+    )
     agg_path = tmp / "output" / "aggregate_summary.json"
     return json.loads(agg_path.read_text())
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("pykmc_dir", type=Path,
-                    help="completed pyKMC run dir (has analysis/summary.json)")
-    ap.add_argument("--model", default="ni_fe_cr_v1",
-                    help="pylatkmc model name (matches models/<name>/)")
+    ap.add_argument(
+        "pykmc_dir", type=Path, help="completed pyKMC run dir (has analysis/summary.json)"
+    )
+    ap.add_argument(
+        "--model", default="ni_fe_cr_v1", help="pylatkmc model name (matches models/<name>/)"
+    )
     ap.add_argument("--n-replicas", type=int, default=4)
     ap.add_argument("--steps", type=int, default=100_000)
     ap.add_argument("--seed", type=int, default=42)
@@ -176,14 +209,16 @@ def main() -> int:
     # --- pylatkmc binary ---
     ratetable = PYLATKMC_ROOT / "models" / args.model / "examples" / f"{args.model}.kmcrt"
     if not ratetable.is_file():
-        sys.exit(f"error: {ratetable} not found; run `pylatkmc-gen rate models/{args.model}/{args.model}.kmcspec.toml` first")
+        sys.exit(
+            f"error: {ratetable} not found; run `pylatkmc-gen rate models/{args.model}/{args.model}.kmcspec.toml` first"
+        )
     with tempfile.TemporaryDirectory(prefix="pylatkmc_cmp_") as tmp_str:
         tmp = Path(tmp_str)
         initconfig = build_kmcinit(tmp, nx, ny, nz, n_vac, composition, args.seed)
-        print(f"[pylatkmc] model={args.model}, steps={args.steps}, "
-              f"replicas={args.n_replicas}")
-        agg = run_pylatkmc(tmp, args.model, ratetable, initconfig,
-                          T, args.steps, args.n_replicas, args.seed)
+        print(f"[pylatkmc] model={args.model}, steps={args.steps}, replicas={args.n_replicas}")
+        agg = run_pylatkmc(
+            tmp, args.model, ratetable, initconfig, T, args.steps, args.n_replicas, args.seed
+        )
 
     t_lk = agg["total_time_s_mean"]
     msd_lk = agg["mean_msd_A2_mean"]
@@ -195,10 +230,14 @@ def main() -> int:
     motif_sum = agg["motif_counts_sum"]
     total_evts = sum(motif_sum.values())
     if total_evts > 0:
-        print("         motifs: " + "  ".join(
-            f"{k.split('_', 1)[0][:7]}={v*100/total_evts:.1f}%"
-            for k, v in motif_sum.items() if v > 0
-        ))
+        print(
+            "         motifs: "
+            + "  ".join(
+                f"{k.split('_', 1)[0][:7]}={v * 100 / total_evts:.1f}%"
+                for k, v in motif_sum.items()
+                if v > 0
+            )
+        )
 
     print()
     print("=" * 70)
@@ -214,8 +253,7 @@ def main() -> int:
         dEa_eff = kT * float(np.log(ratio_final))
         direction = "LOWER" if dEa_eff > 0 else "HIGHER"
         print(
-            f"Effective Ea differs by {dEa_eff*1000:+.0f} meV "
-            f"(pylatkmc has {direction} barrier)."
+            f"Effective Ea differs by {dEa_eff * 1000:+.0f} meV (pylatkmc has {direction} barrier)."
         )
     return 0
 

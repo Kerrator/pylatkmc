@@ -54,14 +54,13 @@ from __future__ import annotations
 
 import csv
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Optional
 
 from .processes import (
     ANCHOR_COORD,
     Action,
-    Bystander,
     Condition,
     CoordOffset,
     Process,
@@ -86,7 +85,7 @@ class FamilyBucketRow:
     Ea_max_eV: float
 
     @classmethod
-    def from_csv_row(cls, row: dict[str, str]) -> "FamilyBucketRow":
+    def from_csv_row(cls, row: dict[str, str]) -> FamilyBucketRow:
         return cls(
             family_id=row["family_id"].strip(),
             family_bucket_id=row["family_bucket_id"].strip(),
@@ -204,6 +203,7 @@ def parse_bucket_key(bucket_id: str) -> dict[str, int]:
 # runtime/src/core/coord_codes.h for the canonical Cartesian deltas of
 # each code.
 
+
 def _co(code: str) -> CoordOffset:
     """Shorthand: build a CoordOffset from a NeighbourCode name."""
     return CoordOffset(code=code)
@@ -211,41 +211,61 @@ def _co(code: str) -> CoordOffset:
 
 # FCC(100) surface 1NN in-plane: 4 axial directions.
 SURFACE_1NN_INPLANE_DIRS: tuple[CoordOffset, ...] = (
-    _co("NC_NN1_PX"), _co("NC_NN1_MX"),
-    _co("NC_NN1_PY"), _co("NC_NN1_MY"),
+    _co("NC_NN1_PX"),
+    _co("NC_NN1_MX"),
+    _co("NC_NN1_PY"),
+    _co("NC_NN1_MY"),
 )
 
 # FCC bulk 1NN: 12 directions = 4 in-plane + 4 cross-layer-up + 4 cross-layer-down.
 BULK_1NN_DIRS: tuple[CoordOffset, ...] = (
     # In-plane (4)
-    _co("NC_NN1_PX"), _co("NC_NN1_MX"), _co("NC_NN1_PY"), _co("NC_NN1_MY"),
+    _co("NC_NN1_PX"),
+    _co("NC_NN1_MX"),
+    _co("NC_NN1_PY"),
+    _co("NC_NN1_MY"),
     # Cross-layer up (4)
-    _co("NC_NN1_UP_PP"),   _co("NC_NN1_UP_PM"),   _co("NC_NN1_UP_MP"),   _co("NC_NN1_UP_MM"),
+    _co("NC_NN1_UP_PP"),
+    _co("NC_NN1_UP_PM"),
+    _co("NC_NN1_UP_MP"),
+    _co("NC_NN1_UP_MM"),
     # Cross-layer down (4)
-    _co("NC_NN1_DOWN_PP"), _co("NC_NN1_DOWN_PM"), _co("NC_NN1_DOWN_MP"), _co("NC_NN1_DOWN_MM"),
+    _co("NC_NN1_DOWN_PP"),
+    _co("NC_NN1_DOWN_PM"),
+    _co("NC_NN1_DOWN_MP"),
+    _co("NC_NN1_DOWN_MM"),
 )
 
 # FCC(100) surface 2NN: 4 in-plane diagonals.
 SURFACE_2NN_DIRS: tuple[CoordOffset, ...] = (
-    _co("NC_NN2_DIAG_PP"), _co("NC_NN2_DIAG_PM"),
-    _co("NC_NN2_DIAG_MP"), _co("NC_NN2_DIAG_MM"),
+    _co("NC_NN2_DIAG_PP"),
+    _co("NC_NN2_DIAG_PM"),
+    _co("NC_NN2_DIAG_MP"),
+    _co("NC_NN2_DIAG_MM"),
 )
 
 # FCC bulk 2NN: 6 axial directions (±x, ±y, ±z).
 BULK_2NN_DIRS: tuple[CoordOffset, ...] = (
-    _co("NC_NN2_PX"), _co("NC_NN2_MX"),
-    _co("NC_NN2_PY"), _co("NC_NN2_MY"),
-    _co("NC_NN2_PZ"), _co("NC_NN2_MZ"),
+    _co("NC_NN2_PX"),
+    _co("NC_NN2_MX"),
+    _co("NC_NN2_PY"),
+    _co("NC_NN2_MY"),
+    _co("NC_NN2_PZ"),
+    _co("NC_NN2_MZ"),
 )
 
 # Cross-layer 1NN directions (used by interlayer-hop families).
 INTERLAYER_1NN_DIRS_UP: tuple[CoordOffset, ...] = (
-    _co("NC_NN1_UP_PP"), _co("NC_NN1_UP_PM"),
-    _co("NC_NN1_UP_MP"), _co("NC_NN1_UP_MM"),
+    _co("NC_NN1_UP_PP"),
+    _co("NC_NN1_UP_PM"),
+    _co("NC_NN1_UP_MP"),
+    _co("NC_NN1_UP_MM"),
 )
 INTERLAYER_1NN_DIRS_DOWN: tuple[CoordOffset, ...] = (
-    _co("NC_NN1_DOWN_PP"), _co("NC_NN1_DOWN_PM"),
-    _co("NC_NN1_DOWN_MP"), _co("NC_NN1_DOWN_MM"),
+    _co("NC_NN1_DOWN_PP"),
+    _co("NC_NN1_DOWN_PM"),
+    _co("NC_NN1_DOWN_MP"),
+    _co("NC_NN1_DOWN_MM"),
 )
 
 
@@ -253,7 +273,7 @@ INTERLAYER_1NN_DIRS_DOWN: tuple[CoordOffset, ...] = (
 # Process emission helpers
 # ---------------------------------------------------------------------------
 
-ANCHOR = ANCHOR_COORD   # re-exported for backwards compatibility
+ANCHOR = ANCHOR_COORD  # re-exported for backwards compatibility
 
 
 def _safe_name(*parts: str) -> str:
@@ -277,7 +297,8 @@ def _direction_label(d: CoordOffset) -> str:
 
 
 def _shell_conditions_from_bucket_key(
-    bucket_id: str, mover_coord: CoordOffset,
+    bucket_id: str,
+    mover_coord: CoordOffset,
 ) -> tuple:
     """Decode `nv1=k_nv2=m` → (ShellCondition(1nn,Vacant,k),
     ShellCondition(2nn,Vacant,m)).
@@ -312,13 +333,23 @@ def _shell_conditions_from_bucket_key(
     out: list = []
     for axis, count in parsed.items():
         if axis == "nv1":
-            out.append(ShellCondition(
-                coord=mover_coord, shell="1nn", species="Vacant", count=int(count),
-            ))
+            out.append(
+                ShellCondition(
+                    coord=mover_coord,
+                    shell="1nn",
+                    species="Vacant",
+                    count=int(count),
+                )
+            )
         elif axis == "nv2":
-            out.append(ShellCondition(
-                coord=mover_coord, shell="2nn", species="Vacant", count=int(count),
-            ))
+            out.append(
+                ShellCondition(
+                    coord=mover_coord,
+                    shell="2nn",
+                    species="Vacant",
+                    count=int(count),
+                )
+            )
         elif axis == "li":
             # Layer index — not a shell count. Skip in v0.3.
             continue
@@ -348,7 +379,8 @@ def _emit_simple_2action_hop(
     context. Pass False to recover v0.2 behaviour (no gating)."""
     shell_conds: tuple = (
         _shell_conditions_from_bucket_key(bucket_id, mover_coord=direction)
-        if emit_shell_gates else ()
+        if emit_shell_gates
+        else ()
     )
     return Process(
         name=_safe_name(family_id, bucket_id, _direction_label(direction), mover_species),
@@ -379,7 +411,7 @@ def translate_simple_hop_family(
     mover_species: str,
     k0_Hz: float,
     T_K: float,
-    on_scatter_warn: Optional[Callable[[str], None]] = None,
+    on_scatter_warn: Callable[[str], None] | None = None,
 ) -> list[Process]:
     """Translate any "single-atom hop" family (surface/subsurface/bulk
     1NN/2NN inplane, interlayer hops, etc.) into Processes.
@@ -390,11 +422,10 @@ def translate_simple_hop_family(
     family_rows = [r for r in rows if r.family_id == family_id]
     out: list[Process] = []
     for r in family_rows:
-        if msg := bucket_warns_on_scatter(r.Ea_std_eV, r.n_events):
-            if on_scatter_warn is not None:
-                on_scatter_warn(
-                    f"{family_id}/{r.family_bucket_id} ({r.n_events} events): {msg}"
-                )
+        if (msg := bucket_warns_on_scatter(r.Ea_std_eV, r.n_events)) and (
+            on_scatter_warn is not None
+        ):
+            on_scatter_warn(f"{family_id}/{r.family_bucket_id} ({r.n_events} events): {msg}")
         rate = arrhenius_scalar(Ea_eV=r.Ea_mean_eV, k0_Hz=k0_Hz, T_K=T_K)
         for d in directions:
             out.append(
@@ -415,12 +446,17 @@ def translate_surface_1NN_inplane(
     k0_Hz: float = 1.0e13,
     T_K: float = 500.0,
     mover_species: str = "Ni",
-    on_scatter_warn: Optional[Callable[[str], None]] = None,
+    on_scatter_warn: Callable[[str], None] | None = None,
 ) -> list[Process]:
     """FCC(100) surface 1NN in-plane: 4 dirs/bucket. ~35k catalogue events."""
     return translate_simple_hop_family(
-        rows, "surface_1NN_inplane", SURFACE_1NN_INPLANE_DIRS,
-        mover_species, k0_Hz, T_K, on_scatter_warn,
+        rows,
+        "surface_1NN_inplane",
+        SURFACE_1NN_INPLANE_DIRS,
+        mover_species,
+        k0_Hz,
+        T_K,
+        on_scatter_warn,
     )
 
 
@@ -432,27 +468,29 @@ def translate_surface_1NN_inplane(
 # table use the simple 2-action swap (anchor ↔ direction), differing only
 # in which neighbour-shell directions apply.
 _FAMILY_DIRECTIONS: dict[str, tuple[CoordOffset, ...]] = {
-    "surface_1NN_inplane":             SURFACE_1NN_INPLANE_DIRS,        # 4
-    "subsurface_1NN_inplane":          BULK_1NN_DIRS,                   # 12
-    "bulk_1NN_inplane":                BULK_1NN_DIRS,                   # 12
-    "surface_2NN_diagonal":            SURFACE_2NN_DIRS,                # 4
-    "subsurface_2NN_diagonal":         BULK_2NN_DIRS,                   # 6
-    "surface_interlayer_hop":          INTERLAYER_1NN_DIRS_DOWN,        # 4 (surface→subsurface)
-    "subsurface_interlayer_hop":       INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
-    "surface_subsurface_exchange_up":  INTERLAYER_1NN_DIRS_UP,          # 4
-    "surface_subsurface_exchange_down": INTERLAYER_1NN_DIRS_DOWN,       # 4
+    "surface_1NN_inplane": SURFACE_1NN_INPLANE_DIRS,  # 4
+    "subsurface_1NN_inplane": BULK_1NN_DIRS,  # 12
+    "bulk_1NN_inplane": BULK_1NN_DIRS,  # 12
+    "surface_2NN_diagonal": SURFACE_2NN_DIRS,  # 4
+    "subsurface_2NN_diagonal": BULK_2NN_DIRS,  # 6
+    "surface_interlayer_hop": INTERLAYER_1NN_DIRS_DOWN,  # 4 (surface→subsurface)
+    "subsurface_interlayer_hop": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
+    "surface_subsurface_exchange_up": INTERLAYER_1NN_DIRS_UP,  # 4
+    "surface_subsurface_exchange_down": INTERLAYER_1NN_DIRS_DOWN,  # 4
     "surface_subsurface_exchange_lateral": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,
-    "subsurface_migration_axial":      BULK_1NN_DIRS,                   # 12
+    "subsurface_migration_axial": BULK_1NN_DIRS,  # 12
     "subsurface_migration_interlayer": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
 }
 
 # Multi-site families with fit_barrier=False — visibility only, skip in v2.
 # These come into the catalogue with NaN Ea so load_family_rate_table()
 # already filters them out, but we list them here to be explicit.
-_FAMILIES_SKIPPED: frozenset[str] = frozenset({
-    "concerted_multisite",
-    "unresolved_multisite",
-})
+_FAMILIES_SKIPPED: frozenset[str] = frozenset(
+    {
+        "concerted_multisite",
+        "unresolved_multisite",
+    }
+)
 
 # Families where the very-low-Ea catalog buckets correspond to adatom-reverse
 # events (an above-surface atom hops back down). These shouldn't fire in a
@@ -464,11 +502,13 @@ _FAMILIES_SKIPPED: frozenset[str] = frozenset({
 # Set ADATOM_REVERSE_EA_FLOOR_EV = None (or pass it via translate_all) to
 # include these buckets again — useful once the catalog encodes the
 # adatom-presence condition explicitly.
-_ADATOM_REVERSE_FAMILIES: frozenset[str] = frozenset({
-    "surface_interlayer_hop",
-    "surface_subsurface_exchange_down",
-})
-ADATOM_REVERSE_EA_FLOOR_EV: Optional[float] = None
+_ADATOM_REVERSE_FAMILIES: frozenset[str] = frozenset(
+    {
+        "surface_interlayer_hop",
+        "surface_subsurface_exchange_down",
+    }
+)
+ADATOM_REVERSE_EA_FLOOR_EV: float | None = None
 # Default: filter OFF. Use the per-bucket exclusion CSV instead (see
 # `load_bucket_exclusions` below) — coarse Ea-floor filtering proved
 # too blunt; per-bucket curation is the correct approach.
@@ -486,10 +526,10 @@ def translate_all(
     k0_Hz: float = 1.0e13,
     T_K: float = 500.0,
     mover_species: str = "Ni",
-    on_scatter_warn: Optional[Callable[[str], None]] = None,
-    on_unknown_family: Optional[Callable[[str], None]] = None,
-    adatom_reverse_ea_floor_eV: Optional[float] = ADATOM_REVERSE_EA_FLOOR_EV,
-    bucket_exclusions: Optional[set[tuple[str, str]]] = None,
+    on_scatter_warn: Callable[[str], None] | None = None,
+    on_unknown_family: Callable[[str], None] | None = None,
+    adatom_reverse_ea_floor_eV: float | None = ADATOM_REVERSE_EA_FLOOR_EV,
+    bucket_exclusions: set[tuple[str, str]] | None = None,
 ) -> list[Process]:
     """Translate every supported family in the catalogue into Processes.
 
@@ -520,29 +560,30 @@ def translate_all(
     if adatom_reverse_ea_floor_eV is not None:
         filtered_rows: list[FamilyBucketRow] = []
         for r in rows:
-            if (r.family_id in _ADATOM_REVERSE_FAMILIES
-                    and r.Ea_mean_eV < adatom_reverse_ea_floor_eV):
+            if (
+                r.family_id in _ADATOM_REVERSE_FAMILIES
+                and r.Ea_mean_eV < adatom_reverse_ea_floor_eV
+            ):
                 continue
             filtered_rows.append(r)
         rows = filtered_rows
 
     # Per-bucket exclusions (from a user-flagged CSV via load_bucket_exclusions).
     if bucket_exclusions:
-        rows = [
-            r for r in rows
-            if (r.family_id, r.family_bucket_id) not in bucket_exclusions
-        ]
+        rows = [r for r in rows if (r.family_id, r.family_bucket_id) not in bucket_exclusions]
 
     for fid in sorted(_FAMILY_DIRECTIONS.keys()):
-        out.extend(translate_simple_hop_family(
-            rows=rows,
-            family_id=fid,
-            directions=_FAMILY_DIRECTIONS[fid],
-            mover_species=mover_species,
-            k0_Hz=k0_Hz,
-            T_K=T_K,
-            on_scatter_warn=on_scatter_warn,
-        ))
+        out.extend(
+            translate_simple_hop_family(
+                rows=rows,
+                family_id=fid,
+                directions=_FAMILY_DIRECTIONS[fid],
+                mover_species=mover_species,
+                k0_Hz=k0_Hz,
+                T_K=T_K,
+                on_scatter_warn=on_scatter_warn,
+            )
+        )
 
     # Sanity: process names should be globally unique (decision-tree
     # codegen requires it).

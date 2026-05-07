@@ -9,9 +9,9 @@ Both formats share a simple layout:
 
 The payload schema is format-specific and declared by the header.
 """
+
 from __future__ import annotations
 
-import io
 import json
 import struct
 from pathlib import Path

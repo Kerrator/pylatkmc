@@ -14,6 +14,7 @@ Coverage:
 * Net-zero hop (gain + loss in same call) keeps n_vac stable
 * `vac_idx_of[]` consistency after every successful apply
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -55,23 +56,29 @@ def libstate(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
         pytest.fail(f"missing helpers: {HELPERS_SRC}")
 
     builddir = tmp_path_factory.mktemp("state_actions_lib")
-    libname = ("libstate_actions.dylib"
-               if os.uname().sysname == "Darwin" else "libstate_actions.so")
+    libname = "libstate_actions.dylib" if os.uname().sysname == "Darwin" else "libstate_actions.so"
     libpath = builddir / libname
 
     cmd = [
-        "cc", "-std=c11", "-Wall", "-Wextra", "-Werror",
-        "-O2", "-DNDEBUG", "-fPIC", "-shared",
-        "-I", str(RUNTIME_CORE),
+        "cc",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-DNDEBUG",
+        "-fPIC",
+        "-shared",
+        "-I",
+        str(RUNTIME_CORE),
         str(STATE_ACTIONS_SRC),
         str(HELPERS_SRC),
-        "-o", str(libpath),
+        "-o",
+        str(libpath),
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
-        pytest.fail(
-            f"state_actions + helpers failed to compile:\n  stderr:\n{res.stderr}"
-        )
+        pytest.fail(f"state_actions + helpers failed to compile:\n  stderr:\n{res.stderr}")
 
     lib = ctypes.CDLL(str(libpath))
 
@@ -80,9 +87,9 @@ def libstate(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     # Use ctypes Structure to match the C layout exactly.
     class StateAction(ctypes.Structure):
         _fields_ = [
-            ("site",   ctypes.c_int32),
+            ("site", ctypes.c_int32),
             ("before", ctypes.c_uint8),
-            ("after",  ctypes.c_uint8),
+            ("after", ctypes.c_uint8),
         ]
 
     lib.state_apply_actions.restype = ctypes.c_int
@@ -90,15 +97,19 @@ def libstate(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
         ctypes.c_void_p,
         ctypes.POINTER(StateAction),
         ctypes.c_int32,
-        ctypes.c_uint8]
+        ctypes.c_uint8,
+    ]
     lib.StateAction = StateAction  # stash for tests to use
 
     # Test helpers (same shim as test_active_filter)
     lib.pylatkmc_test_make_state.restype = ctypes.c_void_p
     lib.pylatkmc_test_make_state.argtypes = [
-        ctypes.c_int32, ctypes.c_int32, ctypes.c_int32,
+        ctypes.c_int32,
+        ctypes.c_int32,
+        ctypes.c_int32,
         ctypes.POINTER(ctypes.c_int32),
-        ctypes.POINTER(ctypes.c_uint8)]
+        ctypes.POINTER(ctypes.c_uint8),
+    ]
     lib.pylatkmc_test_free_state.restype = None
     lib.pylatkmc_test_free_state.argtypes = [ctypes.c_void_p]
     lib.pylatkmc_test_state_n_vac.restype = ctypes.c_int32
@@ -117,28 +128,38 @@ class _State:
     `vac_list`, `vac_idx_of`, and `n_vac` fields back to Python so tests
     can introspect."""
 
-    def __init__(self, lib: ctypes.CDLL, n_sites: int, n_vac_max: int,
-                 species: list[int], vac_list: list[int]) -> None:
+    def __init__(
+        self,
+        lib: ctypes.CDLL,
+        n_sites: int,
+        n_vac_max: int,
+        species: list[int],
+        vac_list: list[int],
+    ) -> None:
         self.lib = lib
         self.n_sites = n_sites
         self.n_vac_max = n_vac_max
 
         sp_arr = (ctypes.c_uint8 * n_sites)(*species)
-        vac_arr = (ctypes.c_int32 * len(vac_list))(*vac_list) if vac_list \
-                  else (ctypes.c_int32 * 1)(0)
-        h = lib.pylatkmc_test_make_state(
-            n_sites, n_vac_max, len(vac_list), vac_arr, sp_arr)
+        vac_arr = (
+            (ctypes.c_int32 * len(vac_list))(*vac_list) if vac_list else (ctypes.c_int32 * 1)(0)
+        )
+        h = lib.pylatkmc_test_make_state(n_sites, n_vac_max, len(vac_list), vac_arr, sp_arr)
         if not h:
             raise RuntimeError("make_state returned NULL")
         self.h = h
 
-    def __enter__(self) -> "_State": return self
+    def __enter__(self) -> _State:
+        return self
+
     def __exit__(self, *exc) -> None:  # noqa: ANN001
         if self.h is not None:
-            self.lib.pylatkmc_test_free_state(self.h); self.h = None
+            self.lib.pylatkmc_test_free_state(self.h)
+            self.h = None
 
     @property
-    def ptr(self) -> int: return self.h
+    def ptr(self) -> int:
+        return self.h
 
     # Read State fields by interpreting the struct via ctypes. The struct
     # layout (from runtime/src/core/state.h):
@@ -160,17 +181,18 @@ class _State:
     def _struct_class():
         class _CState(ctypes.Structure):
             _fields_ = [
-                ("species",          ctypes.c_void_p),
-                ("vac_list",         ctypes.c_void_p),
-                ("vac_idx_of",       ctypes.c_void_p),
-                ("n_vac",            ctypes.c_int32),
-                ("n_vac_max",        ctypes.c_int32),
-                ("time_s",           ctypes.c_double),
-                ("step",             ctypes.c_uint64),
-                ("unwrapped_xyz",    ctypes.c_void_p),
-                ("motif_counts",     ctypes.c_uint64 * 8),
+                ("species", ctypes.c_void_p),
+                ("vac_list", ctypes.c_void_p),
+                ("vac_idx_of", ctypes.c_void_p),
+                ("n_vac", ctypes.c_int32),
+                ("n_vac_max", ctypes.c_int32),
+                ("time_s", ctypes.c_double),
+                ("step", ctypes.c_uint64),
+                ("unwrapped_xyz", ctypes.c_void_p),
+                ("motif_counts", ctypes.c_uint64 * 8),
                 ("direction_counts", ctypes.c_uint64 * 5),
             ]
+
         return _CState
 
     def _view(self):
@@ -210,22 +232,17 @@ def _check_invariants(st: _State) -> None:
     # Forward map: vac_list[k] -> site, vac_idx_of[site] should be k.
     for k, site in enumerate(vac_list):
         assert vac_idx[site] == k, (
-            f"forward inverse broken: vac_list[{k}]={site}, "
-            f"vac_idx_of[{site}]={vac_idx[site]}"
+            f"forward inverse broken: vac_list[{k}]={site}, vac_idx_of[{site}]={vac_idx[site]}"
         )
 
     # Reverse map: every (vac_idx_of[s] >= 0) site is vacant.
     for s in range(st.n_sites):
         idx = vac_idx[s]
         if idx >= 0:
-            assert species[s] == SP_VACANT, (
-                f"site {s} has vac_idx={idx} but species={species[s]}"
-            )
+            assert species[s] == SP_VACANT, f"site {s} has vac_idx={idx} but species={species[s]}"
             assert idx < n_vac and vac_list[idx] == s
         else:
-            assert species[s] != SP_VACANT, (
-                f"site {s} has vac_idx=-1 but species==SP_VACANT"
-            )
+            assert species[s] != SP_VACANT, f"site {s} has vac_idx=-1 but species==SP_VACANT"
 
 
 def _apply(lib: ctypes.CDLL, st: _State, actions: list[tuple[int, int, int]]) -> int:
@@ -274,10 +291,14 @@ def test_partial_validation_failure_no_partial_apply(libstate: ctypes.CDLL) -> N
     species = [SP_NI] * 6
     species[3] = SP_VACANT
     with _State(libstate, 6, 4, species, [3]) as st:
-        rc = _apply(libstate, st, [
-            (3, SP_VACANT, SP_NI),       # valid (would empty site 3)
-            (5, SP_FE,     SP_NI),       # invalid: site 5 is Ni, not Fe
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (3, SP_VACANT, SP_NI),  # valid (would empty site 3)
+                (5, SP_FE, SP_NI),  # invalid: site 5 is Ni, not Fe
+            ],
+        )
         assert rc == EINVAL
         assert st.species_array() == species  # untouched
         assert st.n_vac == 1
@@ -286,10 +307,14 @@ def test_partial_validation_failure_no_partial_apply(libstate: ctypes.CDLL) -> N
 def test_duplicate_site_rejects(libstate: ctypes.CDLL) -> None:
     species = [SP_NI] * 4
     with _State(libstate, 4, 2, species, []) as st:
-        rc = _apply(libstate, st, [
-            (1, SP_NI, SP_FE),
-            (1, SP_FE, SP_CR),       # same site as previous
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (1, SP_NI, SP_FE),
+                (1, SP_FE, SP_CR),  # same site as previous
+            ],
+        )
         assert rc == EINVAL
         assert st.species_array() == species
 
@@ -299,9 +324,13 @@ def test_n_vac_overflow_rejects(libstate: ctypes.CDLL) -> None:
     species = [SP_NI] * 4
     species[0] = SP_VACANT
     with _State(libstate, 4, 1, species, [0]) as st:
-        rc = _apply(libstate, st, [
-            (1, SP_NI, SP_VACANT),       # would make 2 vacancies; n_vac_max=1
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (1, SP_NI, SP_VACANT),  # would make 2 vacancies; n_vac_max=1
+            ],
+        )
         assert rc == EINVAL
         assert st.species_array() == species
         assert st.n_vac == 1
@@ -355,10 +384,14 @@ def test_simple_hop_preserves_n_vac(libstate: ctypes.CDLL) -> None:
     species = [SP_NI] * 8
     species[2] = SP_VACANT
     with _State(libstate, 8, 4, species, [2]) as st:
-        rc = _apply(libstate, st, [
-            (2, SP_VACANT, SP_NI),
-            (5, SP_NI,     SP_VACANT),
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (2, SP_VACANT, SP_NI),
+                (5, SP_NI, SP_VACANT),
+            ],
+        )
         assert rc == 0
         assert st.n_vac == 1
         sp = st.species_array()
@@ -375,10 +408,14 @@ def test_hop_preserves_other_vacancies(libstate: ctypes.CDLL) -> None:
     species[7] = SP_VACANT
     with _State(libstate, 10, 4, species, [2, 7]) as st:
         # Hop the vacancy at site 2 → site 4. Vacancy at 7 stays.
-        rc = _apply(libstate, st, [
-            (2, SP_VACANT, SP_NI),
-            (4, SP_NI,     SP_VACANT),
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (2, SP_VACANT, SP_NI),
+                (4, SP_NI, SP_VACANT),
+            ],
+        )
         assert rc == 0
         assert st.n_vac == 2
         sp = st.species_array()
@@ -396,16 +433,20 @@ def test_hop_preserves_other_vacancies(libstate: ctypes.CDLL) -> None:
 
 def test_triple_hop_three_atom_shuffle(libstate: ctypes.CDLL) -> None:
     """Triple hop: vacancy at site 0; atoms at 1, 2 (Ni, Fe).
-       After: site 0 ← Ni (was 1), site 1 ← Fe (was 2), site 2 ← Vacant.
-       The vacancy effectively moved from 0 → 2. Species shuffle preserves
-       atom identities along the chain."""
+    After: site 0 ← Ni (was 1), site 1 ← Fe (was 2), site 2 ← Vacant.
+    The vacancy effectively moved from 0 → 2. Species shuffle preserves
+    atom identities along the chain."""
     species = [SP_VACANT, SP_NI, SP_FE, SP_NI, SP_NI]
     with _State(libstate, 5, 2, species, [0]) as st:
-        rc = _apply(libstate, st, [
-            (0, SP_VACANT, SP_NI),
-            (1, SP_NI,     SP_FE),
-            (2, SP_FE,     SP_VACANT),
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (0, SP_VACANT, SP_NI),
+                (1, SP_NI, SP_FE),
+                (2, SP_FE, SP_VACANT),
+            ],
+        )
         assert rc == 0
         assert st.n_vac == 1
         assert st.species_array() == [SP_NI, SP_FE, SP_VACANT, SP_NI, SP_NI]
@@ -419,10 +460,14 @@ def test_subsurface_exchange_two_atom_swap(libstate: ctypes.CDLL) -> None:
     involved — pure species swap."""
     species = [SP_NI, SP_FE, SP_NI]
     with _State(libstate, 3, 2, species, []) as st:
-        rc = _apply(libstate, st, [
-            (0, SP_NI, SP_FE),
-            (1, SP_FE, SP_NI),
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (0, SP_NI, SP_FE),
+                (1, SP_FE, SP_NI),
+            ],
+        )
         assert rc == 0
         assert st.n_vac == 0
         assert st.species_array() == [SP_FE, SP_NI, SP_NI]
@@ -439,10 +484,14 @@ def test_creating_two_vacancies_in_one_apply(libstate: ctypes.CDLL) -> None:
     by 2; vac_list and vac_idx_of must be coherent."""
     species = [SP_NI] * 8
     with _State(libstate, 8, 4, species, []) as st:
-        rc = _apply(libstate, st, [
-            (1, SP_NI, SP_VACANT),
-            (5, SP_NI, SP_VACANT),
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (1, SP_NI, SP_VACANT),
+                (5, SP_NI, SP_VACANT),
+            ],
+        )
         assert rc == 0
         assert st.n_vac == 2
         assert set(st.vac_list_array()) == {1, 5}
@@ -478,10 +527,14 @@ def test_combined_creation_and_removal(libstate: ctypes.CDLL) -> None:
     # Set n_vac_max=1 so removals-first ordering matters: an addition before
     # the removal would temporarily push n_vac to 2.
     with _State(libstate, 6, 1, species, [3]) as st:
-        rc = _apply(libstate, st, [
-            (3, SP_VACANT, SP_NI),       # remove vacancy at 3
-            (5, SP_NI,     SP_VACANT),   # add vacancy at 5
-        ])
+        rc = _apply(
+            libstate,
+            st,
+            [
+                (3, SP_VACANT, SP_NI),  # remove vacancy at 3
+                (5, SP_NI, SP_VACANT),  # add vacancy at 5
+            ],
+        )
         assert rc == 0
         assert st.n_vac == 1
         assert st.species_array() == [SP_NI, SP_NI, SP_NI, SP_NI, SP_NI, SP_VACANT]
@@ -506,10 +559,14 @@ def test_repeated_hops_invariants(libstate: ctypes.CDLL) -> None:
             nxt = (cur + 1) % n
             # Skip if next is already vacant (shouldn't happen with 1 vac).
             assert st.species_array()[nxt] == SP_NI
-            rc = _apply(libstate, st, [
-                (cur, SP_VACANT, SP_NI),
-                (nxt, SP_NI,     SP_VACANT),
-            ])
+            rc = _apply(
+                libstate,
+                st,
+                [
+                    (cur, SP_VACANT, SP_NI),
+                    (nxt, SP_NI, SP_VACANT),
+                ],
+            )
             assert rc == 0
             _check_invariants(st)
             cur = nxt

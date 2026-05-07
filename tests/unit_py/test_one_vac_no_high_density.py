@@ -22,12 +22,10 @@ Prerequisites:
 Both are produced by the v0.3 pre-test setup; if missing, the test is
 skipped (so CI without a built binary doesn't fail spuriously).
 """
+
 from __future__ import annotations
 
-import json
-import os
 import re
-import shutil
 import subprocess
 from collections import Counter
 from pathlib import Path
@@ -36,8 +34,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BINARY = REPO_ROOT / "build" / "pylatkmc_ni_fe_cr_v1"
-CONFIG = (REPO_ROOT / "models/ni_fe_cr_v1/examples/full_100Ni/configs/"
-                     "1vac_T500.kmcinit")
+CONFIG = REPO_ROOT / "models/ni_fe_cr_v1/examples/full_100Ni/configs/1vac_T500.kmcinit"
 PROCLIST = REPO_ROOT / "models/ni_fe_cr_v1/generated/proclist.c"
 MPIRUN = "/Users/stephenkerr/openmpi/bin/mpirun"
 
@@ -70,7 +67,9 @@ def _parse_nv1(proc_name: str) -> int | None:
 
 
 @pytest.mark.skipif(
-    not BINARY.is_file() or not CONFIG.is_file() or not PROCLIST.is_file()
+    not BINARY.is_file()
+    or not CONFIG.is_file()
+    or not PROCLIST.is_file()
     or not Path(MPIRUN).is_file(),
     reason="binary, config, proclist, or mpirun not available",
 )
@@ -103,7 +102,9 @@ def test_one_vac_never_fires_high_nv1_buckets(tmp_path: Path) -> None:
 
     res = subprocess.run(
         [MPIRUN, "--oversubscribe", "-n", "1", str(BINARY), str(ini)],
-        capture_output=True, text=True, cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
     )
     assert res.returncode == 0, (
         f"binary crashed:\n--- stdout ---\n{res.stdout}\n--- stderr ---\n{res.stderr}"
@@ -148,7 +149,7 @@ def test_one_vac_never_fires_high_nv1_buckets(tmp_path: Path) -> None:
         f"v0.3 regression FAILED: {high_nv1_total} firings of Processes "
         f"with nv1 >= 2 on a 1-vacancy system. Examples:\n"
         + "\n".join(f"  - {n}" for n in high_nv1_examples)
-        + f"\n\nFull nv1 distribution:\n"
+        + "\n\nFull nv1 distribution:\n"
         + "\n".join(f"  nv1={k}: {c}" for k, c in sorted(nv1_counter.items()))
     )
 

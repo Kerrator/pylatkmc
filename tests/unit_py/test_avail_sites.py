@@ -12,6 +12,7 @@ its API via ctypes, covering:
 * BKL `select`: empty, single-proc, multi-proc with known cumulative weights
 * clear() between rebuilds restores fresh state without re-allocation
 """
+
 from __future__ import annotations
 
 import ctypes
@@ -56,18 +57,25 @@ def libavail(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     # safety net. Debug builds would abort on misuse — that's by design,
     # but we test the release-mode no-op fallback here.
     cmd = [
-        "cc", "-std=c11", "-Wall", "-Wextra", "-Werror",
-        "-O2", "-DNDEBUG", "-fPIC", "-shared",
-        "-I", str(HDR.parent),
+        "cc",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "-O2",
+        "-DNDEBUG",
+        "-fPIC",
+        "-shared",
+        "-I",
+        str(HDR.parent),
         str(SRC),
-        "-o", str(libpath),
+        "-o",
+        str(libpath),
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         pytest.fail(
-            f"avail_sites.c failed to compile:\n"
-            f"  cmd: {' '.join(cmd)}\n"
-            f"  stderr:\n{res.stderr}"
+            f"avail_sites.c failed to compile:\n  cmd: {' '.join(cmd)}\n  stderr:\n{res.stderr}"
         )
 
     lib = ctypes.CDLL(str(libpath))
@@ -75,28 +83,31 @@ def libavail(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     # AvailSites is opaque; we treat its handle as a void*.
     lib.avail_sites_alloc.restype = ctypes.c_int
     lib.avail_sites_alloc.argtypes = [
-        ctypes.POINTER(ctypes.c_void_p), ctypes.c_int32, ctypes.c_int32]
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.c_int32,
+        ctypes.c_int32,
+    ]
     lib.avail_sites_free.restype = None
     lib.avail_sites_free.argtypes = [ctypes.c_void_p]
     lib.avail_sites_set_rate.restype = None
-    lib.avail_sites_set_rate.argtypes = [
-        ctypes.c_void_p, ctypes.c_int32, ctypes.c_double]
+    lib.avail_sites_set_rate.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_double]
     lib.avail_sites_clear.restype = None
     lib.avail_sites_clear.argtypes = [ctypes.c_void_p]
     lib.avail_sites_add.restype = None
-    lib.avail_sites_add.argtypes = [
-        ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
+    lib.avail_sites_add.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
     lib.avail_sites_del.restype = None
-    lib.avail_sites_del.argtypes = [
-        ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
+    lib.avail_sites_del.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
     lib.avail_sites_refresh_cum_rates.restype = None
     lib.avail_sites_refresh_cum_rates.argtypes = [ctypes.c_void_p]
     lib.avail_sites_r_tot.restype = ctypes.c_double
     lib.avail_sites_r_tot.argtypes = [ctypes.c_void_p]
     lib.avail_sites_select.restype = ctypes.c_int
     lib.avail_sites_select.argtypes = [
-        ctypes.c_void_p, ctypes.c_double,
-        ctypes.POINTER(ctypes.c_int32), ctypes.POINTER(ctypes.c_int32)]
+        ctypes.c_void_p,
+        ctypes.c_double,
+        ctypes.POINTER(ctypes.c_int32),
+        ctypes.POINTER(ctypes.c_int32),
+    ]
     lib.avail_sites_n_procs.restype = ctypes.c_int32
     lib.avail_sites_n_procs.argtypes = [ctypes.c_void_p]
     lib.avail_sites_n_sites.restype = ctypes.c_int32
@@ -104,11 +115,9 @@ def libavail(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     lib.avail_sites_count.restype = ctypes.c_int32
     lib.avail_sites_count.argtypes = [ctypes.c_void_p, ctypes.c_int32]
     lib.avail_sites_is_enrolled.restype = ctypes.c_int32
-    lib.avail_sites_is_enrolled.argtypes = [
-        ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
+    lib.avail_sites_is_enrolled.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
     lib.avail_sites_site_at.restype = ctypes.c_int32
-    lib.avail_sites_site_at.argtypes = [
-        ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
+    lib.avail_sites_site_at.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_int32]
     lib.avail_sites_rate.restype = ctypes.c_double
     lib.avail_sites_rate.argtypes = [ctypes.c_void_p, ctypes.c_int32]
     lib.avail_sites_cum_rate.restype = ctypes.c_double
@@ -133,7 +142,7 @@ class _AvailSites:
             raise RuntimeError(f"avail_sites_alloc failed: rc={rc}")
         self.h = h
 
-    def __enter__(self) -> "_AvailSites":
+    def __enter__(self) -> _AvailSites:
         return self
 
     def __exit__(self, *exc) -> None:  # noqa: ANN001
@@ -142,23 +151,44 @@ class _AvailSites:
             self.h = None
 
     # Forwarding methods.
-    def set_rate(self, p: int, r: float) -> None: self.lib.avail_sites_set_rate(self.h, p, r)
-    def clear(self) -> None: self.lib.avail_sites_clear(self.h)
-    def add(self, p: int, s: int) -> None: self.lib.avail_sites_add(self.h, p, s)
-    def delete(self, p: int, s: int) -> None: self.lib.avail_sites_del(self.h, p, s)
-    def refresh(self) -> None: self.lib.avail_sites_refresh_cum_rates(self.h)
-    def r_tot(self) -> float: return float(self.lib.avail_sites_r_tot(self.h))
+    def set_rate(self, p: int, r: float) -> None:
+        self.lib.avail_sites_set_rate(self.h, p, r)
+
+    def clear(self) -> None:
+        self.lib.avail_sites_clear(self.h)
+
+    def add(self, p: int, s: int) -> None:
+        self.lib.avail_sites_add(self.h, p, s)
+
+    def delete(self, p: int, s: int) -> None:
+        self.lib.avail_sites_del(self.h, p, s)
+
+    def refresh(self) -> None:
+        self.lib.avail_sites_refresh_cum_rates(self.h)
+
+    def r_tot(self) -> float:
+        return float(self.lib.avail_sites_r_tot(self.h))
+
     def select(self, target: float) -> tuple[int, int, int]:
-        p = ctypes.c_int32(); s = ctypes.c_int32()
+        p = ctypes.c_int32()
+        s = ctypes.c_int32()
         rc = self.lib.avail_sites_select(self.h, target, ctypes.byref(p), ctypes.byref(s))
         return rc, p.value, s.value
-    def count(self, p: int) -> int: return int(self.lib.avail_sites_count(self.h, p))
+
+    def count(self, p: int) -> int:
+        return int(self.lib.avail_sites_count(self.h, p))
+
     def enrolled(self, p: int, s: int) -> int:
         return int(self.lib.avail_sites_is_enrolled(self.h, p, s))
+
     def site_at(self, p: int, k: int) -> int:
         return int(self.lib.avail_sites_site_at(self.h, p, k))
-    def rate(self, p: int) -> float: return float(self.lib.avail_sites_rate(self.h, p))
-    def cum_rate(self, p: int) -> float: return float(self.lib.avail_sites_cum_rate(self.h, p))
+
+    def rate(self, p: int) -> float:
+        return float(self.lib.avail_sites_rate(self.h, p))
+
+    def cum_rate(self, p: int) -> float:
+        return float(self.lib.avail_sites_cum_rate(self.h, p))
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +242,7 @@ def test_del_then_not_enrolled(libavail: ctypes.CDLL) -> None:
         a.delete(0, 3)
         assert a.enrolled(0, 3) == 0
         assert a.count(0) == 0
-        assert a.site_at(0, 0) == -1   # out-of-range read returns -1
+        assert a.site_at(0, 0) == -1  # out-of-range read returns -1
 
 
 def test_swap_last_preserves_other_sites(libavail: ctypes.CDLL) -> None:
@@ -244,7 +274,7 @@ def test_double_add_is_noop(libavail: ctypes.CDLL) -> None:
     (Asserts in debug; runtime guard prevents corruption either way.)"""
     with _AvailSites(libavail, 1, 8) as a:
         a.add(0, 5)
-        a.add(0, 5)   # silent no-op (we built without -DDEBUG)
+        a.add(0, 5)  # silent no-op (we built without -DDEBUG)
         assert a.count(0) == 1
         assert a.enrolled(0, 5) == 1
 
@@ -253,7 +283,7 @@ def test_double_del_is_noop(libavail: ctypes.CDLL) -> None:
     with _AvailSites(libavail, 1, 8) as a:
         a.add(0, 5)
         a.delete(0, 5)
-        a.delete(0, 5)   # silent no-op
+        a.delete(0, 5)  # silent no-op
         assert a.count(0) == 0
         assert a.enrolled(0, 5) == 0
 
@@ -329,24 +359,32 @@ def test_cum_rates_match_per_proc_product(libavail: ctypes.CDLL) -> None:
         a.set_rate(2, 0.5)
 
         # 2 sites for proc 0, 3 for proc 1, 1 for proc 2.
-        for s in (0, 1):       a.add(0, s)
-        for s in (2, 3, 4):    a.add(1, s)
-        for s in (5,):         a.add(2, s)
+        for s in (0, 1):
+            a.add(0, s)
+        for s in (2, 3, 4):
+            a.add(1, s)
+        for s in (5,):
+            a.add(2, s)
 
         a.refresh()
         # Expected: [1.0*2, +2.5*3, +0.5*1] = [2.0, 9.5, 10.0]
         assert a.cum_rate(0) == pytest.approx(2.0)
         assert a.cum_rate(1) == pytest.approx(9.5)
         assert a.cum_rate(2) == pytest.approx(10.0)
-        assert a.r_tot()    == pytest.approx(10.0)
+        assert a.r_tot() == pytest.approx(10.0)
 
 
 def test_select_returns_correct_proc_and_valid_site(libavail: ctypes.CDLL) -> None:
     with _AvailSites(libavail, 3, 16) as a:
-        a.set_rate(0, 1.0); a.set_rate(1, 2.0); a.set_rate(2, 4.0)
-        a.add(0, 1); a.add(0, 7)              # proc 0: 2 sites, weight 2.0
-        a.add(1, 3); a.add(1, 11); a.add(1, 12)  # proc 1: 3 sites, weight 6.0
-        a.add(2, 9)                            # proc 2: 1 site,  weight 4.0
+        a.set_rate(0, 1.0)
+        a.set_rate(1, 2.0)
+        a.set_rate(2, 4.0)
+        a.add(0, 1)
+        a.add(0, 7)  # proc 0: 2 sites, weight 2.0
+        a.add(1, 3)
+        a.add(1, 11)
+        a.add(1, 12)  # proc 1: 3 sites, weight 6.0
+        a.add(2, 9)  # proc 2: 1 site,  weight 4.0
         a.refresh()
         # cum: [2, 8, 12]; r_tot=12
 
@@ -375,9 +413,12 @@ def test_select_distribution_uniform_within_proc(libavail: ctypes.CDLL) -> None:
     """Across many uniform-random targets, sites of one proc should get
     selected roughly proportionally to their (rate × n_sites) weight."""
     with _AvailSites(libavail, 2, 32) as a:
-        a.set_rate(0, 1.0); a.set_rate(1, 1.0)
-        for s in range(4):  a.add(0, s)        # proc 0: 4 sites
-        for s in range(8):  a.add(1, s + 8)    # proc 1: 8 sites
+        a.set_rate(0, 1.0)
+        a.set_rate(1, 1.0)
+        for s in range(4):
+            a.add(0, s)  # proc 0: 4 sites
+        for s in range(8):
+            a.add(1, s + 8)  # proc 1: 8 sites
         a.refresh()
         # cum=[4, 12]; r_tot=12
 
@@ -388,8 +429,10 @@ def test_select_distribution_uniform_within_proc(libavail: ctypes.CDLL) -> None:
             t = rng.random() * 12.0
             rc, p, _ = a.select(t)
             assert rc == 0
-            if p == 0: n_p0 += 1
-            else:      n_p1 += 1
+            if p == 0:
+                n_p0 += 1
+            else:
+                n_p1 += 1
 
         # Expected: n_p0/N ≈ 1/3, n_p1/N ≈ 2/3. With N=12000 the binomial
         # 1-σ is sqrt(N*p*q) ≈ 51, so 5σ ≈ 250. Use 300 as the slop.
@@ -399,7 +442,8 @@ def test_select_distribution_uniform_within_proc(libavail: ctypes.CDLL) -> None:
 
 def test_select_empty_returns_enodata(libavail: ctypes.CDLL) -> None:
     with _AvailSites(libavail, 2, 8) as a:
-        a.set_rate(0, 1.0); a.set_rate(1, 1.0)
+        a.set_rate(0, 1.0)
+        a.set_rate(1, 1.0)
         a.refresh()
         rc, _, _ = a.select(0.0)
         assert rc == ENODATA
@@ -409,8 +453,10 @@ def test_select_after_clear_returns_enodata(libavail: ctypes.CDLL) -> None:
     """Clear should drop the population to empty so r_tot becomes 0 even
     if the rate constants stayed set."""
     with _AvailSites(libavail, 2, 8) as a:
-        a.set_rate(0, 1.0); a.set_rate(1, 1.0)
-        a.add(0, 0); a.add(1, 0)
+        a.set_rate(0, 1.0)
+        a.set_rate(1, 1.0)
+        a.add(0, 0)
+        a.add(1, 0)
         a.refresh()
         assert a.r_tot() > 0.0
         a.clear()
@@ -423,7 +469,7 @@ def test_select_after_clear_returns_enodata(libavail: ctypes.CDLL) -> None:
 def test_set_rate_negative_ignored(libavail: ctypes.CDLL) -> None:
     with _AvailSites(libavail, 2, 8) as a:
         a.set_rate(0, 1.0)
-        a.set_rate(0, -3.0)   # rejected; rate stays 1.0
+        a.set_rate(0, -3.0)  # rejected; rate stays 1.0
         assert a.rate(0) == pytest.approx(1.0)
 
 
@@ -431,8 +477,12 @@ def test_select_skips_zero_rate_proc(libavail: ctypes.CDLL) -> None:
     """A proc with rate 0 has zero weight in cum_rates but may still hold
     enrolled sites. The selector should never pick it."""
     with _AvailSites(libavail, 3, 16) as a:
-        a.set_rate(0, 1.0); a.set_rate(1, 0.0); a.set_rate(2, 1.0)
-        a.add(0, 0); a.add(1, 1); a.add(2, 2)
+        a.set_rate(0, 1.0)
+        a.set_rate(1, 0.0)
+        a.set_rate(2, 1.0)
+        a.add(0, 0)
+        a.add(1, 1)
+        a.add(2, 2)
         a.refresh()
         # cum=[1, 1, 2]; r_tot=2; proc 1 has zero-width band so should never
         # be selected.

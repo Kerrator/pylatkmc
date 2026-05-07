@@ -7,7 +7,7 @@ import math
 
 import pytest
 
-from pylatkmc.processes import Action, Condition, CoordOffset, Process
+from pylatkmc.processes import CoordOffset, Process
 from pylatkmc.rate_expression import KB_EV_PER_K
 from pylatkmc.translator import (
     ANCHOR,
@@ -21,10 +21,10 @@ from pylatkmc.translator import (
     translate_surface_1NN_inplane,
 )
 
-
 # ---------------------------------------------------------------------------
 # parse_bucket_key
 # ---------------------------------------------------------------------------
+
 
 def test_parse_bucket_two_axis() -> None:
     assert parse_bucket_key("nv1=2_nv2=0") == {"nv1": 2, "nv2": 0}
@@ -57,6 +57,7 @@ def test_parse_bucket_rejects_no_eq() -> None:
 # Direction sets — sanity checks
 # ---------------------------------------------------------------------------
 
+
 def test_surface_1NN_4_directions() -> None:
     assert len(SURFACE_1NN_INPLANE_DIRS) == 4
     # All in-plane axial codes
@@ -74,8 +75,7 @@ def test_bulk_1NN_12_directions() -> None:
 def test_bulk_2NN_6_directions() -> None:
     assert len(BULK_2NN_DIRS) == 6
     # All NC_NN2_* axial codes
-    axial_codes = {"NC_NN2_PX", "NC_NN2_MX", "NC_NN2_PY", "NC_NN2_MY",
-                   "NC_NN2_PZ", "NC_NN2_MZ"}
+    axial_codes = {"NC_NN2_PX", "NC_NN2_MX", "NC_NN2_PY", "NC_NN2_MY", "NC_NN2_PZ", "NC_NN2_MZ"}
     assert {d.code for d in BULK_2NN_DIRS} == axial_codes
 
 
@@ -83,12 +83,23 @@ def test_bulk_2NN_6_directions() -> None:
 # load_family_rate_table — fixture CSV
 # ---------------------------------------------------------------------------
 
+
 def _write_fixture(path, rows: list[dict]) -> None:
     fields = [
-        "family_id", "family_name", "family_bucket_id", "family_bucket_name",
-        "site_motion_template", "environment_rule",
-        "n_events", "Ea_mean_eV", "Ea_std_eV", "Ea_min_eV", "Ea_max_eV",
-        "Ea_median_eV", "source_filter", "representative_row_indices",
+        "family_id",
+        "family_name",
+        "family_bucket_id",
+        "family_bucket_name",
+        "site_motion_template",
+        "environment_rule",
+        "n_events",
+        "Ea_mean_eV",
+        "Ea_std_eV",
+        "Ea_min_eV",
+        "Ea_max_eV",
+        "Ea_median_eV",
+        "source_filter",
+        "representative_row_indices",
     ]
     with open(path, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
@@ -101,14 +112,29 @@ def _write_fixture(path, rows: list[dict]) -> None:
 def test_load_skips_zero_event_rows(tmp_path) -> None:
     """Buckets with n_events=0 are placeholder rows; skip them."""
     csv_path = tmp_path / "fp.csv"
-    _write_fixture(csv_path, [
-        {"family_id": "x", "family_bucket_id": "nv1=0",
-         "n_events": "0", "Ea_mean_eV": "0.5", "Ea_std_eV": "0",
-         "Ea_min_eV": "0", "Ea_max_eV": "0"},
-        {"family_id": "x", "family_bucket_id": "nv1=1",
-         "n_events": "10", "Ea_mean_eV": "0.6", "Ea_std_eV": "0.01",
-         "Ea_min_eV": "0.55", "Ea_max_eV": "0.65"},
-    ])
+    _write_fixture(
+        csv_path,
+        [
+            {
+                "family_id": "x",
+                "family_bucket_id": "nv1=0",
+                "n_events": "0",
+                "Ea_mean_eV": "0.5",
+                "Ea_std_eV": "0",
+                "Ea_min_eV": "0",
+                "Ea_max_eV": "0",
+            },
+            {
+                "family_id": "x",
+                "family_bucket_id": "nv1=1",
+                "n_events": "10",
+                "Ea_mean_eV": "0.6",
+                "Ea_std_eV": "0.01",
+                "Ea_min_eV": "0.55",
+                "Ea_max_eV": "0.65",
+            },
+        ],
+    )
     rows = load_family_rate_table(csv_path)
     assert len(rows) == 1
     assert rows[0].family_bucket_id == "nv1=1"
@@ -117,14 +143,29 @@ def test_load_skips_zero_event_rows(tmp_path) -> None:
 def test_load_skips_nan_Ea_rows(tmp_path) -> None:
     """fit_barrier=False families have Ea=NaN; skip."""
     csv_path = tmp_path / "fp.csv"
-    _write_fixture(csv_path, [
-        {"family_id": "concerted_multisite", "family_bucket_id": "n_moved=3",
-         "n_events": "5", "Ea_mean_eV": "nan", "Ea_std_eV": "0",
-         "Ea_min_eV": "0", "Ea_max_eV": "0"},
-        {"family_id": "x", "family_bucket_id": "nv1=0",
-         "n_events": "10", "Ea_mean_eV": "0.5", "Ea_std_eV": "0.01",
-         "Ea_min_eV": "0.45", "Ea_max_eV": "0.55"},
-    ])
+    _write_fixture(
+        csv_path,
+        [
+            {
+                "family_id": "concerted_multisite",
+                "family_bucket_id": "n_moved=3",
+                "n_events": "5",
+                "Ea_mean_eV": "nan",
+                "Ea_std_eV": "0",
+                "Ea_min_eV": "0",
+                "Ea_max_eV": "0",
+            },
+            {
+                "family_id": "x",
+                "family_bucket_id": "nv1=0",
+                "n_events": "10",
+                "Ea_mean_eV": "0.5",
+                "Ea_std_eV": "0.01",
+                "Ea_min_eV": "0.45",
+                "Ea_max_eV": "0.55",
+            },
+        ],
+    )
     rows = load_family_rate_table(csv_path)
     assert len(rows) == 1
     assert rows[0].family_id == "x"
@@ -139,11 +180,16 @@ def test_load_missing_file(tmp_path) -> None:
 # translate_surface_1NN_inplane — happy path
 # ---------------------------------------------------------------------------
 
+
 def _row(family_id: str, bucket: str, n: int, Ea: float, std: float = 0.01) -> FamilyBucketRow:
     return FamilyBucketRow(
-        family_id=family_id, family_bucket_id=bucket,
-        n_events=n, Ea_mean_eV=Ea, Ea_std_eV=std,
-        Ea_min_eV=Ea - 3 * std, Ea_max_eV=Ea + 3 * std,
+        family_id=family_id,
+        family_bucket_id=bucket,
+        n_events=n,
+        Ea_mean_eV=Ea,
+        Ea_std_eV=std,
+        Ea_min_eV=Ea - 3 * std,
+        Ea_max_eV=Ea + 3 * std,
     )
 
 
@@ -224,6 +270,7 @@ def test_translate_processes_have_unique_names() -> None:
 def test_translate_process_names_are_valid_c_identifiers() -> None:
     """Required by the IR validator and by the codegen step."""
     import re
+
     rows = [_row("surface_1NN_inplane", "nv1=2_nv2=0", 4407, 0.459)]
     out = translate_surface_1NN_inplane(rows)
     for p in out:
@@ -246,6 +293,7 @@ def test_translate_warns_on_high_scatter() -> None:
 # ---------------------------------------------------------------------------
 # translate_simple_hop_family — generic helper used by other families
 # ---------------------------------------------------------------------------
+
 
 def test_translate_simple_hop_bulk_12_directions() -> None:
     """Used for bulk_1NN_inplane: 12 directions per bucket."""
@@ -285,18 +333,18 @@ def test_translate_all_dispatches_per_family() -> None:
     """One bucket per family, each emitting per-direction Processes.
     Total = sum of direction counts across families present in the input."""
     rows = [
-        _row("surface_1NN_inplane",            "nv1=0_nv2=0", 100, 0.6),  # 4
-        _row("subsurface_1NN_inplane",         "nv1=0_nv2=0", 100, 0.6),  # 12
-        _row("bulk_1NN_inplane",               "nv1=0",        50, 0.5),  # 12
-        _row("surface_2NN_diagonal",           "nv1=0",        20, 0.9),  # 4
-        _row("subsurface_2NN_diagonal",        "nv1=3",        50, 0.95), # 6
-        _row("surface_interlayer_hop",         "li=0_nv1=4",   30, 1.1),  # 4
-        _row("subsurface_interlayer_hop",      "nv1=2",        50, 1.0),  # 8
-        _row("surface_subsurface_exchange_up",   "nv1=4",      40, 1.0),  # 4
-        _row("surface_subsurface_exchange_down", "nv1=4",      40, 0.9),  # 4
-        _row("surface_subsurface_exchange_lateral", "nv1=4",   40, 1.0),  # 8
-        _row("subsurface_migration_axial",       "nv1=2",      30, 1.0),  # 12
-        _row("subsurface_migration_interlayer",  "nv1=2",      30, 1.0),  # 8
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),  # 4
+        _row("subsurface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),  # 12
+        _row("bulk_1NN_inplane", "nv1=0", 50, 0.5),  # 12
+        _row("surface_2NN_diagonal", "nv1=0", 20, 0.9),  # 4
+        _row("subsurface_2NN_diagonal", "nv1=3", 50, 0.95),  # 6
+        _row("surface_interlayer_hop", "li=0_nv1=4", 30, 1.1),  # 4
+        _row("subsurface_interlayer_hop", "nv1=2", 50, 1.0),  # 8
+        _row("surface_subsurface_exchange_up", "nv1=4", 40, 1.0),  # 4
+        _row("surface_subsurface_exchange_down", "nv1=4", 40, 0.9),  # 4
+        _row("surface_subsurface_exchange_lateral", "nv1=4", 40, 1.0),  # 8
+        _row("subsurface_migration_axial", "nv1=2", 30, 1.0),  # 12
+        _row("subsurface_migration_interlayer", "nv1=2", 30, 1.0),  # 8
     ]
     expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 4 + 4 + 8 + 12 + 8  # = 86
     out = translate_all(rows)
@@ -310,7 +358,7 @@ def test_translate_all_dispatches_per_family() -> None:
 def test_translate_all_reports_unknown_family() -> None:
     rows = [
         _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),
-        _row("mystery_family",      "nv1=0",        10, 0.5),
+        _row("mystery_family", "nv1=0", 10, 0.5),
     ]
     unknown_seen: list[str] = []
     out = translate_all(rows, on_unknown_family=unknown_seen.append)
@@ -349,7 +397,6 @@ from pylatkmc.translator import (
     _emit_simple_2action_hop,
     _shell_conditions_from_bucket_key,
 )
-from pylatkmc.processes import CoordOffset, ShellCondition
 
 
 def test_shell_conditions_from_bucket_key_two_axis() -> None:
@@ -401,7 +448,9 @@ def test_emit_simple_2action_hop_carries_shell_gates_by_default() -> None:
         family_id="surface_1NN_inplane",
         bucket_id="nv1=4_nv2=1",
         direction=CoordOffset(code="NC_NN1_PX"),
-        mover_species="Ni", Ea_eV=0.167, rate_Hz=1.0e8,
+        mover_species="Ni",
+        Ea_eV=0.167,
+        rate_Hz=1.0e8,
     )
     assert len(p.shell_conditions) == 2
     counts_by_shell = {s.shell: s.count for s in p.shell_conditions}
@@ -414,7 +463,9 @@ def test_emit_simple_2action_hop_no_shell_gates_when_disabled() -> None:
         family_id="surface_1NN_inplane",
         bucket_id="nv1=4_nv2=1",
         direction=CoordOffset(code="NC_NN1_PX"),
-        mover_species="Ni", Ea_eV=0.167, rate_Hz=1.0e8,
+        mover_species="Ni",
+        Ea_eV=0.167,
+        rate_Hz=1.0e8,
         emit_shell_gates=False,
     )
     assert p.shell_conditions == ()

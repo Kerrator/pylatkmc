@@ -2,6 +2,7 @@
 
 Scope: M1 scaffolding. Does NOT test codegen (M2) or rate building (M3).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -54,8 +55,12 @@ def test_example_spec_all_axes_ordered() -> None:
     user_names = [a[0] for a in axes[2:]]
     assert user_names == [
         "mover_species",
-        "n_vac_nn1", "n_Fe_nn1", "n_Cr_nn1",
-        "n_vac_nn2", "n_Fe_nn2", "n_Cr_nn2",
+        "n_vac_nn1",
+        "n_Fe_nn1",
+        "n_Cr_nn1",
+        "n_vac_nn2",
+        "n_Fe_nn2",
+        "n_Cr_nn2",
     ]
 
 
@@ -94,9 +99,11 @@ def _minimal_spec(**overrides: object) -> dict[str, object]:
         lattice="fcc",
         species=["Vacant", "Ni"],
         shells=[Shell(name="nn1", cutoff_mult=1.05)],
-        key=Key(axes=[
-            KeyAxis(name="n_vac_nn1", kind="count", shell="nn1", match="vac", max=3),
-        ]),
+        key=Key(
+            axes=[
+                KeyAxis(name="n_vac_nn1", kind="count", shell="nn1", match="vac", max=3),
+            ]
+        ),
         rate_data=RateData(
             primary=Path("/tmp/primary.csv"),
             temperature_K=500.0,
@@ -114,11 +121,15 @@ def test_species_must_start_with_vacant() -> None:
 
 def test_reserved_axis_name_rejected() -> None:
     with pytest.raises(ValidationError, match="reserved"):
-        ModelSpec(**_minimal_spec(
-            key=Key(axes=[
-                KeyAxis(name="site_class", kind="enum", max=3),
-            ]),
-        ))  # type: ignore[arg-type]
+        ModelSpec(
+            **_minimal_spec(
+                key=Key(
+                    axes=[
+                        KeyAxis(name="site_class", kind="enum", max=3),
+                    ]
+                ),
+            )
+        )  # type: ignore[arg-type]
 
 
 def test_count_axis_requires_shell_and_match() -> None:
@@ -129,34 +140,44 @@ def test_count_axis_requires_shell_and_match() -> None:
 
 def test_count_axis_unknown_shell_rejected() -> None:
     with pytest.raises(ValidationError, match="unknown shell"):
-        ModelSpec(**_minimal_spec(
-            key=Key(axes=[
-                KeyAxis(name="n_vac_nn9", kind="count", shell="nn9",
-                        match="vac", max=3),
-            ]),
-        ))  # type: ignore[arg-type]
+        ModelSpec(
+            **_minimal_spec(
+                key=Key(
+                    axes=[
+                        KeyAxis(name="n_vac_nn9", kind="count", shell="nn9", match="vac", max=3),
+                    ]
+                ),
+            )
+        )  # type: ignore[arg-type]
 
 
 def test_duplicate_axis_names_rejected() -> None:
     with pytest.raises(ValidationError, match="duplicate axis names"):
-        ModelSpec(**_minimal_spec(
-            key=Key(axes=[
-                KeyAxis(name="x", kind="count", shell="nn1", match="vac", max=3),
-                KeyAxis(name="x", kind="count", shell="nn1", match="Ni", max=3),
-            ]),
-        ))  # type: ignore[arg-type]
+        ModelSpec(
+            **_minimal_spec(
+                key=Key(
+                    axes=[
+                        KeyAxis(name="x", kind="count", shell="nn1", match="vac", max=3),
+                        KeyAxis(name="x", kind="count", shell="nn1", match="Ni", max=3),
+                    ]
+                ),
+            )
+        )  # type: ignore[arg-type]
 
 
 def test_cube_size_cap_enforced() -> None:
     # 20 count axes * max=8 = 8^20 ~ 10^18 > 1e8 cap.
     with pytest.raises(ValidationError, match="MAX_CUBE_ENTRIES"):
-        ModelSpec(**_minimal_spec(
-            key=Key(axes=[
-                KeyAxis(name=f"a{i}", kind="count", shell="nn1",
-                        match="vac", max=8)
-                for i in range(20)
-            ]),
-        ))  # type: ignore[arg-type]
+        ModelSpec(
+            **_minimal_spec(
+                key=Key(
+                    axes=[
+                        KeyAxis(name=f"a{i}", kind="count", shell="nn1", match="vac", max=8)
+                        for i in range(20)
+                    ]
+                ),
+            )
+        )  # type: ignore[arg-type]
 
 
 def test_missing_spec_file_raises() -> None:

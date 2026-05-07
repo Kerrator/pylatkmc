@@ -76,7 +76,9 @@ def test_rate_table_has_one_entry_per_process() -> None:
 def test_rate_table_rejects_string_expression() -> None:
     """Bystander-modulated rates aren't supported yet (planned: M-A++)."""
     p = Process(
-        name="boost", family_id="x", Ea_eV=0.5,
+        name="boost",
+        family_id="x",
+        Ea_eV=0.5,
         rate_constant="k0 * exp(-Ea/kT) * boost",
         conditions=(Condition(coord=ANCHOR, species="Vacant"),),
         actions=(Action(coord=ANCHOR, before="Vacant", after="Ni"),),
@@ -93,8 +95,12 @@ def test_rate_table_rejects_string_expression() -> None:
 def test_apply_actions_one_function_per_process() -> None:
     procs = [_vac_to(PX), _vac_to(PY)]
     out = emit_apply_actions(procs)
-    assert "static HopOutcome apply_actions_hop_nn1_px(State *st, const Lattice *lat, int site)" in out
-    assert "static HopOutcome apply_actions_hop_nn1_py(State *st, const Lattice *lat, int site)" in out
+    assert (
+        "static HopOutcome apply_actions_hop_nn1_px(State *st, const Lattice *lat, int site)" in out
+    )
+    assert (
+        "static HopOutcome apply_actions_hop_nn1_py(State *st, const Lattice *lat, int site)" in out
+    )
     assert "static const ApplyFn apply_table[N_PROCS]" in out
 
 
@@ -130,7 +136,8 @@ def test_apply_actions_multi_site_emits_n_assignments() -> None:
     out = emit_apply_actions([p])
     body_match = re.search(
         r"apply_actions_triple\(State \*st, const Lattice \*lat, int site\) \{(.*?)^}",
-        out, re.DOTALL | re.MULTILINE,
+        out,
+        re.DOTALL | re.MULTILINE,
     )
     assert body_match is not None
     body = body_match.group(1)
@@ -143,8 +150,8 @@ def test_apply_actions_returns_hop_outcome_for_simple_hop() -> None:
     """A 1-vacancy-out + 1-vacancy-in pattern should populate v_origin and v_dest."""
     procs = [_vac_to(PX)]
     out = emit_apply_actions(procs)
-    assert "v_origin = acts[0].site" in out      # action 0 is V→Ni at anchor
-    assert "v_dest = acts[1].site" in out         # action 1 is Ni→V at +x
+    assert "v_origin = acts[0].site" in out  # action 0 is V→Ni at anchor
+    assert "v_dest = acts[1].site" in out  # action 1 is Ni→V at +x
 
 
 def test_apply_actions_returns_neg1_for_non_hop() -> None:
@@ -328,9 +335,9 @@ int main(void) {
 
     obj = tmp_path / "test_proclist.o"
     result = subprocess.run(
-        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
-         str(src), "-o", str(obj)],
-        capture_output=True, text=True,
+        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c", str(src), "-o", str(obj)],
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, (
         f"emitted C did not compile:\n"
@@ -388,16 +395,19 @@ sys.stdout.write(out)
 """
 
     import os
+
     # Run twice with DIFFERENT PYTHONHASHSEEDs — this is the actual
     # threat. With the bug, these two invocations would produce
     # different output.
     env_a = {**os.environ, "PYTHONHASHSEED": "1"}
     env_b = {**os.environ, "PYTHONHASHSEED": "424242"}
 
-    r1 = subprocess.run(["python3", "-c", snippet], env=env_a,
-                        capture_output=True, text=True, check=True)
-    r2 = subprocess.run(["python3", "-c", snippet], env=env_b,
-                        capture_output=True, text=True, check=True)
+    r1 = subprocess.run(
+        ["python3", "-c", snippet], env=env_a, capture_output=True, text=True, check=True
+    )
+    r2 = subprocess.run(
+        ["python3", "-c", snippet], env=env_b, capture_output=True, text=True, check=True
+    )
 
     assert r1.stdout == r2.stdout, (
         "decision_tree codegen is non-deterministic across PYTHONHASHSEEDs. "
@@ -411,19 +421,21 @@ sys.stdout.write(out)
 # ===========================================================================
 
 
-from pylatkmc.processes import ShellCondition  # noqa: E402
 from pylatkmc.decision_tree import _expand_bystanders, _shell_var_name  # noqa: E402
+from pylatkmc.processes import ShellCondition  # noqa: E402
 
 
-def _vac_to_with_shell(direction: CoordOffset, nv1: int, nv2: int,
-                       mover: str = "Ni",
-                       name_suffix: str = "") -> Process:
+def _vac_to_with_shell(
+    direction: CoordOffset, nv1: int, nv2: int, mover: str = "Ni", name_suffix: str = ""
+) -> Process:
     """Like _vac_to but with explicit (nv1, nv2) ShellConditions at the mover."""
     code = direction.code.removeprefix("NC_").lower()
     name = f"hop_{code}__nv1_{nv1}_nv2_{nv2}{name_suffix}"
     return Process(
         name=name,
-        family_id="testfam", Ea_eV=0.6, rate_constant=1.0e7,
+        family_id="testfam",
+        Ea_eV=0.6,
+        rate_constant=1.0e7,
         conditions=(
             Condition(coord=ANCHOR, species="Vacant"),
             Condition(coord=direction, species=mover),
@@ -485,7 +497,7 @@ def test_compile_no_shell_conditions_emits_bare_add() -> None:
 def test_compile_mixes_gated_and_bare_processes() -> None:
     """A leaf can have a mix of Processes with/without shell_conditions."""
     procs = [
-        _vac_to(PX, name_suffix="_bare"),                       # no shell gate
+        _vac_to(PX, name_suffix="_bare"),  # no shell gate
         _vac_to_with_shell(PX, nv1=4, nv2=1, name_suffix="_gated"),  # gated
     ]
     out = compile_decision_tree(procs, "touchup_a")
@@ -493,8 +505,10 @@ def test_compile_mixes_gated_and_bare_processes() -> None:
     bare_pat = "avail_sites_add(as, P_hop_nn1_px_bare, site);"
     assert bare_pat in out
     # Gated process: `if (...)` wrapper
-    assert "if (nr_1nn_vacant_at_nn1_px == 4 && nr_2nn_vacant_at_nn1_px == 1) " \
-           "avail_sites_add(as, P_hop_nn1_px__nv1_4_nv2_1_gated, site);" in out
+    assert (
+        "if (nr_1nn_vacant_at_nn1_px == 4 && nr_2nn_vacant_at_nn1_px == 1) "
+        "avail_sites_add(as, P_hop_nn1_px__nv1_4_nv2_1_gated, site);" in out
+    )
 
 
 def test_expand_bystanders_passes_through_when_empty() -> None:
@@ -507,15 +521,15 @@ def test_expand_bystanders_passes_through_when_empty() -> None:
 def test_expand_bystanders_raises_for_non_empty() -> None:
     """Stub: clear NotImplementedError points to v0.4 expansion."""
     from pylatkmc.processes import Bystander
+
     p = Process(
         name="hop_with_bystander",
-        family_id="x", Ea_eV=0.5,
+        family_id="x",
+        Ea_eV=0.5,
         rate_constant="k0 * boost_Fe^nr_Fe_1nn",
         conditions=(Condition(coord=ANCHOR, species="Vacant"),),
         actions=(Action(coord=ANCHOR, before="Vacant", after="Ni"),),
-        bystanders=(
-            Bystander(coord=PX, allowed_species=("Fe",), flag="1nn"),
-        ),
+        bystanders=(Bystander(coord=PX, allowed_species=("Fe",), flag="1nn"),),
     )
     with pytest.raises(NotImplementedError, match="v0.4"):
         _expand_bystanders([p])
@@ -549,9 +563,12 @@ def test_compile_shell_gated_output_compiles_under_stub_harness(tmp_path) -> Non
     into a stub harness with Lattice + State, compile with cc -Werror,
     expect no errors. Catches typos in the count-loop emission and
     validates the symbol contract (nn1_offsets, nn1_indices, n_sites)."""
-    import shutil, subprocess
+    import shutil
+    import subprocess
+
     if not shutil.which("cc"):
         import pytest
+
         pytest.skip("cc not on PATH")
 
     procs = [
@@ -590,8 +607,12 @@ typedef struct AvailSites AvailSites;
 
 void avail_sites_add(AvailSites *as, int proc, int site) { (void)as; (void)proc; (void)site; }
 """
-    program = harness + emit_process_enum(procs) + emit_rate_table(procs) \
-        + compile_decision_tree(procs, "touchup_a") + """
+    program = (
+        harness
+        + emit_process_enum(procs)
+        + emit_rate_table(procs)
+        + compile_decision_tree(procs, "touchup_a")
+        + """
 int main(void) {
     Lattice lat = {0}; State st = {0};
     touchup_a(&lat, &st, NULL, 0);
@@ -599,13 +620,14 @@ int main(void) {
     return (int)rate_table[0].rate;
 }
 """
+    )
     src = tmp_path / "test_v03.c"
     src.write_text(program)
     obj = tmp_path / "test_v03.o"
     res = subprocess.run(
-        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
-         str(src), "-o", str(obj)],
-        capture_output=True, text=True,
+        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c", str(src), "-o", str(obj)],
+        capture_output=True,
+        text=True,
     )
     assert res.returncode == 0, (
         f"v0.3 ShellCondition codegen did not compile:\n"

@@ -3,6 +3,7 @@
 The spec file's relative paths (rate_data.primary, .family_table, .fallback_scalar)
 are resolved against the spec file's parent directory so specs stay portable.
 """
+
 from __future__ import annotations
 
 import sys

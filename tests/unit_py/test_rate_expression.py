@@ -15,10 +15,10 @@ from pylatkmc.rate_expression import (
     fit_boost_along_axis,
 )
 
-
 # ---------------------------------------------------------------------------
 # arrhenius_scalar
 # ---------------------------------------------------------------------------
+
 
 def test_arrhenius_zero_Ea() -> None:
     """Ea = 0 → rate is exactly k0."""
@@ -59,6 +59,7 @@ def test_arrhenius_rejects_zero_k0() -> None:
 # bucket_warns_on_scatter
 # ---------------------------------------------------------------------------
 
+
 def test_warn_low_scatter_no_warning() -> None:
     """Tight bucket (std=0.01 eV) should NOT warn."""
     assert bucket_warns_on_scatter(Ea_std_eV=0.01, n_events=1000) is None
@@ -92,6 +93,7 @@ def test_warn_small_buckets_never_warn() -> None:
 # fit_boost_along_axis
 # ---------------------------------------------------------------------------
 
+
 def test_fit_boost_perfect_linear() -> None:
     """Ea(n) = 0.5 + 0.05*n → slope = 0.05, R² = 1, boost = exp(-0.05/kT)."""
     counts = [0, 1, 2, 3]
@@ -100,7 +102,7 @@ def test_fit_boost_perfect_linear() -> None:
     assert fit is not None
     assert fit.Ea_0_eV == pytest.approx(0.50, abs=1e-9)
     assert fit.Ea_per_count_eV == pytest.approx(0.05, abs=1e-9)
-    assert fit.R2 == pytest.approx(1.0, abs=1e-9)
+    assert pytest.approx(1.0, abs=1e-9) == fit.R2
     expected_boost = math.exp(-0.05 / (KB_EV_PER_K * 500.0))
     assert fit.boost == pytest.approx(expected_boost, rel=1e-9)
     assert fit.n_buckets_fitted == 4
@@ -148,7 +150,7 @@ def test_fit_boost_with_weights() -> None:
     """Weighted LS gives less influence to small-N buckets."""
     # Tail bucket (n=3) is an outlier; weight = 1 vs weight = 1000 for others.
     counts = [0, 1, 2, 3]
-    Ea = [0.50, 0.55, 0.60, 0.99]   # n=3 is outlier
+    Ea = [0.50, 0.55, 0.60, 0.99]  # n=3 is outlier
     weights = [1000, 1000, 1000, 1]
     fit = fit_boost_along_axis(counts, Ea, weights=weights, T_K=500.0)
     assert fit is not None
@@ -160,7 +162,7 @@ def test_fit_boost_evaluate_rate_consistent() -> None:
     """BoostFit.evaluate_rate(n) should match Arrhenius at Ea_0 + n*slope."""
     fit = BoostFit(
         Ea_0_eV=0.5,
-        boost=0.5,                    # rate halves per count
+        boost=0.5,  # rate halves per count
         Ea_per_count_eV=KB_EV_PER_K * 500.0 * math.log(2),  # ≈ 0.0299 eV
         R2=1.0,
         n_buckets_fitted=3,
@@ -189,7 +191,6 @@ def test_fit_boost_length_mismatch() -> None:
 
 def test_boostfit_is_frozen() -> None:
     """BoostFit is a dataclass(frozen=True) for hashability."""
-    fit = BoostFit(Ea_0_eV=0.5, boost=1.0, Ea_per_count_eV=0.0, R2=1.0,
-                   n_buckets_fitted=2)
+    fit = BoostFit(Ea_0_eV=0.5, boost=1.0, Ea_per_count_eV=0.0, R2=1.0, n_buckets_fitted=2)
     with pytest.raises((AttributeError, Exception)):  # FrozenInstanceError
-        fit.boost = 0.99    # type: ignore[misc]
+        fit.boost = 0.99  # type: ignore[misc]

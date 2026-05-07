@@ -48,7 +48,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 
@@ -94,7 +93,7 @@ def bucket_warns_on_scatter(
     Ea_std_eV: float,
     n_events: int,
     threshold_eV: float = BUCKET_EA_STD_WARN_EV,
-) -> Optional[str]:
+) -> str | None:
     """Return a human-readable warning if a bucket's Ea scatter is too
     wide for its mean to be a reliable summary; otherwise None.
 
@@ -177,7 +176,7 @@ def fit_boost_along_axis(
     Ea_means_eV: list[float],
     weights: list[int] | None = None,
     T_K: float = 500.0,
-) -> Optional[BoostFit]:
+) -> BoostFit | None:
     """Fit ``Ea(n) = Ea_0 + slope * n`` via weighted least-squares,
     returning a BoostFit if the fit is statistically reasonable.
 
@@ -206,8 +205,7 @@ def fit_boost_along_axis(
     """
     if len(counts) != len(Ea_means_eV):
         raise ValueError(
-            f"counts and Ea_means_eV must have same length; "
-            f"got {len(counts)} vs {len(Ea_means_eV)}"
+            f"counts and Ea_means_eV must have same length; got {len(counts)} vs {len(Ea_means_eV)}"
         )
     n = len(counts)
     if n < 2:
@@ -218,11 +216,7 @@ def fit_boost_along_axis(
 
     x = np.asarray(counts, dtype=float)
     y = np.asarray(Ea_means_eV, dtype=float)
-    w = (
-        np.asarray(weights, dtype=float)
-        if weights is not None
-        else np.ones(n, dtype=float)
-    )
+    w = np.asarray(weights, dtype=float) if weights is not None else np.ones(n, dtype=float)
     if (w <= 0).any():
         raise ValueError(f"weights must be positive; got {weights}")
 
@@ -242,11 +236,8 @@ def fit_boost_along_axis(
     y_pred = Ea_0 + slope * x
     ss_res = (w * (y - y_pred) ** 2).sum()
     ss_tot = (w * (y - y_mean) ** 2).sum()
-    if ss_tot == 0:
-        # Constant Ea — fit is trivially perfect (slope = 0).
-        R2 = 1.0
-    else:
-        R2 = 1.0 - ss_res / ss_tot
+    # ss_tot == 0 means constant Ea → fit is trivially perfect (slope = 0).
+    R2 = 1.0 if ss_tot == 0 else 1.0 - ss_res / ss_tot
 
     if R2 < 0.5:
         # The relationship isn't monotone enough to summarise as a

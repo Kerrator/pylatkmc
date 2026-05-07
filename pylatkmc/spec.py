@@ -11,6 +11,7 @@ Everything the generator emits is a pure function of ModelSpec. The TOML
 loader is kept in loader.py; this file only defines the data shape and
 its invariants.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,8 +23,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 # Compile-time limits. Raise these deliberately; the cube size grows
 # multiplicatively so a bigger limit means a bigger .kmcrt on disk.
 # ------------------------------------------------------------------
-MAX_COUNT_CAP = 8                      # per-axis bin cap
-MAX_CUBE_ENTRIES = 100_000_000         # hard stop at ~1.2 GB cube
+MAX_COUNT_CAP = 8  # per-axis bin cap
+MAX_CUBE_ENTRIES = 100_000_000  # hard stop at ~1.2 GB cube
 
 # Fixed axes that exist in every spec. Extra axes live in ModelSpec.key.axes.
 PERMANENT_AXES: tuple[str, ...] = ("site_class", "direction")
@@ -73,10 +74,10 @@ class KeyAxis(BaseModel):
 
     # Only for kind='count'
     shell: str | None = None
-    match: str | None = None               # species name, or literal "vac"
+    match: str | None = None  # species name, or literal "vac"
 
     # Only for kind='enum' with a species role
-    skip_vacant: bool = False              # True => mover_species only enumerates non-vacant
+    skip_vacant: bool = False  # True => mover_species only enumerates non-vacant
 
     @field_validator("name")
     @classmethod
@@ -110,9 +111,7 @@ class Key(BaseModel):
         names = [a.name for a in v]
         for permanent in PERMANENT_AXES:
             if permanent in names:
-                raise ValueError(
-                    f"axis name {permanent!r} is reserved (implicit permanent axis)"
-                )
+                raise ValueError(f"axis name {permanent!r} is reserved (implicit permanent axis)")
         if len(set(names)) != len(names):
             dups = {n for n in names if names.count(n) > 1}
             raise ValueError(f"duplicate axis names: {sorted(dups)}")
@@ -124,8 +123,8 @@ class RateData(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    primary: Path                  # classified_events_with_families.csv
-    family_table: Path | None = None   # rate_lookup_table_family.csv (tier-6 fallback)
+    primary: Path  # classified_events_with_families.csv
+    family_table: Path | None = None  # rate_lookup_table_family.csv (tier-6 fallback)
     fallback_scalar: Path | None = None  # rate_lookup_table.csv (tier-7 fallback, <110> only)
     temperature_K: float = Field(gt=0.0)
     k0_Hz: float = Field(gt=0.0)
@@ -148,8 +147,8 @@ class ModelSpec(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     name: str
-    lattice: Literal["fcc"] = "fcc"   # scope-locked to FCC in this iteration
-    species: list[str]                # first element must be "Vacant"
+    lattice: Literal["fcc"] = "fcc"  # scope-locked to FCC in this iteration
+    species: list[str]  # first element must be "Vacant"
     shells: list[Shell]
     key: Key
     rate_data: RateData
@@ -169,8 +168,7 @@ class ModelSpec(BaseModel):
     def _species_starts_with_vacant(cls, v: list[str]) -> list[str]:
         if not v or v[0] != "Vacant":
             raise ValueError(
-                "species list must start with 'Vacant'; got "
-                f"{v[0] if v else '<empty>'!r}"
+                f"species list must start with 'Vacant'; got {v[0] if v else '<empty>'!r}"
             )
         if len(set(v)) != len(v):
             raise ValueError(f"duplicate species in list: {v}")
@@ -179,7 +177,7 @@ class ModelSpec(BaseModel):
     @model_validator(mode="after")
     def _shells_and_axes_cross_check(self) -> ModelSpec:
         shell_names = {s.name for s in self.shells}
-        species_set = set(self.species) | {"vac"}   # 'vac' is alias for Vacant
+        species_set = set(self.species) | {"vac"}  # 'vac' is alias for Vacant
         for axis in self.key.axes:
             if axis.kind == "count":
                 if axis.shell not in shell_names:
@@ -255,15 +253,11 @@ class ModelSpec(BaseModel):
         """
         axes = self.all_axes()
         if len(key_values) != len(axes):
-            raise ValueError(
-                f"expected {len(axes)} key values, got {len(key_values)}"
-            )
+            raise ValueError(f"expected {len(axes)} key values, got {len(key_values)}")
         strides = self.strides()
         out = 0
         for v, (name, max_bin), s in zip(key_values, axes, strides, strict=True):
             if v < 0 or v >= max_bin:
-                raise ValueError(
-                    f"axis {name!r} value {v} out of range [0, {max_bin})"
-                )
+                raise ValueError(f"axis {name!r} value {v} out of range [0, {max_bin})")
             out += v * s
         return out
