@@ -8,8 +8,8 @@ type: software
 authors:
   - family-names: Kerr
     given-names: Stephen
-    email: stephen.kerr1@ontariotechu.net
-    affiliation: Ontario Tech University
+    email: 24jrpc@queensu.ca
+    affiliation: Queen's University
 repository-code: "https://github.com/<owner>/pylatkmc"
 abstract: >-
   pylatkmc is a species-aware on-lattice Kinetic Monte Carlo solver
