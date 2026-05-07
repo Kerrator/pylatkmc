@@ -1,0 +1,66 @@
+cff-version: 1.2.0
+title: "pylatkmc — Species-aware on-lattice Kinetic Monte Carlo"
+message: >-
+  If you use this software, please cite it using the metadata below.
+  A peer-reviewed paper is in preparation; once available, please
+  cite that instead.
+type: software
+authors:
+  - family-names: Kerr
+    given-names: Stephen
+    email: stephen.kerr1@ontariotechu.net
+    affiliation: Ontario Tech University
+repository-code: "https://github.com/<owner>/pylatkmc"
+abstract: >-
+  pylatkmc is a species-aware on-lattice Kinetic Monte Carlo solver
+  for FCC alloys. A TOML model spec plus a curated FCC family
+  catalogue (produced by an upstream pyKMC analysis pipeline) is
+  translated into a per-model C `proclist.c` containing a frequency-
+  optimised decision tree, per-Process apply functions, and a baked
+  rate table. The decision tree is a port of kmos's
+  `_write_optimal_iftree` to C-emission. The runtime uses an O(1)
+  `avail_sites` swap-last index for BKL selection, a coordination-
+  based active-site filter for skipping bulk atoms, and atomic
+  multi-site `state_apply_actions` for cooperative hops. Per-Process
+  ShellCondition count gates (v0.3) thread catalogue bucketing
+  through to runtime so each Process fires only in the local
+  configuration where it was discovered.
+keywords:
+  - kinetic-monte-carlo
+  - kmc
+  - on-lattice
+  - surface-diffusion
+  - vacancy-migration
+  - fcc
+  - codegen
+  - mpi
+  - materials-science
+license: MIT
+version: 0.3.0
+date-released: 2026-05-07
+references:
+  - type: software
+    title: "kmos — A lattice kinetic Monte Carlo framework"
+    authors:
+      - family-names: Hoffmann
+        given-names: Max J.
+    repository-code: "https://github.com/mhoffman/kmos"
+    notes: >-
+      pylatkmc's decision-tree codegen, Process IR, and avail_sites
+      data structure are ports of kmos's design. See
+      docs/KMOS_COMPARISON.md for what was kept and what's
+      pylatkmc-specific.
+  - type: software
+    title: "pyKMC — Off-lattice KMC with pARTn saddle search"
+    notes: >-
+      The curated FCC family catalogue consumed by pylatkmc is
+      produced by an upstream pyKMC simulation pipeline using pARTn
+      for saddle search and IRA for environment matching.
+  - type: software
+    title: "pARTn — Activation-Relaxation Technique nouveau"
+    repository-code: "https://gitlab.com/mammasmias/artn-plugin"
+    notes: Used by the upstream pyKMC pipeline for saddle-point search.
+  - type: software
+    title: "IRA — Iterative Rotations Assignments"
+    repository-code: "https://github.com/mammasmias/IterativeRotationsAssignments"
+    notes: Used by the upstream pyKMC pipeline for environment matching.

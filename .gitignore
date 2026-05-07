@@ -45,6 +45,21 @@ models/*/examples/*/configs_*/
 # Sweep-generated input.ini files (auto-generated from sweep.sh)
 models/*/examples/*/input_T*.ini
 
+# Exploratory / scratch directories from local research sessions —
+# regenerable from the curated catalogue; not part of the public release.
+# (The committed `models/<n>/examples/full_100Ni/` directory carries the
+# canonical sweep harness + headline CSVs; everything below is local.)
+models/*/examples/adatom_test/
+models/*/examples/filter_compare/
+models/*/examples/pykmc_10k/
+models/*/examples/pure_ni_pykmc/
+models/*/examples/sweep_T_nvac/
+
+# Multi-run bookkeeping inside full_100Ni/ — only the canonical sweep
+# committed; per-run snapshots stay local for our own bookkeeping.
+models/*/examples/full_100Ni/v0_*_run*/
+models/*/examples/full_100Ni/v0_*_grid.csv
+
 # OS / editor
 .DS_Store
 Thumbs.db

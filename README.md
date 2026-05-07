@@ -14,9 +14,20 @@ tree, O(1) `avail_sites` book-keeping. See
 [`docs/KMOS_COMPARISON.md`](docs/KMOS_COMPARISON.md) for what we kept and
 what we deliberately left out.
 
-**Status — v0.2.0 (2026-05-06).** Pattern-DB pipeline shipped.
-Single-vacancy MSD on the reference 8×8×3 ni_fe_cr_v1 slab agrees with
-the cube baseline within 13%. 162 unit tests passing.
+**Status — v0.3.0 (2026-05-07).** ShellCondition gates each Process
+by its catalogue bucket key (e.g. `nv1=4_nv2=1`), so a Process
+discovered at high vacancy density can no longer fire on configurations
+that don't match. Cross-T validation on the 22×22×20 ni_fe_cr_v1 slab
+(8 temperatures × 10 vacancy counts × 4 MPI replicas):
+
+  - Mean Arrhenius **Eₐ = 0.485 eV** (literature surface-Ni vacancy
+    diffusion is 0.30–0.50 eV)
+  - **Eₐ = 0.627 eV with R² = 0.999** for n_vac = 1 (essentially
+    perfect Arrhenius)
+  - Codegen and runtime are byte-deterministic across runs
+
+**188/188 unit tests passing.** See [`CHANGELOG.md`](CHANGELOG.md) for
+the v0.2 → v0.3 migration story.
 
 ---
 
@@ -71,7 +82,10 @@ For the full architectural walkthrough see
 
 ## Where to read next
 
-- **[`docs/PATTERN_DB.md`](docs/PATTERN_DB.md)** — *new in v0.2.* The
+- **[`CHANGELOG.md`](CHANGELOG.md)** — release-by-release feature log
+  and migration notes (Keep a Changelog format).
+- **[`docs/PATTERN_DB.md`](docs/PATTERN_DB.md)** — *new in v0.2,
+  extended in v0.3 with leaf-level shell-condition gating.* The
   pattern-DB pipeline: catalogue CSV → Process IR → decision tree →
   `avail_sites` → BKL select → `state_apply_actions`. Covers the
   NeighbourCode coordinate-resolution scheme and the `lattice_build_coord_table`
@@ -115,7 +129,7 @@ pylatkmc/
 │   ├── io/                # initconfig (.kmcinit), xyz writer, pykmc.out
 │   └── mpi/               # per-replica context + MPI_Gather aggregator
 ├── models/<name>/     # one subdir per compiled model (TOML spec + generated/ + examples/)
-├── tests/unit_py/     # 162 pytests (ctypes-driven for the C side)
+├── tests/unit_py/     # 188 pytests (ctypes-driven for the C side)
 ├── tools/             # build_initial_config, compare harnesses
 └── docs/              # PATTERN_DB, ARCHITECTURE, HOW_IT_WORKS, PYKMC_INTEGRATION, KMOS_COMPARISON
 ```
@@ -126,7 +140,7 @@ pylatkmc/
 
 ```bash
 pytest tests/unit_py/ -q
-# 162 passed
+# 188 passed
 ```
 
 Includes:
