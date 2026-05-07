@@ -98,6 +98,38 @@ class FamilyBucketRow:
         )
 
 
+def load_bucket_exclusions(csv_path: Path | str) -> set[tuple[str, str]]:
+    """Load a per-bucket exclusion list from a flagged CSV.
+
+    Expected schema (columns can be in any order; only `flag`,
+    `family_id`, `bucket` are read):
+
+        flag, family_id, bucket, [decision_notes, ...]
+
+    Rows where `flag` is "S" (skip) are returned as a set of
+    (family_id, bucket_id) tuples that the translator should drop.
+    Rows with flag "K" (keep) or anything else (including "?" for
+    "still inspecting") are kept.
+
+    Returns an empty set if csv_path is None or the file doesn't
+    exist (i.e. translation runs unfiltered).
+    """
+    if csv_path is None:
+        return set()
+    p = Path(csv_path)
+    if not p.is_file():
+        return set()
+    skip: set[tuple[str, str]] = set()
+    with open(p, newline="") as f:
+        for row in csv.DictReader(f):
+            flag = (row.get("flag") or "").strip().upper()
+            if flag == "S":
+                fid = row["family_id"].strip()
+                bkt = row["bucket"].strip()
+                skip.add((fid, bkt))
+    return skip
+
+
 def load_family_rate_table(path: Path | str) -> list[FamilyBucketRow]:
     """Load `rate_lookup_table_family.csv` into a list of FamilyBucketRow.
 
@@ -244,6 +276,59 @@ def _direction_label(d: CoordOffset) -> str:
     return code.lower()
 
 
+def _shell_conditions_from_bucket_key(
+    bucket_id: str, mover_coord: CoordOffset,
+) -> tuple:
+    """Decode `nv1=k_nv2=m` → (ShellCondition(1nn,Vacant,k),
+    ShellCondition(2nn,Vacant,m)).
+
+    Returns the appropriate tuple of ShellConditions to gate this
+    Process, anchored at the **mover** (`mover_coord` = the direction
+    coord of the hop). The catalogue's `n_vac_nn1_initial` /
+    `n_vac_nn2_initial` are computed at the mover's position upstream
+    (see `apps/PyKMC_Analysis/Analysis/tools/fix_catalogue_nvac.py:
+    corrected_nvac_nn1`).
+
+    Bucket-key axes recognised:
+    - `nv1` → ShellCondition at mover_coord, shell="1nn", species="Vacant"
+    - `nv2` → ShellCondition at mover_coord, shell="2nn", species="Vacant"
+    - `li`  → ignored in v0.3 (layer-index bucket; needs site_class
+              gating, scheduled for v0.4)
+    - other → silently dropped (reported via translator warnings if you
+              want to plumb a callback later)
+
+    Returns an empty tuple for unparseable bucket keys (e.g. "*",
+    "(empty)"), in which case the Process is emitted *without* shell
+    gating — the runtime fires it whenever the minimal Conditions
+    match, exactly v0.2 behaviour.
+    """
+    from .processes import ShellCondition  # local import: avoid cycle warnings
+
+    try:
+        parsed = parse_bucket_key(bucket_id)
+    except ValueError:
+        return ()
+
+    out: list = []
+    for axis, count in parsed.items():
+        if axis == "nv1":
+            out.append(ShellCondition(
+                coord=mover_coord, shell="1nn", species="Vacant", count=int(count),
+            ))
+        elif axis == "nv2":
+            out.append(ShellCondition(
+                coord=mover_coord, shell="2nn", species="Vacant", count=int(count),
+            ))
+        elif axis == "li":
+            # Layer index — not a shell count. Skip in v0.3.
+            continue
+        else:
+            # Unknown axis (e.g. n_Fe_1nn — could be supported via
+            # Bystander in v0.4). Skip silently for forward-compat.
+            continue
+    return tuple(out)
+
+
 def _emit_simple_2action_hop(
     family_id: str,
     bucket_id: str,
@@ -251,9 +336,20 @@ def _emit_simple_2action_hop(
     mover_species: str,
     Ea_eV: float,
     rate_Hz: float,
+    emit_shell_gates: bool = True,
 ) -> Process:
     """A single-atom 1NN/2NN hop: vacancy at anchor + mover at direction →
-    swap. Two Conditions, two Actions, no Bystanders."""
+    swap. Two Conditions, two Actions, plus optional ShellConditions
+    decoded from bucket_id.
+
+    `emit_shell_gates`: when True (default), the Process gets a
+    ShellCondition per nv1/nv2 axis in the bucket key, gating its
+    firing to configurations that match the bucket's discovery
+    context. Pass False to recover v0.2 behaviour (no gating)."""
+    shell_conds: tuple = (
+        _shell_conditions_from_bucket_key(bucket_id, mover_coord=direction)
+        if emit_shell_gates else ()
+    )
     return Process(
         name=_safe_name(family_id, bucket_id, _direction_label(direction), mover_species),
         family_id=family_id,
@@ -267,6 +363,7 @@ def _emit_simple_2action_hop(
             Action(coord=ANCHOR, before="Vacant", after=mover_species),
             Action(coord=direction, before=mover_species, after="Vacant"),
         ),
+        shell_conditions=shell_conds,
     )
 
 
@@ -357,6 +454,32 @@ _FAMILIES_SKIPPED: frozenset[str] = frozenset({
     "unresolved_multisite",
 })
 
+# Families where the very-low-Ea catalog buckets correspond to adatom-reverse
+# events (an above-surface atom hops back down). These shouldn't fire in a
+# v0.2 lattice that has no above-surface positions: their forward arms
+# (high-Ea exchange-up events) can't fire either, so the reverse arms firing
+# at every surface vacancy is a kinetic artefact. Until we add adatom
+# positions + adatom-presence conditions, drop buckets where Ea < the floor.
+#
+# Set ADATOM_REVERSE_EA_FLOOR_EV = None (or pass it via translate_all) to
+# include these buckets again — useful once the catalog encodes the
+# adatom-presence condition explicitly.
+_ADATOM_REVERSE_FAMILIES: frozenset[str] = frozenset({
+    "surface_interlayer_hop",
+    "surface_subsurface_exchange_down",
+})
+ADATOM_REVERSE_EA_FLOOR_EV: Optional[float] = None
+# Default: filter OFF. Use the per-bucket exclusion CSV instead (see
+# `load_bucket_exclusions` below) — coarse Ea-floor filtering proved
+# too blunt; per-bucket curation is the correct approach.
+# Pass `adatom_reverse_ea_floor_eV=0.20` to translate_all to enable the
+# experimental filter. Empirically the filter slightly perturbs MSD/D but
+# does NOT cleanly fix the catalogue's bucket-mean aggregation issue: the
+# remaining surface_1NN_inplane low-Ea buckets (Ea ≈ 0.17 eV) still
+# dominate r_tot at high T. Real fix is upstream catalogue
+# re-classification with adatom-presence conditions or per-arrangement
+# Processes.
+
 
 def translate_all(
     rows: list[FamilyBucketRow],
@@ -365,6 +488,8 @@ def translate_all(
     mover_species: str = "Ni",
     on_scatter_warn: Optional[Callable[[str], None]] = None,
     on_unknown_family: Optional[Callable[[str], None]] = None,
+    adatom_reverse_ea_floor_eV: Optional[float] = ADATOM_REVERSE_EA_FLOOR_EV,
+    bucket_exclusions: Optional[set[tuple[str, str]]] = None,
 ) -> list[Process]:
     """Translate every supported family in the catalogue into Processes.
 
@@ -373,6 +498,12 @@ def translate_all(
     (i.e. families not in `_FAMILY_DIRECTIONS` and not in
     `_FAMILIES_SKIPPED`) are reported via `on_unknown_family` and
     skipped.
+
+    `adatom_reverse_ea_floor_eV`: drop buckets in
+    _ADATOM_REVERSE_FAMILIES whose Ea_mean is below this floor. These
+    represent kinetic-artefact reverse arms of forward exchange-up
+    events that can't fire in a lattice with no above-surface
+    positions. Pass None to include all buckets.
 
     Returns a deduplicated, name-unique list[Process].
     """
@@ -384,6 +515,23 @@ def translate_all(
     for fid in sorted(unknown):
         if on_unknown_family is not None:
             on_unknown_family(fid)
+
+    # Filter rows by the adatom-reverse Ea floor before dispatching.
+    if adatom_reverse_ea_floor_eV is not None:
+        filtered_rows: list[FamilyBucketRow] = []
+        for r in rows:
+            if (r.family_id in _ADATOM_REVERSE_FAMILIES
+                    and r.Ea_mean_eV < adatom_reverse_ea_floor_eV):
+                continue
+            filtered_rows.append(r)
+        rows = filtered_rows
+
+    # Per-bucket exclusions (from a user-flagged CSV via load_bucket_exclusions).
+    if bucket_exclusions:
+        rows = [
+            r for r in rows
+            if (r.family_id, r.family_bucket_id) not in bucket_exclusions
+        ]
 
     for fid in sorted(_FAMILY_DIRECTIONS.keys()):
         out.extend(translate_simple_hop_family(

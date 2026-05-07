@@ -157,7 +157,10 @@ State *pylatkmc_test_make_state(int32_t n_sites,
     st->time_s = 0.0;
     st->step = 0;
 
-    st->species = calloc((size_t)n_sites, sizeof *st->species);
+    /* Allocate n_sites+1 to match production state_alloc — the extra slot
+     * holds a sentinel value so coord_table out-of-lattice entries can
+     * point to it without segfaulting the decision tree. */
+    st->species = calloc((size_t)n_sites + 1, sizeof *st->species);
     st->vac_idx_of = malloc((size_t)n_sites * sizeof *st->vac_idx_of);
     /* Even with n_vac_max == 0, vac_list is given length 1 just so
      * malloc returns non-NULL; otherwise allocate n_vac_max. */
@@ -173,6 +176,8 @@ State *pylatkmc_test_make_state(int32_t n_sites,
     if (species_init) {
         memcpy(st->species, species_init, (size_t)n_sites * sizeof *st->species);
     }
+    /* Sentinel byte at the stub slot, matching state_alloc's contract. */
+    st->species[n_sites] = (uint8_t)255;
 
     /* Initialise vac_idx_of to -1 everywhere, then enrol the given vacancies. */
     for (int32_t s = 0; s < n_sites; ++s) st->vac_idx_of[s] = -1;

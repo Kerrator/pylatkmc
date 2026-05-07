@@ -85,10 +85,15 @@ int lattice_build_coord_table(Lattice *lat)
     int32_t *table = malloc(entries * sizeof *table);
     if (!table) return -ENOMEM;
 
-    /* -1 everywhere by default; entries get filled in below. NC_ANCHOR
-     * gets `site` written as a special case so caller can use it
-     * uniformly. */
-    for (size_t i = 0; i < entries; ++i) table[i] = -1;
+    /* Initialise to the "stub site" index n_sites for every entry; real
+     * neighbours overwrite below. The State allocator places a sentinel
+     * value (255) at species[n_sites] so the decision tree's species
+     * reads fall through default for every direction that isn't a real
+     * neighbour (e.g. NC_NN1_UP_* on a top-surface site). This avoids a
+     * `species[-1]` segfault that would otherwise occur for surface or
+     * edge sites whose coord_table entry was -1. */
+    int32_t stub = lat->n_sites;
+    for (size_t i = 0; i < entries; ++i) table[i] = stub;
 
     const float inv_nn = 1.0f / lat->nn_dist;
     const float Lx = lat->cell[0], Ly = lat->cell[1], Lz = lat->cell[2];
@@ -110,10 +115,10 @@ int lattice_build_coord_table(Lattice *lat)
             float dy = min_image1(lat->positions[3 * n + 1] - sy, Ly) * inv_nn;
             float dz = min_image1(lat->positions[3 * n + 2] - sz, Lz) * inv_nn;
             int nc = match_code(dx, dy, dz);
-            if (nc < 0) continue;  /* unrecognised direction — leave -1 */
+            if (nc < 0) continue;  /* unrecognised direction — leave stub */
             /* If two CSR edges PBC-alias to the same code (thin-slab case),
              * the first one wins; subsequent matches are silently dropped. */
-            if (table[row + (size_t)nc] == -1) {
+            if (table[row + (size_t)nc] == stub) {
                 table[row + (size_t)nc] = n;
             }
         }
@@ -128,7 +133,7 @@ int lattice_build_coord_table(Lattice *lat)
             float dz = min_image1(lat->positions[3 * n + 2] - sz, Lz) * inv_nn;
             int nc = match_code(dx, dy, dz);
             if (nc < 0) continue;
-            if (table[row + (size_t)nc] == -1) {
+            if (table[row + (size_t)nc] == stub) {
                 table[row + (size_t)nc] = n;
             }
         }

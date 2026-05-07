@@ -303,3 +303,137 @@ def test_process_serialises_to_json() -> None:
     # Round-trip
     p2 = Process.model_validate_json(json_str)
     assert p == p2
+
+
+# ===========================================================================
+# ShellCondition (M-D-Prep-v0.3) — bucket-key-aware hard count gates
+# ===========================================================================
+
+
+from pylatkmc.processes import ShellCondition  # noqa: E402
+
+
+def test_shell_condition_basic() -> None:
+    """Construct a ShellCondition with all required fields."""
+    sc = ShellCondition(
+        coord=CoordOffset(code="NC_NN1_PX"),
+        shell="1nn",
+        species="Vacant",
+        count=4,
+    )
+    assert sc.coord.code == "NC_NN1_PX"
+    assert sc.shell == "1nn"
+    assert sc.species == "Vacant"
+    assert sc.count == 4
+
+
+def test_shell_condition_count_zero_is_valid() -> None:
+    """nv1=0 (mover has 0 vacant 1NN) is a valid bucket key."""
+    sc = ShellCondition(
+        coord=CoordOffset(code="NC_NN1_PX"),
+        shell="1nn",
+        species="Vacant",
+        count=0,
+    )
+    assert sc.count == 0
+
+
+def test_shell_condition_negative_count_rejected() -> None:
+    """count < 0 is invalid."""
+    with pytest.raises(ValidationError):
+        ShellCondition(
+            coord=CoordOffset(code="NC_NN1_PX"),
+            shell="1nn", species="Vacant", count=-1,
+        )
+
+
+def test_shell_condition_unknown_shell_rejected() -> None:
+    """Only '1nn' and '2nn' are supported in v0.3."""
+    with pytest.raises(ValidationError):
+        ShellCondition(
+            coord=CoordOffset(code="NC_NN1_PX"),
+            shell="3nn",  # type: ignore[arg-type]
+            species="Vacant", count=4,
+        )
+
+
+def test_shell_condition_is_hashable() -> None:
+    """Required for set-based deduplication in codegen."""
+    sc1 = ShellCondition(
+        coord=CoordOffset(code="NC_NN1_PX"),
+        shell="1nn", species="Vacant", count=4,
+    )
+    sc2 = ShellCondition(
+        coord=CoordOffset(code="NC_NN1_PX"),
+        shell="1nn", species="Vacant", count=4,
+    )
+    assert sc1 == sc2
+    assert hash(sc1) == hash(sc2)
+    assert {sc1, sc2} == {sc1}
+
+
+def test_process_with_shell_conditions() -> None:
+    """Process can carry shell_conditions; defaults to empty."""
+    p_default = _simple_1NN_hop()
+    assert p_default.shell_conditions == ()
+
+    sc = ShellCondition(
+        coord=CoordOffset(code="NC_NN1_PX"),
+        shell="1nn", species="Vacant", count=4,
+    )
+    p_gated = Process(
+        name="hop_nv1_4",
+        family_id="surface_1NN_inplane",
+        Ea_eV=0.167,
+        rate_constant=1.0e7,
+        conditions=(
+            Condition(coord=ANCHOR_COORD, species="Vacant"),
+            Condition(coord=CoordOffset(code="NC_NN1_PX"), species="Ni"),
+        ),
+        actions=(
+            Action(coord=ANCHOR_COORD, before="Vacant", after="Ni"),
+            Action(coord=CoordOffset(code="NC_NN1_PX"),
+                   before="Ni", after="Vacant"),
+        ),
+        shell_conditions=(sc,),
+    )
+    assert len(p_gated.shell_conditions) == 1
+    assert p_gated.shell_conditions[0].count == 4
+
+
+def test_process_rejects_shell_condition_overlap_with_bystander() -> None:
+    """A (coord) cannot have both a ShellCondition (hard) and a
+    Bystander (soft) — they make conflicting claims about the same
+    site's role."""
+    coord_px = CoordOffset(code="NC_NN1_PX")
+    sc = ShellCondition(coord=coord_px, shell="1nn", species="Vacant", count=4)
+    by = Bystander(coord=coord_px, allowed_species=("Fe",), flag="1nn")
+    with pytest.raises(ValidationError):
+        Process(
+            name="overlap",
+            family_id="x", Ea_eV=0.5, rate_constant=1.0,
+            conditions=(Condition(coord=ANCHOR_COORD, species="Vacant"),),
+            actions=(Action(coord=ANCHOR_COORD, before="Vacant", after="Ni"),),
+            shell_conditions=(sc,),
+            bystanders=(by,),
+        )
+
+
+def test_process_with_shell_conditions_serialises() -> None:
+    """ShellConditions round-trip through JSON for golden-file tests."""
+    sc = ShellCondition(
+        coord=CoordOffset(code="NC_NN1_PX"),
+        shell="2nn", species="Vacant", count=1,
+    )
+    p = Process(
+        name="hop_with_sc",
+        family_id="x", Ea_eV=0.5, rate_constant=1.0,
+        conditions=(Condition(coord=ANCHOR_COORD, species="Vacant"),),
+        actions=(Action(coord=ANCHOR_COORD, before="Vacant", after="Ni"),),
+        shell_conditions=(sc,),
+    )
+    json_str = p.model_dump_json()
+    p2 = Process.model_validate_json(json_str)
+    assert p == p2
+    assert p2.shell_conditions[0].count == 1
+    assert p2.shell_conditions[0].shell == "2nn"

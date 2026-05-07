@@ -49,21 +49,35 @@ DF_UNRESOLVED     = 4
 
 def build_fcc100_slab(nx: int, ny: int, nz: int, nn_dist: float,
                       vacuum_layers: float = 0.0,
+                      n_adatom_layers: int = 0,
                       ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Return (positions [N,3], layer_index [N], site_class [N], cell [3]).
 
     Requires nz >= 3 so there's a real top surface, subsurface, and at least
     one bulk-like layer.
+
+    `n_adatom_layers`: number of additional FCC(100) layers to generate
+    *above* the top atom-occupied layer. These layers contribute lattice
+    SITES but the caller is expected to leave their initial_species as
+    SP_VACANT. They give exchange-up events somewhere to land an
+    adatom; without them the runtime's coord_table points stub-site for
+    NC_NN1_UP_* and the forward exchange-up Action gets rejected by
+    state_apply_actions validation. With n_adatom_layers >= 1 the top
+    surface's NC_NN1_UP_* points to a real (initially vacant) lattice
+    site.
     """
     if nz < 3:
         raise ValueError(f"nz must be >= 3 (got {nz}); latkmc is 3D-only")
 
     if vacuum_layers < 0:
         raise ValueError(f"vacuum_layers must be >= 0 (got {vacuum_layers})")
+    if n_adatom_layers < 0:
+        raise ValueError(f"n_adatom_layers must be >= 0 (got {n_adatom_layers})")
 
     ls = nn_dist / np.sqrt(2.0)   # layer spacing, a/2 for FCC(100)
+    nz_total = nz + n_adatom_layers
     sites: list[tuple[float, float, float, int]] = []
-    for k in range(nz):
+    for k in range(nz_total):
         dx = 0.5 * nn_dist if (k % 2 == 1) else 0.0
         dy = 0.5 * nn_dist if (k % 2 == 1) else 0.0
         for i in range(nx):
@@ -76,13 +90,18 @@ def build_fcc100_slab(nx: int, ny: int, nz: int, nn_dist: float,
     positions   = np.array([(s[0], s[1], s[2]) for s in sites], dtype=np.float32)
     layer_index = np.array([s[3] for s in sites], dtype=np.int8)
 
-    top = nz - 1
+    # Site class is computed for the *atom-occupied* slab — the adatom
+    # layers above are flagged SC_BULK_LIKE because the static-active
+    # filter already picks them up via 1NN-degree (they have only 4
+    # downward 1NN, well below bulk's 12, so they're "active" by
+    # geometry).
+    top = nz - 1   # top atom layer (NOT top of total grid)
     site_class = np.full(len(sites), SC_BULK_LIKE, dtype=np.uint8)
     site_class[layer_index == top]     = SC_SURFACE
     site_class[layer_index == top - 1] = SC_SUBSURFACE
 
     cell = np.array(
-        [nx * nn_dist, ny * nn_dist, (nz + vacuum_layers) * ls],
+        [nx * nn_dist, ny * nn_dist, (nz_total + vacuum_layers) * ls],
         dtype=np.float32,
     )
     return positions, layer_index, site_class, cell
@@ -183,7 +202,13 @@ def main() -> int:
     ap.add_argument("--vacancy-layer", type=int, default=None,
                     help="Restrict initial vacancies to this layer (default: any layer)")
     ap.add_argument("--vacuum-layers", type=float, default=0.0,
-                    help="Extra empty FCC(100) layer spacings added above the slab")
+                    help="Extra empty FCC(100) layer spacings added above the slab "
+                         "(empty cell space, no lattice sites)")
+    ap.add_argument("--n-adatom-layers", type=int, default=0,
+                    help="Number of FCC(100) layers ADDED ABOVE the top atom layer "
+                         "as VACANT lattice sites — gives exchange-up events landing "
+                         "positions for adatoms. Default 0 (no adatom region). "
+                         "Recommended: 3 for full adatom-cycle support.")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("-o", "--output", type=Path, required=True)
     args = ap.parse_args()
@@ -192,8 +217,12 @@ def main() -> int:
     nn_dist = a / np.sqrt(2.0)
 
     positions, layer_index, site_class, cell = build_fcc100_slab(
-        args.nx, args.ny, args.nz, nn_dist, args.vacuum_layers)
+        args.nx, args.ny, args.nz, nn_dist,
+        vacuum_layers=args.vacuum_layers,
+        n_adatom_layers=args.n_adatom_layers,
+    )
     n_sites = positions.shape[0]
+    nz_total = args.nz + args.n_adatom_layers
 
     # 1NN within 1.1*nn_dist; 2NN within sqrt(2)*nn_dist*1.05
     adj_1nn = compute_neighbors_with_pbc(positions, cell, nn_dist, 1.1)
@@ -242,11 +271,20 @@ def main() -> int:
     else:
         species = np.full(n_sites, SPECIES_ID[args.element], dtype=np.uint8)
 
-    # Punch vacancies.
+    # Adatom layers (k >= args.nz) are sites WITHOUT atoms — clear them
+    # to SP_VACANT regardless of any composition assignment above.
+    if args.n_adatom_layers > 0:
+        adatom_mask = layer_index >= args.nz
+        species[adatom_mask] = 0  # SP_VACANT
+        n_adatom_sites = int(adatom_mask.sum())
+
+    # Punch vacancies — restrict candidates to the atom-occupied layers
+    # (k < args.nz) so we don't accidentally place "vacancies" where no
+    # atom ever lived.
     if args.vacancy_layer is not None:
         candidates = np.flatnonzero(layer_index == args.vacancy_layer)
     else:
-        candidates = np.arange(n_sites)
+        candidates = np.flatnonzero(layer_index < args.nz)
     if args.n_vacancies > candidates.size:
         sys.exit(f"error: n_vacancies={args.n_vacancies} exceeds candidate sites {candidates.size}")
     if args.n_vacancies > 0:
@@ -260,7 +298,9 @@ def main() -> int:
     header = {
         "version": 1,
         "n_sites": int(n_sites),
-        "n_layers": int(args.nz),
+        "n_layers": int(nz_total),       # total layer count (atoms + adatom region)
+        "n_atom_layers": int(args.nz),   # of which `n_atom_layers` are initially Ni
+        "n_adatom_layers": int(args.n_adatom_layers),
         "cell": [float(cell[0]), float(cell[1]), float(cell[2])],
         "nn_dist": float(nn_dist),
         "n_elements": len(SPECIES_ID) + 1,

@@ -159,6 +159,159 @@ def _partition_by_species(
     return by_species, passthrough
 
 
+def _expand_bystanders(processes: list[Process]) -> list[Process]:
+    """Convert Bystander-bearing Processes into a flat enumeration of
+    Processes with ShellConditions (codegen-time expansion).
+
+    For each input Process with non-empty `bystanders`:
+    - For each `Bystander(coord, allowed_species, flag)`, the runtime
+      would count how many of `coord`'s `flag`-shell neighbours are in
+      `allowed_species`. That's logically equivalent to a
+      `ShellCondition(coord, shell=flag, species=X, count=k)` for some
+      specific k (one per allowed species).
+    - To make this match kmos's "rate = base * boost^count" semantics
+      with hard gates, we'd enumerate all possible count tuples
+      (constrained by the max coordination of each shell) and emit one
+      Process per tuple, with the rate baked at codegen time as the
+      product `base * prod(boost_X^count_X)`.
+
+    v0.3 status: **stub**. The current catalogue emits no Bystanders,
+    so this path is never exercised by production builds. When any
+    Process with a non-empty `bystanders` field reaches this function,
+    it raises NotImplementedError with a clear message. v0.4 will
+    flesh it out when the upstream catalogue starts using species-
+    count axes (e.g. `n_Fe_1nn`).
+
+    Returns: list[Process] with no bystanders, suitable for
+    compile_decision_tree.
+    """
+    out: list[Process] = []
+    for p in processes:
+        if not p.bystanders:
+            out.append(p)
+            continue
+        raise NotImplementedError(
+            f"Process {p.name!r} has {len(p.bystanders)} Bystander(s). "
+            "Codegen-time Bystander expansion is a v0.4 feature; the "
+            "current catalogue does not emit Bystanders, so this path "
+            "is unexercised. To enable it, implement count-tuple "
+            "enumeration in `_expand_bystanders` (hint: use the spec's "
+            "lattice max-coord per shell as the count upper bound, then "
+            "evaluate `rate_constant` via a restricted expression "
+            "evaluator with `nr_<species>_<flag>` substitutions). See "
+            "kmos's OTF expansion for reference."
+        )
+    return out
+
+
+def _shell_var_name(coord: CoordOffset, shell: str, species: str) -> str:
+    """Build a stable C identifier for a shell-count counter.
+
+    Example: (NC_NN1_PX, "1nn", "Vacant") → 'nr_1nn_vacant_at_nn1_px'
+    """
+    code_short = coord.code.removeprefix("NC_").lower()
+    return f"nr_{shell}_{species.lower()}_at_{code_short}"
+
+
+def _emit_count_loop_body(
+    builder: _TreeBuilder,
+    coord: CoordOffset, shell: str, species: str,
+    var_name: str,
+) -> None:
+    """Emit the body of a count loop (declaration + walking) ASSUMING
+    we're already inside a fresh `{ ... }` block. Caller must wrap.
+
+    Sentinel rule: if `coord` resolves to the stub site, the variable
+    is left at -1; no equality gate can match. This silently skips
+    Processes whose ShellCondition references a missing-mover coord.
+    """
+    coord_macro = _coord_macro(coord)
+    offsets = "nn1_offsets" if shell == "1nn" else "nn2_offsets"
+    indices = "nn1_indices" if shell == "1nn" else "nn2_indices"
+    builder.emit(f"int {var_name} = -1;  /* sentinel: stub-site mover → no match */")
+    builder.emit(f"{{")
+    builder.push()
+    builder.emit(f"int _m = {coord_macro};")
+    builder.emit(f"if (_m >= 0 && _m < lat->n_sites) {{")
+    builder.push()
+    builder.emit(f"{var_name} = 0;")
+    builder.emit(f"for (int _i = lat->{offsets}[_m]; _i < lat->{offsets}[_m + 1]; ++_i) {{")
+    builder.push()
+    builder.emit(f"if (st->species[lat->{indices}[_i]] == SP_{species.upper()}) {var_name}++;")
+    builder.pop()
+    builder.emit("}")
+    builder.pop()
+    builder.emit("}")
+    builder.pop()
+    builder.emit("}")
+
+
+def _emit_leaf_adds(
+    builder: _TreeBuilder,
+    leaf_processes: list[Process],
+) -> None:
+    """Emit `avail_sites_add` calls for all Processes that reached this
+    decision-tree leaf, with shell-condition gates when present.
+
+    Processes whose `shell_conditions` is empty get a bare
+    `avail_sites_add(as, P_<name>, site)` — exact v0.2 behaviour.
+
+    Processes with `shell_conditions` get a count-loop + `if`-gate.
+    Multiple Processes at the same leaf share the count loops by
+    deduplicating on (coord, shell, species).
+
+    When ANY leaf Process has shell_conditions, the entire leaf
+    emission is wrapped in a fresh `{ ... }` block so variable
+    declarations don't immediately follow a `case SP_…:` label
+    (which is a C23 extension under -Werror).
+    """
+    # Collect unique (coord, shell, species) triples used by any
+    # ShellCondition on any leaf Process. Order them by their stable
+    # variable name to keep proclist.c byte-deterministic.
+    triples: dict[tuple, str] = {}
+    for p in leaf_processes:
+        for sc in p.shell_conditions:
+            key = (sc.coord, sc.shell, sc.species)
+            if key not in triples:
+                triples[key] = _shell_var_name(sc.coord, sc.shell, sc.species)
+
+    # Sort processes by name once for deterministic output.
+    sorted_procs = sorted(leaf_processes, key=lambda x: x.name)
+
+    if not triples:
+        # No shell conditions anywhere at this leaf → bare adds, no
+        # block-wrapping needed. v0.2 path.
+        for p in sorted_procs:
+            builder.emit(f"avail_sites_add(as, P_{p.name}, site);")
+        return
+
+    # Mixed/gated path: wrap everything in a block so the count-loop
+    # variable declarations sit in a fresh scope.
+    builder.emit("{")
+    builder.push()
+    builder.emit("/* shell-count loops for bucket-key gating */")
+    for (coord, shell, species), var in sorted(triples.items(),
+                                                key=lambda kv: kv[1]):
+        _emit_count_loop_body(builder, coord, shell, species, var)
+
+    for p in sorted_procs:
+        if not p.shell_conditions:
+            builder.emit(f"avail_sites_add(as, P_{p.name}, site);")
+        else:
+            # Build the gate predicate: AND of `var == count` per ShellCondition.
+            checks = []
+            for sc in sorted(
+                p.shell_conditions,
+                key=lambda x: (x.shell, x.species, str(x.coord)),
+            ):
+                var = triples[(sc.coord, sc.shell, sc.species)]
+                checks.append(f"{var} == {sc.count}")
+            cond = " && ".join(checks)
+            builder.emit(f"if ({cond}) avail_sites_add(as, P_{p.name}, site);")
+    builder.pop()
+    builder.emit("}")
+
+
 def _emit_subtree(
     builder: _TreeBuilder,
     processes_with_remaining: list[tuple[Process, list[Condition]]],
@@ -167,11 +320,12 @@ def _emit_subtree(
     branches. Leaf = `avail_sites_add(as, P_<name>, site)` — the rate
     is set once at startup via `avail_sites_set_rate` from rate_table[]."""
 
-    # First: emit avail_sites_add for any Process whose remaining-conditions
-    # list is empty (all conditions matched on the way down).
-    for p, remaining in processes_with_remaining:
-        if not remaining:
-            builder.emit(f"avail_sites_add(as, P_{p.name}, site);")
+    # First: gather Processes whose remaining-conditions list is empty
+    # (all Conditions matched on the way down) and emit their adds at
+    # this leaf (with shell-condition gating where present).
+    leaf_processes = [p for (p, rem) in processes_with_remaining if not rem]
+    if leaf_processes:
+        _emit_leaf_adds(builder, leaf_processes)
 
     # Then: collect Processes that still have conditions.
     still_pending = [
@@ -238,6 +392,11 @@ def compile_decision_tree(processes: list[Process], function_name: str) -> str:
             f"                {' ' * len(function_name)}AvailSites *as, int site)\n"
             f"{{ (void)lat; (void)st; (void)as; (void)site; /* no processes */ }}\n"
         )
+
+    # Codegen-time Bystander expansion (v0.3 stub: raises if any Process
+    # has Bystanders, which today's catalogue never does — v0.4 will fill
+    # this in for species-count rate modulation).
+    processes = _expand_bystanders(processes)
 
     # Dedupe by name (translator already enforces uniqueness; double-check)
     seen: set[str] = set()

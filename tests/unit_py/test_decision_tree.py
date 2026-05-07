@@ -404,3 +404,212 @@ sys.stdout.write(out)
         f"len(r1)={len(r1.stdout)}, len(r2)={len(r2.stdout)}, "
         f"first divergence at char {next((i for i, (a, b) in enumerate(zip(r1.stdout, r2.stdout)) if a != b), None)}"
     )
+
+
+# ===========================================================================
+# v0.3: ShellCondition leaf-gating codegen + Bystander expansion stub
+# ===========================================================================
+
+
+from pylatkmc.processes import ShellCondition  # noqa: E402
+from pylatkmc.decision_tree import _expand_bystanders, _shell_var_name  # noqa: E402
+
+
+def _vac_to_with_shell(direction: CoordOffset, nv1: int, nv2: int,
+                       mover: str = "Ni",
+                       name_suffix: str = "") -> Process:
+    """Like _vac_to but with explicit (nv1, nv2) ShellConditions at the mover."""
+    code = direction.code.removeprefix("NC_").lower()
+    name = f"hop_{code}__nv1_{nv1}_nv2_{nv2}{name_suffix}"
+    return Process(
+        name=name,
+        family_id="testfam", Ea_eV=0.6, rate_constant=1.0e7,
+        conditions=(
+            Condition(coord=ANCHOR, species="Vacant"),
+            Condition(coord=direction, species=mover),
+        ),
+        actions=(
+            Action(coord=ANCHOR, before="Vacant", after=mover),
+            Action(coord=direction, before=mover, after="Vacant"),
+        ),
+        shell_conditions=(
+            ShellCondition(coord=direction, shell="1nn", species="Vacant", count=nv1),
+            ShellCondition(coord=direction, shell="2nn", species="Vacant", count=nv2),
+        ),
+    )
+
+
+def test_compile_emits_count_loop_for_shell_conditions() -> None:
+    """A Process with ShellConditions yields a count-loop in proclist.c."""
+    procs = [_vac_to_with_shell(PX, nv1=4, nv2=1)]
+    out = compile_decision_tree(procs, "touchup_a")
+    # Count loop variable name follows the deterministic shell-naming scheme.
+    assert "nr_1nn_vacant_at_nn1_px" in out
+    assert "nr_2nn_vacant_at_nn1_px" in out
+    # The actual CSR walk pattern.
+    assert "lat->nn1_offsets[_m]" in out
+    assert "lat->nn2_offsets[_m]" in out
+    # Gate predicate.
+    assert "nr_1nn_vacant_at_nn1_px == 4" in out
+    assert "nr_2nn_vacant_at_nn1_px == 1" in out
+
+
+def test_compile_dedups_count_loops_across_processes() -> None:
+    """Multiple Processes sharing the same (coord, shell, species) get
+    a single count loop, with multiple gate-checks."""
+    procs = [
+        _vac_to_with_shell(PX, nv1=0, nv2=0),
+        _vac_to_with_shell(PX, nv1=4, nv2=1),
+        _vac_to_with_shell(PX, nv1=2, nv2=1),
+    ]
+    out = compile_decision_tree(procs, "touchup_a")
+    # Only ONE 1NN count loop and ONE 2NN count loop, not three each.
+    assert out.count("nr_1nn_vacant_at_nn1_px = 0;") == 1
+    assert out.count("nr_2nn_vacant_at_nn1_px = 0;") == 1
+    # Three distinct gate predicates.
+    assert out.count("avail_sites_add(") == 3
+
+
+def test_compile_no_shell_conditions_emits_bare_add() -> None:
+    """v0.2 backward compat: empty shell_conditions → no count loops."""
+    procs = [_vac_to(PX)]
+    out = compile_decision_tree(procs, "touchup_a")
+    # No count loop machinery for plain v0.2-style Processes.
+    assert "nr_1nn_" not in out
+    assert "nr_2nn_" not in out
+    assert "for (int _i" not in out
+    # Plain enrolment (name follows _vac_to's convention: hop_<code>).
+    assert "avail_sites_add(as, P_hop_nn1_px, site);" in out
+
+
+def test_compile_mixes_gated_and_bare_processes() -> None:
+    """A leaf can have a mix of Processes with/without shell_conditions."""
+    procs = [
+        _vac_to(PX, name_suffix="_bare"),                       # no shell gate
+        _vac_to_with_shell(PX, nv1=4, nv2=1, name_suffix="_gated"),  # gated
+    ]
+    out = compile_decision_tree(procs, "touchup_a")
+    # Bare process: no `if` wrapping
+    bare_pat = "avail_sites_add(as, P_hop_nn1_px_bare, site);"
+    assert bare_pat in out
+    # Gated process: `if (...)` wrapper
+    assert "if (nr_1nn_vacant_at_nn1_px == 4 && nr_2nn_vacant_at_nn1_px == 1) " \
+           "avail_sites_add(as, P_hop_nn1_px__nv1_4_nv2_1_gated, site);" in out
+
+
+def test_expand_bystanders_passes_through_when_empty() -> None:
+    """Processes without bystanders are returned unchanged."""
+    procs = [_vac_to(PX), _vac_to_with_shell(PX, nv1=2, nv2=0)]
+    out = _expand_bystanders(procs)
+    assert out == procs
+
+
+def test_expand_bystanders_raises_for_non_empty() -> None:
+    """Stub: clear NotImplementedError points to v0.4 expansion."""
+    from pylatkmc.processes import Bystander
+    p = Process(
+        name="hop_with_bystander",
+        family_id="x", Ea_eV=0.5,
+        rate_constant="k0 * boost_Fe^nr_Fe_1nn",
+        conditions=(Condition(coord=ANCHOR, species="Vacant"),),
+        actions=(Action(coord=ANCHOR, before="Vacant", after="Ni"),),
+        bystanders=(
+            Bystander(coord=PX, allowed_species=("Fe",), flag="1nn"),
+        ),
+    )
+    with pytest.raises(NotImplementedError, match="v0.4"):
+        _expand_bystanders([p])
+
+
+def test_shell_var_name_is_stable_and_distinct() -> None:
+    """The C identifier from (coord, shell, species) is unique and stable."""
+    px = CoordOffset(code="NC_NN1_PX")
+    mx = CoordOffset(code="NC_NN1_MX")
+    assert _shell_var_name(px, "1nn", "Vacant") == "nr_1nn_vacant_at_nn1_px"
+    assert _shell_var_name(px, "2nn", "Vacant") == "nr_2nn_vacant_at_nn1_px"
+    assert _shell_var_name(mx, "1nn", "Vacant") == "nr_1nn_vacant_at_nn1_mx"
+    assert _shell_var_name(px, "1nn", "Fe") == "nr_1nn_fe_at_nn1_px"
+
+
+def test_compile_shell_gated_output_is_deterministic() -> None:
+    """Two compile_decision_tree calls on the same input must produce
+    byte-identical output (regression for the M-E fix + new code path)."""
+    procs = [
+        _vac_to_with_shell(PX, nv1=0, nv2=0),
+        _vac_to_with_shell(PX, nv1=4, nv2=1),
+        _vac_to_with_shell(MX, nv1=2, nv2=0),
+    ]
+    out1 = compile_decision_tree(procs, "touchup_a")
+    out2 = compile_decision_tree(procs, "touchup_a")
+    assert out1 == out2
+
+
+def test_compile_shell_gated_output_compiles_under_stub_harness(tmp_path) -> None:
+    """End-to-end: emit C for ShellCondition-gated Processes, splice
+    into a stub harness with Lattice + State, compile with cc -Werror,
+    expect no errors. Catches typos in the count-loop emission and
+    validates the symbol contract (nn1_offsets, nn1_indices, n_sites)."""
+    import shutil, subprocess
+    if not shutil.which("cc"):
+        import pytest
+        pytest.skip("cc not on PATH")
+
+    procs = [
+        _vac_to_with_shell(PX, nv1=0, nv2=0),
+        _vac_to_with_shell(PX, nv1=4, nv2=1),
+        _vac_to_with_shell(MX, nv1=2, nv2=0),
+        _vac_to(PY, name_suffix="_bare"),  # mixed: a bare Process at PY
+    ]
+
+    harness = """
+#include <stddef.h>
+#include <stdint.h>
+
+typedef enum { SP_VACANT = 0, SP_NI = 1, SP_FE = 2, SP_CR = 3 } Species;
+
+#define N_NEIGHBOUR_CODES 23
+typedef enum {
+    NC_ANCHOR,
+    NC_NN1_PX, NC_NN1_MX, NC_NN1_PY, NC_NN1_MY,
+    NC_NN1_DOWN_PP, NC_NN1_DOWN_PM, NC_NN1_DOWN_MP, NC_NN1_DOWN_MM,
+    NC_NN1_UP_PP, NC_NN1_UP_PM, NC_NN1_UP_MP, NC_NN1_UP_MM,
+    NC_NN2_DIAG_PP, NC_NN2_DIAG_PM, NC_NN2_DIAG_MP, NC_NN2_DIAG_MM,
+    NC_NN2_PX, NC_NN2_MX, NC_NN2_PY, NC_NN2_MY, NC_NN2_PZ, NC_NN2_MZ
+} NeighbourCode;
+
+typedef struct {
+    int32_t  n_sites;
+    int32_t *nn1_offsets, *nn1_indices;
+    int32_t *nn2_offsets, *nn2_indices;
+    int32_t *coord_table;
+} Lattice;
+
+typedef struct { uint8_t *species; } State;
+
+typedef struct AvailSites AvailSites;
+
+void avail_sites_add(AvailSites *as, int proc, int site) { (void)as; (void)proc; (void)site; }
+"""
+    program = harness + emit_process_enum(procs) + emit_rate_table(procs) \
+        + compile_decision_tree(procs, "touchup_a") + """
+int main(void) {
+    Lattice lat = {0}; State st = {0};
+    touchup_a(&lat, &st, NULL, 0);
+    /* Reference rate_table to silence -Wunused-const-variable. */
+    return (int)rate_table[0].rate;
+}
+"""
+    src = tmp_path / "test_v03.c"
+    src.write_text(program)
+    obj = tmp_path / "test_v03.o"
+    res = subprocess.run(
+        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
+         str(src), "-o", str(obj)],
+        capture_output=True, text=True,
+    )
+    assert res.returncode == 0, (
+        f"v0.3 ShellCondition codegen did not compile:\n"
+        f"--- stderr ---\n{res.stderr}\n"
+        f"--- source ({len(program)} bytes) ---\n{program}"
+    )
+    assert obj.exists()

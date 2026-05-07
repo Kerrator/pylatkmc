@@ -90,7 +90,7 @@ the chosen Process's actions atomically.
 
 ## Data plane: Process IR
 
-`pylatkmc/processes.py` defines four Pydantic models, all frozen and
+`pylatkmc/processes.py` defines five Pydantic models, all frozen and
 hashable so golden-file tests can compare lists deterministically:
 
 ```python
@@ -103,6 +103,7 @@ class CoordOffset(BaseModel):
     code: str    # one of NEIGHBOUR_CODES
 
 class Condition(BaseModel):
+    """Per-coord species check (HARD gate)."""
     coord: CoordOffset
     species: str                 # "Vacant", "Ni", "Fe", "Cr"
 
@@ -111,7 +112,18 @@ class Action(BaseModel):
     before: str                  # required pre-state
     after: str                   # post-state set when fired
 
-class Bystander(BaseModel):       # not used in v0.2 (deferred)
+class ShellCondition(BaseModel):  # NEW in v0.3
+    """Bucket-key gate (HARD): the site at `coord` must have EXACTLY
+    `count` sites in its `shell` whose species equals `species`.
+    Threads catalogue bucketing (e.g. nv1=4_nv2=1) through to runtime
+    so a Process discovered in a 4-vacant-1NN context can't fire on
+    sites without that local environment."""
+    coord: CoordOffset
+    shell: Literal["1nn", "2nn"]
+    species: str
+    count: int                   # >= 0
+
+class Bystander(BaseModel):       # SOFT rate modulator (v0.4 stub today)
     coord: CoordOffset
     allowed_species: tuple[str, ...]
     flag: str                    # e.g. "1nn", "2nn"
@@ -123,6 +135,7 @@ class Process(BaseModel):
     rate_constant: float | str   # scalar (baked at codegen) or expression with Bystanders
     conditions: tuple[Condition, ...]
     actions: tuple[Action, ...]
+    shell_conditions: tuple[ShellCondition, ...] = ()  # v0.3
     bystanders: tuple[Bystander, ...] = ()
 ```
 
@@ -222,9 +235,53 @@ with `rate` baked at codegen time as
 `compile_decision_tree(processes, "touchup_a")` is the per-anchor entry
 point. The runtime calls it once per active site per step.
 
-The full bundled `proclist.c` for ni_fe_cr_v1 is ~5000 lines, compiles
-in ~5s with `-O2 -Wall -Wextra -Werror`, and links cleanly against the
-M-C runtime modules.
+### Leaf-level shell-condition gating (v0.3)
+
+When a leaf has Processes that share Conditions but differ in their
+`shell_conditions`, the codegen emits a count-loop block instead of
+bare `avail_sites_add` calls. Every unique `(coord, shell, species)`
+triple shared across leaf Processes gets a single CSR-walk that counts
+matching neighbours of `coord`'s mover; each Process gets an
+`if (n1 == k1 && n2 == k2) avail_sites_add(...)` gate.
+
+Example for `surface_1nn_inplane / nv1=4_nv2=1` and
+`nv1=0_nv2=0` Processes that both reach the same anchor leaf:
+
+```c
+case SP_NI: {  /* species at NC_NN1_PX = mover */
+    /* shell-count loops for bucket-key gating */
+    int nr_1nn_vacant_at_nn1_px = -1;  /* sentinel: stub-site mover → no match */
+    {
+        int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX];
+        if (_m >= 0 && _m < lat->n_sites) {
+            nr_1nn_vacant_at_nn1_px = 0;
+            for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
+                if (st->species[lat->nn1_indices[_i]] == SP_VACANT)
+                    nr_1nn_vacant_at_nn1_px++;
+            }
+        }
+    }
+    /* (similar block for nr_2nn_vacant_at_nn1_px) */
+
+    if (nr_1nn_vacant_at_nn1_px == 4 && nr_2nn_vacant_at_nn1_px == 1)
+        avail_sites_add(as, P_surface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni, site);
+    if (nr_1nn_vacant_at_nn1_px == 0 && nr_2nn_vacant_at_nn1_px == 0)
+        avail_sites_add(as, P_surface_1nn_inplane__nv1_0_nv2_0__nn1_px__ni, site);
+    /* … one if per bucket-key Process … */
+    break;
+}
+```
+
+This makes each Process fire ONLY when the catalogue bucket's
+discovery context is actually present in the lattice. Without
+ShellCondition gating, `surface_1nn_inplane / nv1=4_nv2=1` would fire
+at every (vacant, atom-neighbour) pair on a 1-vacancy slab — even
+though that bucket was discovered in pyKMC simulations with ≥4
+vacancies in the mover's local environment.
+
+The full bundled `proclist.c` for ni_fe_cr_v1 grows from ~5000 (v0.2)
+to ~5500 (v0.3) lines from the count-loop emission; still compiles in
+~5s with `-O2 -Wall -Wextra -Werror`.
 
 ## Runtime: per-step pipeline
 

@@ -168,6 +168,46 @@ class Action(BaseModel):
         return self
 
 
+_SHELL_NAMES: tuple[str, ...] = ("1nn", "2nn")
+
+
+class ShellCondition(BaseModel):
+    """Hard count-gate: the site at `coord` must have **exactly** `count`
+    sites in its `shell` whose species equals `species`.
+
+    Used to thread bucket-key context (`nv1=4_nv2=1` and similar)
+    through to runtime gating. The catalogue's bucketing was the only
+    descriptor distinguishing physically-distinct configurations within
+    a family-bucket; without ShellConditions, every Process emitted
+    from a bucket fires at every site whose Conditions match — which
+    is wrong (it lets a `nv1=4` Process fire on a 1-vacancy slab where
+    nv1 is at most 1).
+
+    Attributes
+    ----------
+    coord : CoordOffset
+        The site whose shell we count over. Typically the mover atom
+        (the direction Coord of the Process), since the catalogue's
+        nv1/nv2 are computed at `coord_mover_initial` upstream
+        (see `apps/PyKMC_Analysis/Analysis/tools/fix_catalogue_nvac.py`).
+    shell : "1nn" | "2nn"
+        Which CSR shell of the coord site to walk. v0.3 only supports
+        these two; richer shells are a future extension.
+    species : str
+        Species name to count (e.g. "Vacant", "Fe"). Must match one of
+        the spec's species names.
+    count : int (>= 0)
+        Required exact count of `species` in `coord`'s `shell`.
+    """
+
+    model_config = _FROZEN
+
+    coord: CoordOffset
+    shell: Literal["1nn", "2nn"]
+    species: str = Field(..., min_length=1)
+    count: int = Field(..., ge=0)
+
+
 class Bystander(BaseModel):
     """A site whose species count modulates the rate but doesn't gate
     eligibility.
@@ -234,6 +274,11 @@ class Process(BaseModel):
         species condition).
     actions : tuple[Action, ...]
         Multi-site state changes applied atomically when fired.
+    shell_conditions : tuple[ShellCondition, ...]
+        Hard count gates ANDed with `conditions` at touchup time.
+        Each ShellCondition specifies an exact count of a species in
+        a 1NN or 2NN shell at some coord (typically the mover). Empty
+        by default — backward-compatible with v0.2.
     bystanders : tuple[Bystander, ...]
         Optional rate-modulating soft counts. Empty = scalar rate.
     """
@@ -246,6 +291,7 @@ class Process(BaseModel):
     rate_constant: str | float
     conditions: tuple[Condition, ...]
     actions: tuple[Action, ...] = Field(..., min_length=1)
+    shell_conditions: tuple[ShellCondition, ...] = ()
     bystanders: tuple[Bystander, ...] = ()
 
     @model_validator(mode="after")
@@ -282,6 +328,25 @@ class Process(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def _validate_shell_condition_no_overlap_with_bystanders(self) -> "Process":
+        """A (coord, shell) pair must not appear in both ShellConditions
+        and Bystanders — they answer overlapping but conflicting
+        questions about the same shell. ShellCondition gates firing
+        (hard); Bystander modulates rate (soft). Pick one per
+        (coord, shell)."""
+        bys_coords = {b.coord for b in self.bystanders}
+        for sc in self.shell_conditions:
+            if sc.coord in bys_coords:
+                raise ValueError(
+                    f"Process {self.name!r}: coord {sc.coord} has both a "
+                    f"ShellCondition (hard gate) and a Bystander (soft "
+                    f"modulation). Pick one — typically ShellCondition "
+                    f"for catalogue-bucketing, Bystander for OTF rate "
+                    f"modulation."
+                )
+        return self
+
+    @model_validator(mode="after")
     def _validate_Ea_finite(self) -> "Process":
         if not (self.Ea_eV >= 0):
             raise ValueError(
@@ -299,6 +364,7 @@ __all__ = (
     "CoordOffset",
     "Condition",
     "Action",
+    "ShellCondition",
     "Bystander",
     "Process",
     "NEIGHBOUR_CODES",

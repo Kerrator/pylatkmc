@@ -311,14 +311,19 @@ def test_cross_layer_down_for_top_layer_site(liblat) -> None:
 
 
 def test_top_layer_has_no_up_codes(liblat) -> None:
-    """A top-layer site has no NC_NN1_UP_* (no layer above)."""
+    """A top-layer site has no NC_NN1_UP_* (no layer above).
+
+    coord_table fills missing-neighbour entries with the stub site index
+    `n_sites` (not -1) — the State allocator places a sentinel at
+    species[n_sites] so the decision tree's reads naturally fall through
+    `default:` instead of segfaulting on species[-1]."""
     nx, ny, nz = 4, 4, 3
     lat, n, _ = _make_lattice(liblat, nx, ny, nz)
     try:
         liblat.lattice_build_coord_table(lat)
         s = (nz - 1) * nx * ny + 0   # top layer, corner
         for nc in (NC_NN1_UP_PP, NC_NN1_UP_PM, NC_NN1_UP_MP, NC_NN1_UP_MM):
-            assert _coord_at(lat, n, s, nc) == -1
+            assert _coord_at(lat, n, s, nc) == n  # stub site = n_sites
     finally:
         liblat.pylatkmc_test_free_lattice(lat)
 
@@ -337,12 +342,13 @@ def test_bottom_layer_has_no_down_codes(liblat) -> None:
         # If z PBC IS active (no vacuum), the down-neighbours wrap to the top
         # layer and their delta-z appears as +(nz-1)*ls — which doesn't match
         # the canonical -1/√2 delta. So they should NOT resolve to NC_NN1_DOWN_*.
-        # If z PBC is NOT active (vacuum), they're absent. Either way: -1.
+        # If z PBC is NOT active (vacuum), they're absent. Either way: stub
+        # site (= n_sites) instead of a real neighbour.
         for nc in (NC_NN1_DOWN_PP, NC_NN1_DOWN_PM, NC_NN1_DOWN_MP, NC_NN1_DOWN_MM):
             n_idx = _coord_at(lat, n, s, nc)
-            # Allow either -1 (absent) or, if PBC happens to alias, still verify
+            # Allow either n (stub) or, if PBC happens to alias, still verify
             # the resolved neighbour really is at delta_z ≈ -ls (not +ls).
-            if n_idx != -1:
+            if n_idx != n:
                 dz = sites[n_idx][2] - sites[s][2]
                 # Normalise via PBC
                 Lz = nz * (2.5 / math.sqrt(2))

@@ -29,6 +29,21 @@ htmlcov/
 # Run outputs (regenerable)
 models/*/examples/output/
 models/*/examples/output_*/
+models/*/examples/*/output/
+models/*/examples/*/output_*/
+models/*/examples/*/v0_2_baseline/
+
+# Spec backups created by sweep scripts
+*.kmcspec.toml.sweep.bak
+*.kmcspec.toml.adatom.bak
+*.kmcspec.toml.fcmp.bak
+
+# Converted lattice configs from sweeps (regenerable from xyz_to_kmcinit.py)
+models/*/examples/*/configs/
+models/*/examples/*/configs_*/
+
+# Sweep-generated input.ini files (auto-generated from sweep.sh)
+models/*/examples/*/input_T*.ini
 
 # OS / editor
 .DS_Store

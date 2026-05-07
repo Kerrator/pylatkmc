@@ -338,3 +338,83 @@ def test_translate_all_known_skipped_no_warning() -> None:
 
 def test_translate_all_empty_input() -> None:
     assert translate_all([]) == []
+
+
+# ===========================================================================
+# v0.3: bucket-key-derived ShellConditions
+# ===========================================================================
+
+
+from pylatkmc.translator import (
+    _emit_simple_2action_hop,
+    _shell_conditions_from_bucket_key,
+)
+from pylatkmc.processes import CoordOffset, ShellCondition
+
+
+def test_shell_conditions_from_bucket_key_two_axis() -> None:
+    """`nv1=4_nv2=1` → ShellCondition pair at mover."""
+    mover = CoordOffset(code="NC_NN1_PX")
+    scs = _shell_conditions_from_bucket_key("nv1=4_nv2=1", mover)
+    assert len(scs) == 2
+    sc1 = next(s for s in scs if s.shell == "1nn")
+    sc2 = next(s for s in scs if s.shell == "2nn")
+    assert sc1.count == 4 and sc1.species == "Vacant" and sc1.coord == mover
+    assert sc2.count == 1 and sc2.species == "Vacant" and sc2.coord == mover
+
+
+def test_shell_conditions_from_bucket_key_single_axis() -> None:
+    """`nv1=2` → single ShellCondition (1NN axis only)."""
+    mover = CoordOffset(code="NC_NN1_DOWN_PP")
+    scs = _shell_conditions_from_bucket_key("nv1=2", mover)
+    assert len(scs) == 1
+    assert scs[0].shell == "1nn" and scs[0].count == 2
+
+
+def test_shell_conditions_from_bucket_key_layer_axis_skipped() -> None:
+    """`li=k_nv1=m` → layer dropped (v0.3 unsupported), nv1 kept."""
+    mover = CoordOffset(code="NC_NN1_PX")
+    scs = _shell_conditions_from_bucket_key("li=1_nv1=3", mover)
+    # Only the nv1 axis becomes a ShellCondition; li dropped silently.
+    assert len(scs) == 1
+    assert scs[0].shell == "1nn" and scs[0].count == 3
+
+
+def test_shell_conditions_from_bucket_key_zero_counts() -> None:
+    """nv1=0_nv2=0 (isolated mover) emits valid count=0 conditions."""
+    mover = CoordOffset(code="NC_NN1_PX")
+    scs = _shell_conditions_from_bucket_key("nv1=0_nv2=0", mover)
+    assert len(scs) == 2
+    assert all(s.count == 0 for s in scs)
+
+
+def test_shell_conditions_from_bucket_key_unparseable_returns_empty() -> None:
+    """Wildcard / unparseable bucket keys → empty tuple (no gating)."""
+    mover = CoordOffset(code="NC_NN1_PX")
+    assert _shell_conditions_from_bucket_key("*", mover) == ()
+    assert _shell_conditions_from_bucket_key("(empty)", mover) == ()
+
+
+def test_emit_simple_2action_hop_carries_shell_gates_by_default() -> None:
+    """The translator's default emits ShellConditions for nv1/nv2."""
+    p = _emit_simple_2action_hop(
+        family_id="surface_1NN_inplane",
+        bucket_id="nv1=4_nv2=1",
+        direction=CoordOffset(code="NC_NN1_PX"),
+        mover_species="Ni", Ea_eV=0.167, rate_Hz=1.0e8,
+    )
+    assert len(p.shell_conditions) == 2
+    counts_by_shell = {s.shell: s.count for s in p.shell_conditions}
+    assert counts_by_shell == {"1nn": 4, "2nn": 1}
+
+
+def test_emit_simple_2action_hop_no_shell_gates_when_disabled() -> None:
+    """Backward-compat: emit_shell_gates=False yields v0.2 behaviour."""
+    p = _emit_simple_2action_hop(
+        family_id="surface_1NN_inplane",
+        bucket_id="nv1=4_nv2=1",
+        direction=CoordOffset(code="NC_NN1_PX"),
+        mover_species="Ni", Ea_eV=0.167, rate_Hz=1.0e8,
+        emit_shell_gates=False,
+    )
+    assert p.shell_conditions == ()
