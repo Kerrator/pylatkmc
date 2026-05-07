@@ -34,9 +34,21 @@ def built_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
         pytest.skip("cmake not on PATH")
 
     # 1. Regenerate the example model into its canonical spot (idempotent).
+    #    The curated FCC family CSV lives in the upstream PyKMC_Analysis
+    #    repo (kmc/apps/PyKMC_Analysis/...), not in pylatkmc itself. In a
+    #    standalone pylatkmc clone (e.g. a fresh GitHub Actions runner)
+    #    the CSV won't exist; in that case we skip the regen step and
+    #    just build whatever proclist.{c,h} is committed under
+    #    models/<spec>/generated/. That still gates the CMake link of
+    #    the committed generated C — which is what users will compile.
     spec = load(EXAMPLE_SPEC)
     gen_dir = EXAMPLE_SPEC.parent / "generated"
-    generate(spec, gen_dir)
+    try:
+        generate(spec, gen_dir, spec_path=EXAMPLE_SPEC)
+    except FileNotFoundError as e:
+        # Family CSV missing → fall back to committed proclist.{c,h}.
+        if not (gen_dir / "proclist.c").exists():
+            pytest.skip(f"family CSV missing and no committed proclist.c: {e}")
 
     # 2. Out-of-tree build directory (pytest tmp so runs in parallel don't collide).
     build_dir = tmp_path_factory.mktemp("build")
