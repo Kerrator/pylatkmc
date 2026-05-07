@@ -10,7 +10,9 @@ authors:
     given-names: Stephen
     email: 24jrpc@queensu.ca
     affiliation: Queen's University
+    website: "https://winteratomics.ca"
 repository-code: "https://github.com/Kerrator/pylatkmc"
+url: "https://winteratomics.ca"
 abstract: >-
   pylatkmc is a species-aware on-lattice Kinetic Monte Carlo solver
   for FCC alloys. A TOML model spec plus a curated FCC family

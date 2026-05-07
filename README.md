@@ -183,8 +183,13 @@ MIT — see [`LICENSE`](LICENSE).
 ## Citing
 
 A pre-print describing the design and validation is in preparation. For
-now, please cite the GitHub repository directly. A `CITATION.cff` will
-be added once the paper is available.
+now, please cite the GitHub repository directly using the metadata in
+[`CITATION.cff`](CITATION.cff). Once the paper is available, please
+cite that instead.
+
+Author: Stephen Kerr — Queen's University —
+[winteratomics.ca](https://winteratomics.ca) ·
+[24jrpc@queensu.ca](mailto:24jrpc@queensu.ca)
 
 ## Contributing
 

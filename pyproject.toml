@@ -23,6 +23,11 @@ dev = [
     "mypy>=1.8",
 ]
 
+[project.urls]
+Homepage      = "https://winteratomics.ca"
+Repository    = "https://github.com/Kerrator/pylatkmc"
+Issues        = "https://github.com/Kerrator/pylatkmc/issues"
+
 [project.scripts]
 pylatkmc-gen = "pylatkmc.cli:main"
 
