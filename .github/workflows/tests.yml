@@ -42,11 +42,16 @@ jobs:
       - name: Run unit tests
         run: pytest tests/unit_py/ -v --tb=short
 
-      - name: Smoke-check codegen + CMake build
+      - name: Smoke-check CMake build (uses committed proclist.{c,h})
         run: |
-          # v0.2 single-step build: pylatkmc-gen build emits proclist.{c,h};
-          # CMake links it against the static runtime backbone.
-          pylatkmc-gen build models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
+          # The curated FCC family rate CSV lives in the upstream
+          # PyKMC_Analysis repo and is not part of pylatkmc. We rely on
+          # the committed `models/ni_fe_cr_v1/generated/proclist.{c,h}`
+          # produced at v0.3.0 release time (regen-determinism is gated
+          # locally). CI's job is to ensure CMake links the committed
+          # generated C against the static runtime backbone cleanly.
+          test -f models/ni_fe_cr_v1/generated/proclist.c
+          test -f models/ni_fe_cr_v1/generated/proclist.h
           cmake -B build -DMODEL=ni_fe_cr_v1
           cmake --build build -j 2
 
