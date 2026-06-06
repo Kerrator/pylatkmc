@@ -100,6 +100,15 @@ For the full architectural walkthrough see
 - **[`docs/PYKMC_INTEGRATION.md`](docs/PYKMC_INTEGRATION.md)** —
   interaction with the upstream pyKMC analysis pipeline and the
   curated FCC family catalogue.
+- **[`docs/INGEST_PIPELINE.md`](docs/INGEST_PIPELINE.md)** — *new.* The
+  `pylatkmc.ingest` bridge: a 5-stage runbook (classify → families →
+  per-bucket Vineyard ν₀ recovery from real trajectories → rate table →
+  generate/run) with exact commands. Install with `pip install -e ".[ingest]"`.
+- **[`docs/CATALOGUE_SCHEMA.md`](docs/CATALOGUE_SCHEMA.md)** — *new.* Every
+  CSV in the pyKMC→pylatkmc pipeline: columns, types, formulas, producers,
+  and the `nu0_Hz`/`nu0_source` provenance.
+- **[`docs/FAMILY_REGISTRY.md`](docs/FAMILY_REGISTRY.md)** — *new.* The 14
+  FCC families, seed-rule precedence, and how to add/refine one.
 - **[`docs/KMOS_COMPARISON.md`](docs/KMOS_COMPARISON.md)** — what we
   borrowed, what's still kmos-different.
 

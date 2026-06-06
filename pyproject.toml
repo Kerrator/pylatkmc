@@ -22,6 +22,17 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.8",
 ]
+# The pyKMC→pylatkmc bridge + HTST ν₀ producers (pylatkmc.ingest). Heavy and
+# optional; pylatkmc core (codegen + runtime) never imports these. The HTST
+# producers and trajectory_recovery additionally need LAMMPS (Python bindings),
+# pARTn, IRA, and pyKMC on the path — local builds, not pip deps. See
+# docs/INGEST_PIPELINE.md.
+ingest = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "ase>=3.22",
+]
 
 [project.urls]
 Homepage      = "https://winteratomics.ca"
@@ -59,6 +70,12 @@ ignore = ["E501"]
 # code.
 "tools/**/*.py" = ["B905", "B007", "E702", "E701", "F841", "E402",
                     "SIM102", "SIM108", "SIM115"]
+# pylatkmc.ingest is the moved pyKMC→pylatkmc bridge + vendored HTST numerics
+# (kappa_rpa is proven, 15 tests). Like tools/, it carries some script-quality
+# lint we don't churn the proven code over: B028 (warnings without stacklevel)
+# and F841 (unused locals kept for clarity in the numerics).
+"pylatkmc/ingest/**/*.py" = ["B028", "F841"]
+"tests/ingest/**/*.py" = ["F841"]
 
 [tool.mypy]
 python_version = "3.10"
