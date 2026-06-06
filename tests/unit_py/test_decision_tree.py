@@ -69,7 +69,7 @@ def test_rate_table_has_one_entry_per_process() -> None:
     procs = [_vac_to(PX), _vac_to(PY)]
     out = emit_rate_table(procs)
     assert out.count("[P_hop") == 2
-    assert ".rate = 1.0000000000e+07" in out
+    assert ".prefactor_Hz = 1.0000000000e+07" in out
     assert ".Ea_eV = 0.600000" in out
 
 
@@ -326,7 +326,7 @@ int main(void) {
     AvailSites *as = (AvailSites *)(uintptr_t)0;
     HopOutcome ho = apply_table[0](&st, &lat, 0);
     touchup_a(&lat, &st, as, 0);
-    return (int)rate_table[0].rate + ho.v_origin + ho.v_dest;
+    return (int)rate_table[0].prefactor_Hz + ho.v_origin + ho.v_dest;
 }
 """
 
@@ -617,7 +617,7 @@ int main(void) {
     Lattice lat = {0}; State st = {0};
     touchup_a(&lat, &st, NULL, 0);
     /* Reference rate_table to silence -Wunused-const-variable. */
-    return (int)rate_table[0].rate;
+    return (int)rate_table[0].prefactor_Hz;
 }
 """
     )

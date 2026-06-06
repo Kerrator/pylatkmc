@@ -433,12 +433,29 @@ def emit_process_enum(processes: list[Process]) -> str:
 def emit_rate_table(processes: list[Process]) -> str:
     """Emit `static const RateConst rate_table[N_PROCS] = { ... };`.
 
-    For v2 (no Bystanders), each entry is just the scalar rate.
+    For v2 (no Bystanders), each entry carries the Arrhenius **prefactor**
+    (Hz) and the activation energy (eV) — NOT a pre-exponentiated rate. The
+    runtime computes ``k = prefactor_Hz * exp(-Ea_eV / (kB * T))`` at startup
+    from the *runtime* temperature, so one compiled binary runs at any T
+    (see ``rateconst_eval`` in the generated ``proclist.h``).
+
+    The prefactor is each Process's resolved ``prefactor_Hz`` (the per-family
+    Vineyard ν₀ under ``style == "htst"``, else the global ``k0`` fallback).
+    Production Processes from ``translator.translate_all`` ALWAYS set
+    ``prefactor_Hz``, so for any generated model this is the value emitted.
+    The ``prefactor_Hz is None`` branch falls back to the scalar
+    ``rate_constant`` and exists only for hand-built/test Processes, where the
+    scalar is understood as the prefactor; it never fires in real codegen.
+
+    The ``RateConst`` typedef emitted here MUST stay layout-identical to the
+    one declared in ``proclist.h`` (``codegen._PROCLIST_H_TEMPLATE``):
+    ``proclist.c`` does not include ``proclist.h``, so the two definitions
+    are independent translation-unit copies of the same struct.
     """
     if not processes:
         return "/* no processes; rate_table omitted */\n"
     lines = [
-        "typedef struct { double rate; double Ea_eV; } RateConst;",
+        "typedef struct { double prefactor_Hz; double Ea_eV; } RateConst;",
         "static const RateConst rate_table[N_PROCS] = {",
     ]
     for p in processes:
@@ -447,8 +464,9 @@ def emit_rate_table(processes: list[Process]) -> str:
                 f"Process {p.name!r} has non-scalar rate_constant "
                 f"{p.rate_constant!r}; Bystander expressions not yet supported"
             )
+        prefactor = p.prefactor_Hz if p.prefactor_Hz is not None else float(p.rate_constant)
         lines.append(
-            f"    [P_{p.name}] = {{ .rate = {float(p.rate_constant):.10e}, "
+            f"    [P_{p.name}] = {{ .prefactor_Hz = {float(prefactor):.10e}, "
             f".Ea_eV = {p.Ea_eV:.6f} }},"
         )
     lines.append("};")

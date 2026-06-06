@@ -51,7 +51,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# Boltzmann constant (matches `pylatkmc.ratebuilder` and friends).
+# Boltzmann constant in eV/K. THE single source of truth for kB across
+# pylatkmc: every Python Arrhenius evaluation imports this symbol, and the
+# codegen emits the matching C macro `PYLATKMC_KB_EV_PER_K` into the generated
+# `proclist.h` from this exact value (see `codegen._build_proclist_h`). The C
+# runtime's startup Arrhenius (replica.c / kmc.c) uses that generated macro, so
+# Python and C cannot drift.
 KB_EV_PER_K = 8.617333e-5  # eV/K
 
 # A bucket whose Ea standard deviation exceeds this is flagged as

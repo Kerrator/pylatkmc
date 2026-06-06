@@ -127,7 +127,8 @@ class RateData(BaseModel):
     family_table: Path | None = None  # rate_lookup_table_family.csv (tier-6 fallback)
     fallback_scalar: Path | None = None  # rate_lookup_table.csv (tier-7 fallback, <110> only)
     temperature_K: float = Field(gt=0.0)
-    k0_Hz: float = Field(gt=0.0)
+    k0_Hz: float = Field(gt=0.0)  # global prefactor; also the per-family HTST fallback
+    prefactor_style: Literal["constant", "htst"] = "constant"
 
     @field_validator("primary", "family_table", "fallback_scalar")
     @classmethod

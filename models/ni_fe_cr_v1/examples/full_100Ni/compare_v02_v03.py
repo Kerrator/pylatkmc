@@ -16,7 +16,8 @@ import json
 import math
 from pathlib import Path
 
-KB = 8.617333262e-5
+from pylatkmc.rate_expression import KB_EV_PER_K as KB  # single source of truth (no drift)
+
 TEMPS = [300, 400, 500, 600, 700, 800, 900, 1200]
 NVS = list(range(1, 11))
 

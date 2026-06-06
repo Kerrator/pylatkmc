@@ -214,7 +214,9 @@ int kmc_run(KmcContext *ctx)
         if (cfg->sample_every > 0 && (ctx->st->step % cfg->sample_every) == 0) {
             if (xyz.fp) xyz_write_frame(&xyz, ctx->st);
             if (out_log.fp) {
-                double k_event = (proc_done >= 0) ? pylatkmc_rate_table[proc_done].rate : 0.0;
+                double k_event = (proc_done >= 0)
+                    ? rateconst_eval(pylatkmc_rate_table[proc_done], ctx->temperature_K)
+                    : 0.0;
                 double Ea_eV   = (proc_done >= 0) ? pylatkmc_rate_table[proc_done].Ea_eV : 0.0;
                 pykmc_out_write_row(&out_log,
                                      ctx->st->step, ctx->st->time_s, dt_done,

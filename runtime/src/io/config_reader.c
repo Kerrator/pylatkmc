@@ -131,5 +131,17 @@ int input_config_load(InputConfig *out, const char *path)
     resolve_relative(out->output_root,     sizeof out->output_root,     ini_dir);
     resolve_relative(out->rng_replay_path, sizeof out->rng_replay_path, ini_dir);
 
+    /* The runtime computes Arrhenius rates at startup as
+     * prefactor * exp(-Ea / (kB * T)) from this temperature (rates are NOT
+     * baked at codegen). A non-positive or non-finite T would divide by zero,
+     * invert the exponent, or propagate NaN into every rate — reject it early.
+     * (`!(T > 0)` also catches NaN.) */
+    if (!(out->temperature_K > 0.0)) {
+        fprintf(stderr,
+                "input_config_load: physics.temperature_K must be > 0 K, got %.6g\n",
+                out->temperature_K);
+        return -EINVAL;
+    }
+
     return 0;
 }

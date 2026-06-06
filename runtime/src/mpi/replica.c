@@ -109,9 +109,12 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         state_free(&st); lattice_free(&lat);
         return rc;
     }
-    /* Seed per-proc rates from the generated rate_table. */
+    /* Seed per-proc rates from the generated rate_table. The table stores
+     * {prefactor_Hz, Ea_eV}; the Arrhenius rate is computed HERE from the
+     * runtime temperature (cfg->temperature_K), so one binary runs at any T. */
     for (int32_t p = 0; p < pylatkmc_n_procs; ++p) {
-        avail_sites_set_rate(as, p, pylatkmc_rate_table[p].rate);
+        avail_sites_set_rate(as, p,
+            rateconst_eval(pylatkmc_rate_table[p], cfg->temperature_K));
     }
 
     /* Allocate active_filter and precompute the static (geometry) mask. */

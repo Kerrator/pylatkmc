@@ -32,8 +32,9 @@ typedef struct {
  *   - as:  avail_sites index (cleared and rebuilt every step)
  *   - af:  active_filter (re-scanned every step)
  *   - rng: per-replica RNG
- *   - temperature_K: Arrhenius rates were baked at this T
- *     (the runtime carries it for trajectory headers / logs only)
+ *   - temperature_K: the runtime Arrhenius temperature. Per-proc rates are
+ *     computed at startup as prefactor_Hz * exp(-Ea_eV/(kB*T)) from this T
+ *     (rateconst_eval in proclist.h) — NOT baked at codegen. One binary, any T.
  */
 typedef struct {
     const Lattice    *lat;

@@ -61,7 +61,7 @@ def cmd_processes(args: argparse.Namespace) -> int:
     from collections import Counter
 
     from .loader import load
-    from .translator import load_family_rate_table, translate_all
+    from .translator import load_family_rate_table, prefactor_coverage, translate_all
 
     spec_path = Path(args.spec).resolve()
     spec = load(spec_path)
@@ -84,9 +84,20 @@ def cmd_processes(args: argparse.Namespace) -> int:
         rows,
         k0_Hz=spec.rate_data.k0_Hz,
         T_K=spec.rate_data.temperature_K,
+        style=spec.rate_data.prefactor_style,
         on_scatter_warn=scatter_warnings.append,
         on_unknown_family=unknown_families.append,
     )
+
+    cov = prefactor_coverage(rows, style=spec.rate_data.prefactor_style)
+    n_htst = sum(1 for v in cov.values() if v == "htst")
+    print(
+        f"\nPrefactor provenance (style={spec.rate_data.prefactor_style}): "
+        f"{n_htst}/{len(cov)} families use HTST nu0; "
+        f"the rest fall back to k0={spec.rate_data.k0_Hz:.2e} Hz"
+    )
+    for fid, src in sorted(cov.items()):
+        print(f"  {fid:34s} {src}")
 
     fam_proc_counts = Counter(p.family_id for p in processes)
     print(f"\nTotal Processes: {len(processes)}")

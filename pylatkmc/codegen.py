@@ -8,8 +8,10 @@ M-B emitters produce from a list[Process]:
 1. **Process enum** (`emit_process_enum`) — `enum { P_<name>, ...,
    N_PROCS };`
 2. **Rate table** (`emit_rate_table`) — `static const RateConst
-   rate_table[N_PROCS] = { ... };` baked at codegen time from each
-   Process's Arrhenius rate at the spec's T.
+   rate_table[N_PROCS] = { ... };` storing per-Process `{prefactor_Hz,
+   Ea_eV}`. The Arrhenius rate is computed by the runtime at startup from
+   the *runtime* temperature (`physics.temperature_K`) — NOT baked at
+   codegen time, so one compiled binary runs at any T.
 3. **Apply functions + dispatch table** (`emit_apply_actions`) — one
    `apply_actions_<name>` per Process; `apply_table[N_PROCS]` indexed
    by P_<name>.
@@ -42,6 +44,7 @@ from pylatkmc.decision_tree import (
     emit_rate_table,
 )
 from pylatkmc.processes import Process
+from pylatkmc.rate_expression import KB_EV_PER_K
 from pylatkmc.spec import ModelSpec
 from pylatkmc.translator import load_family_rate_table, translate_all
 
@@ -118,8 +121,11 @@ _PROCLIST_C_PREAMBLE = """\
  *
  * Contents (in order):
  *   1. enum {{ P_<name>, ..., N_PROCS }}      — Process IDs
- *   2. static const RateConst rate_table[]   — per-proc Arrhenius rate
- *      baked at T = {temperature_K} K, k0 = {k0_Hz:.3e} Hz
+ *   2. static const RateConst rate_table[]   — per-proc {{prefactor_Hz, Ea_eV}}.
+ *      The Arrhenius rate is computed by the runtime at startup from the
+ *      *runtime* temperature (physics.temperature_K), NOT baked here. The
+ *      prefactor is the per-family Vineyard ν₀ (style=htst) or the global
+ *      k0 = {k0_Hz:.3e} Hz fallback. Spec reference T = {temperature_K} K.
  *   3. static HopOutcome apply_actions_<name>(...)  — one per Process
  *      (calls state_apply_actions on a StateAction[] from each Process's
  *      actions list)
@@ -159,22 +165,41 @@ _PROCLIST_H_TEMPLATE = """\
 #define PYLATKMC_PROCLIST_H
 
 #include <stdint.h>
+#include <math.h>
 
 #include "lattice.h"
 #include "state.h"
 #include "avail_sites.h"
 
+/* Boltzmann constant in eV/K. GENERATED from
+ * pylatkmc.rate_expression.KB_EV_PER_K — the single source of truth shared
+ * by the Python codegen and this C runtime, so the two cannot drift. */
+#define PYLATKMC_KB_EV_PER_K {kb_ev_per_k:.10e}
+
 /* Number of Processes in this model. Defined by the generated enum
  * in proclist.c; exposed here as a const for sizeof / loop bounds. */
 extern const int32_t pylatkmc_n_procs;
 
-/* Rate table: per-Process Arrhenius rate (s^-1) baked at codegen time.
- * Read by replica.c at startup to seed avail_sites_set_rate.
+/* Rate table: per-Process Arrhenius **prefactor** (Hz = s^-1) + activation
+ * energy (eV). The rate k = prefactor_Hz * exp(-Ea_eV / (kB * T)) is computed
+ * by the runtime at startup from the *runtime* temperature
+ * (physics.temperature_K in input.ini) via rateconst_eval() below — NOT baked
+ * at codegen time. One compiled binary therefore runs at any temperature.
  *
  * Declared as a pointer (not an array) so the storage in proclist.c can
- * be a `const RateConst *const` alias to a file-static array. */
-typedef struct {{ double rate; double Ea_eV; }} RateConst;
+ * be a `const RateConst *const` alias to a file-static array.
+ *
+ * NOTE: this typedef MUST stay layout-identical to the copy emitted by
+ * pylatkmc.decision_tree.emit_rate_table into proclist.c (which does not
+ * include this header). */
+typedef struct {{ double prefactor_Hz; double Ea_eV; }} RateConst;
 extern const RateConst *const pylatkmc_rate_table;
+
+/* Evaluate one Process's Arrhenius rate (Hz) at temperature T_K (Kelvin).
+ * This is the single place the runtime un-bakes a rate from a prefactor. */
+static inline double rateconst_eval(RateConst rc, double T_K) {{
+    return rc.prefactor_Hz * exp(-rc.Ea_eV / (PYLATKMC_KB_EV_PER_K * T_K));
+}}
 
 /* HopOutcome: returned by every apply function. The runtime uses
  * v_origin / v_dest to update unwrapped_xyz for MSD tracking on simple
@@ -239,7 +264,7 @@ const ApplyFn   *const pylatkmc_apply_table = NULL;
 
 
 def _build_proclist_h(spec: ModelSpec) -> str:
-    return _PROCLIST_H_TEMPLATE.format(spec_name=spec.name)
+    return _PROCLIST_H_TEMPLATE.format(spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K)
 
 
 # ---------------------------------------------------------------------------
@@ -289,6 +314,7 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
         rows,
         k0_Hz=spec.rate_data.k0_Hz,
         T_K=spec.rate_data.temperature_K,
+        style=spec.rate_data.prefactor_style,
         on_unknown_family=lambda f: print(f"pylatkmc-gen: skipping unknown family {f!r}"),
     )
 

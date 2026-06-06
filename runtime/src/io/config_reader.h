@@ -16,12 +16,17 @@ typedef struct {
     uint64_t base_seed;
 
     /* [paths] */
-    char     ratetable_path[512];
+    char     ratetable_path[512];    /* DEPRECATED/unused: v0.2 loaded a baked .kmcrt
+                                      * rate cube here. In v0.3 rates are compiled into the
+                                      * generated proclist (prefactor+Ea) and evaluated at
+                                      * runtime T, so the runtime never reads this. Parsed
+                                      * only so existing .ini files don't warn; remove with
+                                      * the example .ini files in a future cleanup. */
     char     initconfig_path[512];
     char     output_root[512];       /* default: "./output" */
 
     /* [physics] */
-    double   temperature_K;          /* must match rate table; checked at load */
+    double   temperature_K;          /* runtime Arrhenius T; rates computed from it at startup */
 
     /* [validation] */
     char     rng_replay_path[512];   /* optional; empty if unused */

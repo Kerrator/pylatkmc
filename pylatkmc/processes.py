@@ -283,6 +283,22 @@ class Process(BaseModel):
         Either a scalar prefactor (k0 in s^-1, baked into the rate at
         codegen time as `k0 * exp(-Ea_eV / kT)`), or an expression
         string referencing `nr_<species>_<flag>` Bystander counters.
+
+        Retained for backward compatibility and diagnostics. With the
+        runtime-temperature codegen (see `prefactor_Hz`), the *emitted*
+        rate table no longer pre-exponentiates this value — the C runtime
+        computes the Arrhenius rate from `prefactor_Hz` + `Ea_eV` + the
+        runtime temperature at startup.
+    prefactor_Hz : float | None
+        The resolved Arrhenius prefactor in Hz (= s^-1): the per-family
+        Vineyard ν₀ when `style == "htst"` and the family carries one,
+        otherwise the global `k0` fallback. This is the on-lattice analog
+        of pyKMC's resolved `k_prefactor`. The codegen emits this (not a
+        baked rate) into the C `rate_table`, so one compiled binary runs
+        at any temperature: `k = prefactor_Hz * exp(-Ea_eV / (kB * T))`,
+        evaluated by the runtime from `physics.temperature_K`. ``None``
+        means "not split out" (legacy/test Processes); the emitter then
+        falls back to the scalar `rate_constant` as the prefactor.
     conditions : tuple[Condition, ...]
         ANDed boolean predicates. Empty = process always eligible at
         every anchor site (rare; usually has at least the anchor's own
@@ -304,6 +320,7 @@ class Process(BaseModel):
     family_id: str = Field(..., min_length=1)
     Ea_eV: float
     rate_constant: str | float
+    prefactor_Hz: float | None = None
     conditions: tuple[Condition, ...]
     actions: tuple[Action, ...] = Field(..., min_length=1)
     shell_conditions: tuple[ShellCondition, ...] = ()

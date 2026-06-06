@@ -53,6 +53,7 @@ References:
 from __future__ import annotations
 
 import csv
+import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -72,6 +73,17 @@ from .rate_expression import arrhenius_scalar, bucket_warns_on_scatter
 # ---------------------------------------------------------------------------
 
 
+def _parse_nu0(raw: str | None) -> float | None:
+    """Parse the optional ``nu0_Hz`` column: None if absent, blank, NaN, or non-positive."""
+    if raw is None or str(raw).strip() == "":
+        return None
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    return v if (math.isfinite(v) and v > 0.0) else None
+
+
 @dataclass(frozen=True)
 class FamilyBucketRow:
     """One row of `rate_lookup_table_family.csv`."""
@@ -83,6 +95,7 @@ class FamilyBucketRow:
     Ea_std_eV: float
     Ea_min_eV: float
     Ea_max_eV: float
+    nu0_Hz: float | None = None  # per-family HTST Vineyard prefactor (Hz); None -> k0 fallback
 
     @classmethod
     def from_csv_row(cls, row: dict[str, str]) -> FamilyBucketRow:
@@ -94,6 +107,7 @@ class FamilyBucketRow:
             Ea_std_eV=float(row["Ea_std_eV"]),
             Ea_min_eV=float(row["Ea_min_eV"]),
             Ea_max_eV=float(row["Ea_max_eV"]),
+            nu0_Hz=_parse_nu0(row.get("nu0_Hz")),
         )
 
 
@@ -367,6 +381,7 @@ def _emit_simple_2action_hop(
     mover_species: str,
     Ea_eV: float,
     rate_Hz: float,
+    prefactor_Hz: float | None = None,
     emit_shell_gates: bool = True,
 ) -> Process:
     """A single-atom 1NN/2NN hop: vacancy at anchor + mover at direction →
@@ -387,6 +402,7 @@ def _emit_simple_2action_hop(
         family_id=family_id,
         Ea_eV=Ea_eV,
         rate_constant=float(rate_Hz),
+        prefactor_Hz=(float(prefactor_Hz) if prefactor_Hz is not None else None),
         conditions=(
             Condition(coord=ANCHOR, species="Vacant"),
             Condition(coord=direction, species=mover_species),
@@ -412,12 +428,15 @@ def translate_simple_hop_family(
     k0_Hz: float,
     T_K: float,
     on_scatter_warn: Callable[[str], None] | None = None,
+    style: str = "constant",
 ) -> list[Process]:
     """Translate any "single-atom hop" family (surface/subsurface/bulk
     1NN/2NN inplane, interlayer hops, etc.) into Processes.
 
-    Emits one Process per (bucket × direction). The bucket's Ea_mean
-    becomes the Arrhenius rate at the spec's T.
+    Emits one Process per (bucket × direction). The bucket's Ea_mean becomes the
+    Arrhenius rate at the spec's T. When ``style == "htst"`` and the family
+    carries a per-family Vineyard ``nu0_Hz``, that prefactor replaces the global
+    ``k0_Hz``; otherwise the global ``k0_Hz`` is used (the fallback).
     """
     family_rows = [r for r in rows if r.family_id == family_id]
     out: list[Process] = []
@@ -426,7 +445,8 @@ def translate_simple_hop_family(
             on_scatter_warn is not None
         ):
             on_scatter_warn(f"{family_id}/{r.family_bucket_id} ({r.n_events} events): {msg}")
-        rate = arrhenius_scalar(Ea_eV=r.Ea_mean_eV, k0_Hz=k0_Hz, T_K=T_K)
+        k0_eff = r.nu0_Hz if (style == "htst" and r.nu0_Hz is not None) else k0_Hz
+        rate = arrhenius_scalar(Ea_eV=r.Ea_mean_eV, k0_Hz=k0_eff, T_K=T_K)
         for d in directions:
             out.append(
                 _emit_simple_2action_hop(
@@ -436,6 +456,7 @@ def translate_simple_hop_family(
                     mover_species=mover_species,
                     Ea_eV=r.Ea_mean_eV,
                     rate_Hz=rate,
+                    prefactor_Hz=k0_eff,
                 )
             )
     return out
@@ -521,11 +542,30 @@ ADATOM_REVERSE_EA_FLOOR_EV: float | None = None
 # Processes.
 
 
+def prefactor_coverage(
+    rows: list[FamilyBucketRow], style: str = "htst"
+) -> dict[str, str]:
+    """Per-family prefactor provenance: ``family_id -> "htst" | "fallback_k0"``.
+
+    A family is ``"htst"`` when ``style == "htst"`` and at least one of its
+    buckets carries a finite per-family ``nu0_Hz``; otherwise it falls back to
+    the global ``k0`` (the Debye assumption).
+    """
+    cov: dict[str, str] = {}
+    for r in rows:
+        cur = cov.get(r.family_id, "fallback_k0")
+        if style == "htst" and r.nu0_Hz is not None:
+            cur = "htst"
+        cov[r.family_id] = cur
+    return cov
+
+
 def translate_all(
     rows: list[FamilyBucketRow],
     k0_Hz: float = 1.0e13,
     T_K: float = 500.0,
     mover_species: str = "Ni",
+    style: str = "constant",
     on_scatter_warn: Callable[[str], None] | None = None,
     on_unknown_family: Callable[[str], None] | None = None,
     adatom_reverse_ea_floor_eV: float | None = ADATOM_REVERSE_EA_FLOOR_EV,
@@ -582,6 +622,7 @@ def translate_all(
                 k0_Hz=k0_Hz,
                 T_K=T_K,
                 on_scatter_warn=on_scatter_warn,
+                style=style,
             )
         )
 
