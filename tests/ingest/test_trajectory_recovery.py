@@ -179,7 +179,7 @@ def test_free_region_subsurface_mover_keeps_full_region():
         [0.0, 0.0, 2.0],   # above mover -> KEPT (no auto-freeze for subsurface)
         [0.0, 0.0, -1.0],  # below mover
     ])
-    free = tr._free_region(pos, move_atom_idx=0, free_radius=6.0, auto_freeze_above_mover=True)
+    free = tr._free_region(pos, 0, free_radius=6.0, auto_freeze_above_mover=True)
     assert set(free.tolist()) == {0, 1, 2, 3}  # full radial region, nothing frozen
 
 
@@ -198,6 +198,34 @@ def test_free_region_surface_mover_clean_is_noop():
     free_on = tr._free_region(pos, 0, 6.0, auto_freeze_above_mover=True)
     free_off = tr._free_region(pos, 0, 6.0, auto_freeze_above_mover=False)
     assert set(free_on.tolist()) == set(free_off.tolist()) == {0, 1, 2, 3}
+
+
+def test_detect_cluster_movers_single_vs_concerted():
+    init = np.array([[0, 0, 0], [3, 0, 0], [6, 0, 0], [9, 0, 0]], dtype=float)
+    # single-atom hop: only atom 1 moves
+    fin1 = init.copy(); fin1[1] += [0.0, 0.8, 0.0]
+    assert tr.detect_cluster_movers(init, fin1, primary_idx=1) == [1]
+    # 2-atom concerted: atoms 1 and 2 both move (exchange/migration)
+    fin2 = init.copy(); fin2[1] += [0.0, 0.8, 0.0]; fin2[2] += [0.0, -0.7, 0.0]
+    movers = tr.detect_cluster_movers(init, fin2, primary_idx=1)
+    assert movers[0] == 1 and set(movers) == {1, 2}
+    # no final geometry -> only the primary
+    assert tr.detect_cluster_movers(init, None, primary_idx=3) == [3]
+
+
+def test_free_region_union_over_two_movers():
+    # two movers far apart (>2*radius): the free region is the union of both
+    # neighbourhoods, and both movers are always kept.
+    pos = np.array([
+        [0.0, 0.0, 0.0],    # mover A (idx 0)
+        [1.0, 0.0, 0.0],    # near A
+        [20.0, 0.0, 0.0],   # mover B (idx 2)
+        [21.0, 0.0, 0.0],   # near B
+        [40.0, 0.0, 0.0],   # far from both -> frozen
+    ])
+    free = tr._free_region(pos, [0, 2], free_radius=3.0, auto_freeze_above_mover=False)
+    assert set(free.tolist()) == {0, 1, 2, 3}
+    assert 4 not in free
 
 
 # --------------------------------------------------------------------------- #

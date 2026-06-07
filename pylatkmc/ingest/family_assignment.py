@@ -34,23 +34,52 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from collections import Counter
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
+from pydantic import BaseModel, ConfigDict, ValidationError
 
-sys.path.insert(0, str(Path(__file__).parent))
 from .families import FAMILY_REGISTRY, FCCFamily, family_by_id, validate_registry
 
 AUDIT_KEY_COLS = ["composition", "nvac", "temp", "idx_ref"]
+
+AuditVerdict = Literal["confirm", "reclassify", "flag", "ignore", "unset"]
+
+
+class AuditEntry(BaseModel):
+    """One human-audit verdict from ``audit_log.csv`` (the event_viewer ↔
+    family_assignment contract). The key (composition, nvac, temp, idx_ref)
+    identifies the event; ``verdict`` + the optional overrides steer assignment.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    composition: str
+    nvac: int
+    temp: float
+    idx_ref: int
+    verdict: AuditVerdict
+    override_move_type: str | None = None
+    override_family_id: str | None = None
+    override_bucket_id: str | None = None
+    override_direction_id: str | None = None
+    notes: str | None = None
+
+    @property
+    def key(self) -> tuple[str, int, float, int]:
+        return (self.composition, self.nvac, self.temp, self.idx_ref)
 
 
 def load_audit(path) -> dict:
     """Return {(composition, nvac, temp, idx_ref): audit_row_dict}.
 
-    Silently returns an empty dict if the file is missing. Accepts either a
-    `pathlib.Path` or a plain string path."""
+    Each row is validated through :class:`AuditEntry`; malformed rows (missing
+    key fields, unknown verdict, non-numeric nvac/temp/idx_ref) are skipped with
+    a one-line warning rather than crashing. Returns an empty dict if the file is
+    missing. Accepts a ``pathlib.Path`` or a plain string path.
+    """
     path = Path(path)
     if not path.exists():
         return {}
@@ -62,23 +91,42 @@ def load_audit(path) -> dict:
     df["nvac"] = pd.to_numeric(df["nvac"], errors="coerce").astype("Int64")
     df["temp"] = pd.to_numeric(df["temp"], errors="coerce")
     df["idx_ref"] = pd.to_numeric(df["idx_ref"], errors="coerce").astype("Int64")
+
     def _nz(val):
         return None if pd.isna(val) or not val else str(val)
 
-    out = {}
+    out: dict = {}
+    n_skipped = 0
     for _, row in df.iterrows():
         if pd.isna(row["nvac"]) or pd.isna(row["temp"]) or pd.isna(row["idx_ref"]):
+            n_skipped += 1
             continue
-        key = (str(row["composition"]), int(row["nvac"]),
-               float(row["temp"]), int(row["idx_ref"]))
-        out[key] = {
-            "verdict": str(row["verdict"]),
-            "override_move_type": _nz(row.get("override_move_type")),
-            "override_family_id": _nz(row.get("override_family_id")),
-            "override_bucket_id": _nz(row.get("override_bucket_id")),
-            "override_direction_id": _nz(row.get("override_direction_id")),
-            "notes": _nz(row.get("notes")),
+        try:
+            entry = AuditEntry(
+                composition=str(row["composition"]),
+                nvac=int(row["nvac"]),
+                temp=float(row["temp"]),
+                idx_ref=int(row["idx_ref"]),
+                verdict=str(row["verdict"]),
+                override_move_type=_nz(row.get("override_move_type")),
+                override_family_id=_nz(row.get("override_family_id")),
+                override_bucket_id=_nz(row.get("override_bucket_id")),
+                override_direction_id=_nz(row.get("override_direction_id")),
+                notes=_nz(row.get("notes")),
+            )
+        except ValidationError:
+            n_skipped += 1
+            continue
+        out[entry.key] = {
+            "verdict": entry.verdict,
+            "override_move_type": entry.override_move_type,
+            "override_family_id": entry.override_family_id,
+            "override_bucket_id": entry.override_bucket_id,
+            "override_direction_id": entry.override_direction_id,
+            "notes": entry.notes,
         }
+    if n_skipped:
+        print(f"[family_assignment] load_audit: skipped {n_skipped} invalid audit row(s)")
     return out
 
 
@@ -301,4 +349,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

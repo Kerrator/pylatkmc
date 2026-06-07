@@ -273,18 +273,48 @@ def _cluster_cell(positions: np.ndarray, margin: float = 12.0) -> list[float]:
     return [float(span[0] + 2 * margin), float(span[1] + 2 * margin), float(span[2] + 2 * margin)]
 
 
+def detect_cluster_movers(
+    initial_positions: np.ndarray,
+    final_positions: np.ndarray | None,
+    primary_idx: int,
+    threshold: float = _MOVE_THRESHOLD_A,
+) -> list[int]:
+    """Atoms that move over the full event (init → final), within the cluster.
+
+    A single-atom hop returns ``[primary_idx]``; a 2-atom concerted exchange or
+    vacancy migration returns both movers. Detected from the catalogue's relaxed
+    ``final_positions`` (the full event displacement; cleaner than the half-way
+    saddle). The primary is always first and always included.
+    """
+    primary = int(primary_idx)
+    if final_positions is None:
+        return [primary]
+    disp = np.linalg.norm(np.asarray(final_positions, float) - initial_positions, axis=1)
+    extra = [int(i) for i in np.where(disp > threshold)[0] if int(i) != primary]
+    return [primary, *extra]
+
+
 def _free_region(
     positions: np.ndarray,
-    move_atom_idx: int,
+    mover_indices: int | list[int],
     free_radius: float,
     auto_freeze_above_mover: bool,
 ) -> np.ndarray:
-    """Free atoms = within ``free_radius`` of the mover, minus atoms more than
-    ~half a layer ABOVE the mover (surface soft-mode auto-freeze)."""
-    free = select_free_atoms(positions, move_atom_idx, radius=free_radius)
+    """Free atoms = union of ``free_radius`` neighbourhoods of every mover, minus
+    atoms more than ~half a layer ABOVE the (primary) mover for surface movers.
+
+    For 2-atom concerted events (exchange / vacancy migration) the saddle mode
+    spans both movers, so freezing the second mover's neighbourhood truncates the
+    mode and inflates ν₀ — the union keeps both movers' regions free.
+    """
+    movers = [int(mover_indices)] if isinstance(mover_indices, int) else [int(m) for m in mover_indices]
+    free = np.unique(
+        np.concatenate([select_free_atoms(positions, m, radius=free_radius) for m in movers])
+    )
     if auto_freeze_above_mover:
         zmax = positions[:, 2].max()
-        mover_z = positions[move_atom_idx, 2]
+        primary = movers[0]
+        mover_z = positions[primary, 2]
         is_surface_mover = mover_z >= zmax - 0.5 * _LAYER_DZ_A
         # Auto-freeze atoms above the mover ONLY for SURFACE movers (kills the
         # rattle of any adatom/surface atom sitting above a top-layer hop).
@@ -296,9 +326,8 @@ def _free_region(
         if is_surface_mover:
             keep = positions[free, 2] <= mover_z + _LAYER_DZ_A
             free = free[keep]
-    # always keep the mover itself
-    if move_atom_idx not in set(free.tolist()):
-        free = np.append(free, move_atom_idx)
+    # always keep every mover itself
+    free = np.union1d(free, np.array(movers, dtype=int))
     return np.sort(free)
 
 
@@ -308,6 +337,7 @@ def geometry_nu0(
     types: list[str],
     move_atom_idx: int,
     potential_path: str,
+    final_positions: np.ndarray | None = None,
     free_radius: float = _DEFAULT_FREE_RADIUS_A,
     dx: float = 0.01,
     auto_freeze_above_mover: bool = True,
@@ -320,10 +350,15 @@ def geometry_nu0(
     have exactly one imaginary mode (``expect_saddle=True``) and that
     N(init) = N(sad) + 1; it raises ``ValueError`` otherwise, which the caller
     maps to ``SADDLE_NOT_FIRST_ORDER``.
+
+    When ``final_positions`` is given, the free region is the union of every
+    mover's neighbourhood (handles 2-atom concerted exchange / vacancy migration);
+    otherwise only ``move_atom_idx`` is freed (single-atom hop).
     """
     initial_positions = np.asarray(initial_positions, dtype=float)
     saddle_positions = np.asarray(saddle_positions, dtype=float)
-    free = _free_region(initial_positions, move_atom_idx, free_radius, auto_freeze_above_mover)
+    movers = detect_cluster_movers(initial_positions, final_positions, move_atom_idx)
+    free = _free_region(initial_positions, movers, free_radius, auto_freeze_above_mover)
     box = cell if cell is not None else _cluster_cell(initial_positions)
 
     h_init = compute_mass_weighted_hessian(
@@ -396,11 +431,12 @@ def recover_event_nu0(
     try:
         init_pos = np.asarray(ev["initial_positions"], dtype=float)
         sad_pos = np.asarray(ev["saddle_positions"], dtype=float)
+        fin_pos = np.asarray(ev["final_positions"], dtype=float) if "final_positions" in ev else None
         types = [str(t) for t in ev["initial_types"]]
         move_idx = int(ev["move_atom_idx"])
         nu0, n_free = geometry_nu0(
             init_pos, sad_pos, types, move_idx, pot,
-            free_radius=free_radius, dx=dx,
+            final_positions=fin_pos, free_radius=free_radius, dx=dx,
         )
     except ValueError as exc:
         # vineyard mode-count mismatch → not a clean first-order saddle
