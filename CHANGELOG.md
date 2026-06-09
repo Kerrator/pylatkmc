@@ -6,6 +6,34 @@ All notable changes to pylatkmc are documented here, following
 
 ## [Unreleased]
 
+### Added
+
+- **Electrochemical dissolution events (Erlebacher/MESOSIM).** A new analytical,
+  non-conservative event type: a surface atom leaves the lattice (its site
+  becomes `Vacant`) with the coordination- and potential-dependent rate
+  `k = nu_E * exp(-(E_bare - Phi)/(kB*T))`, where
+  `E_bare = sum_j eps(mover, neighbour_j)` over occupied 1NN neighbours.
+  - Shared `pylatkmc/dissolution_rate.py` (duplicated byte-identically in
+    `pyKMC-develop/pykmc/`) + canonical `epsilon_table.toml` anchored to DFT
+    (Ke & Taylor 2020: ~9-coordinated Ni terrace `E_bare ~ 1.8 eV`).
+  - `translator.translate_dissolution_family` emits one 1-action Process per
+    (mover, occupied-neighbour histogram) for coordinations in `[min, max]`,
+    gated by exact occupied-species `ShellCondition`s at the anchor's 1NN shell
+    (mutually exclusive buckets; high-coordination bulk atoms can't dissolve).
+  - `Process.is_electrochemical` flag flows into the C `RateConst`
+    (`{prefactor_Hz, Ea_eV, is_electrochemical, _pad}`, guarded by a
+    `_Static_assert`); `rateconst_eval(rc, T, phi)` subtracts the runtime
+    overpotential for electrochemical Processes only (clamped at a barrierless
+    floor), so **one compiled binary runs at any Phi**.
+  - New `[dissolution]` spec block (`DissolutionSpec`); new `input.ini` keys
+    `physics.overpotential_phi_eV`, `physics.dissolution_prefactor_Hz`,
+    `physics.max_dissolution_events`; `n_vac_max` sizing now budgets dissolution
+    events; per-rank and aggregate summaries report `n_dissolution`.
+  - New `ni_dissolution_demo` model + a vacancy-free pure-Ni example slab.
+  - Tests: `test_dissolution_rate.py`, `test_dissolution_translate.py`, and a
+    build+run `test_dissolution_smoke.py` (verifies a dissolution fires, a
+    vacancy is created, and the first-event rate scales as `exp(Phi/kT)`).
+
 Candidates for v0.4 (none committed):
 
 - Bystander runtime support — implement count-tuple expansion in

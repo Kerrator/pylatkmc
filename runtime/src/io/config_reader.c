@@ -45,6 +45,12 @@ static int set_key(InputConfig *cfg, const char *section, const char *key, const
     else if (strcmp(qual, "paths.output_root") == 0)
         snprintf(cfg->output_root,     sizeof cfg->output_root,     "%s", val);
     else if (strcmp(qual, "physics.temperature_K") == 0) cfg->temperature_K = strtod(val, NULL);
+    else if (strcmp(qual, "physics.overpotential_phi_eV") == 0)
+        cfg->overpotential_phi_eV = strtod(val, NULL);
+    else if (strcmp(qual, "physics.dissolution_prefactor_Hz") == 0)
+        cfg->dissolution_prefactor_Hz = strtod(val, NULL);
+    else if (strcmp(qual, "physics.max_dissolution_events") == 0)
+        cfg->max_dissolution_events = strtoull(val, NULL, 10);
     else if (strcmp(qual, "validation.rng_replay_path") == 0)
         snprintf(cfg->rng_replay_path, sizeof cfg->rng_replay_path, "%s", val);
     else {

@@ -66,13 +66,15 @@ static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
             "  \"n_steps\": %llu,\n"
             "  \"total_time_s\": %.9e,\n"
             "  \"mean_msd_A2\": %.6e,\n"
+            "  \"n_dissolution\": %llu,\n"
             "  \"run_rc\": %d,\n"
             "  \"n_procs\": %d\n"
             "}\n",
             rep->rank, lat->n_sites, st->n_vac, T_K,
             (unsigned long long)cfg->base_seed,
             (unsigned long long)s->n_steps, s->total_time_s,
-            s->mean_msd_A2, s->run_rc, (int)pylatkmc_n_procs);
+            s->mean_msd_A2, (unsigned long long)s->n_dissolution,
+            s->run_rc, (int)pylatkmc_n_procs);
     fclose(fp);
 }
 
@@ -86,7 +88,8 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     ActiveFilter *af  = NULL;
     Rng           rng = {0};
 
-    int rc = initconfig_load(cfg->initconfig_path, &lat, &st);
+    int rc = initconfig_load(cfg->initconfig_path, &lat, &st,
+                             (int32_t)cfg->max_dissolution_events);
     if (rc != 0) {
         fprintf(stderr, "[rank %d] initconfig_load(%s) failed: %d\n",
                 rep->rank, cfg->initconfig_path, rc);
@@ -110,11 +113,18 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         return rc;
     }
     /* Seed per-proc rates from the generated rate_table. The table stores
-     * {prefactor_Hz, Ea_eV}; the Arrhenius rate is computed HERE from the
-     * runtime temperature (cfg->temperature_K), so one binary runs at any T. */
+     * {prefactor_Hz, Ea_eV, is_electrochemical}; the rate is computed HERE from
+     * the runtime temperature (cfg->temperature_K) and overpotential
+     * (cfg->overpotential_phi_eV), so one binary runs at any (T, Phi). For
+     * electrochemical (dissolution) Processes, an optional runtime nu_E
+     * override (cfg->dissolution_prefactor_Hz > 0) replaces the baked prefactor
+     * without recompiling. */
     for (int32_t p = 0; p < pylatkmc_n_procs; ++p) {
+        RateConst rc_p = pylatkmc_rate_table[p];
+        if (rc_p.is_electrochemical && cfg->dissolution_prefactor_Hz > 0.0)
+            rc_p.prefactor_Hz = cfg->dissolution_prefactor_Hz;
         avail_sites_set_rate(as, p,
-            rateconst_eval(pylatkmc_rate_table[p], cfg->temperature_K));
+            rateconst_eval(rc_p, cfg->temperature_K, cfg->overpotential_phi_eV));
     }
 
     /* Allocate active_filter and precompute the static (geometry) mask. */
@@ -147,6 +157,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     KmcContext ctx = {
         .lat = &lat, .st = &st, .as = as, .af = af, .rng = &rng,
         .cfg = &run_cfg, .temperature_K = cfg->temperature_K,
+        .overpotential_phi_eV = cfg->overpotential_phi_eV,
     };
 
     printf("[rank %d] run: %d sites, %d vacancies, T=%.1f K, max_steps=%llu, n_procs=%d\n",
@@ -163,10 +174,11 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         double dz = st.unwrapped_xyz[3 * v + 2];
         msd_sum_A2 += dx * dx + dy * dy + dz * dz;
     }
-    rep->stats.n_steps      = st.step;
-    rep->stats.total_time_s = st.time_s;
-    rep->stats.mean_msd_A2  = (st.n_vac > 0) ? (msd_sum_A2 / (double)st.n_vac) : 0.0;
-    rep->stats.run_rc       = run_rc;
+    rep->stats.n_steps       = st.step;
+    rep->stats.total_time_s  = st.time_s;
+    rep->stats.mean_msd_A2   = (st.n_vac > 0) ? (msd_sum_A2 / (double)st.n_vac) : 0.0;
+    rep->stats.run_rc        = run_rc;
+    rep->stats.n_dissolution = st.n_dissolution;
     /* motif_counts / direction_counts are zeroed (cube-era fields, kept for
      * MPI-ABI compatibility but no longer populated in v0.2). */
 
@@ -221,10 +233,12 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
         return -ENOMEM;
     }
     int n_success = 0, n_failed = 0;
+    unsigned long long total_dissolution = 0;
     for (int i = 0; i < N; ++i) {
         times[i] = gathered[i].total_time_s;
         msds[i]  = gathered[i].mean_msd_A2;
         steps[i] = (double)gathered[i].n_steps;
+        total_dissolution += (unsigned long long)gathered[i].n_dissolution;
         if (gathered[i].run_rc == 0) n_success++;
         else                          n_failed++;
     }
@@ -253,20 +267,24 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
             "  \"total_time_s_mean\": %.9e,\n"
             "  \"total_time_s_std\":  %.9e,\n"
             "  \"mean_msd_A2_mean\":  %.6e,\n"
-            "  \"mean_msd_A2_std\":   %.6e,\n",
+            "  \"mean_msd_A2_std\":   %.6e,\n"
+            "  \"total_dissolution\": %llu,\n",
             N, n_success, n_failed,
             (unsigned long long)cfg->base_seed, cfg->temperature_K,
             (int)pylatkmc_n_procs,
-            s_mean, s_std, t_mean, t_std, m_mean, m_std);
+            s_mean, s_std, t_mean, t_std, m_mean, m_std,
+            total_dissolution);
 
     fputs("  \"replicas\": [\n", fp);
     for (int i = 0; i < N; ++i) {
         fprintf(fp,
                 "    {\"rank\": %d, \"run_rc\": %d, \"n_steps\": %llu, "
-                "\"total_time_s\": %.9e, \"mean_msd_A2\": %.6e}%s\n",
+                "\"total_time_s\": %.9e, \"mean_msd_A2\": %.6e, "
+                "\"n_dissolution\": %llu}%s\n",
                 gathered[i].rank, gathered[i].run_rc,
                 (unsigned long long)gathered[i].n_steps,
                 gathered[i].total_time_s, gathered[i].mean_msd_A2,
+                (unsigned long long)gathered[i].n_dissolution,
                 (i == N - 1) ? "" : ",");
     }
     fputs("  ]\n}\n", fp);

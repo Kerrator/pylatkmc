@@ -53,18 +53,21 @@ References:
 from __future__ import annotations
 
 import csv
+import itertools
 import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .dissolution_rate import DissolutionParams, dissolution_rate, e_bare
 from .processes import (
     ANCHOR_COORD,
     Action,
     Condition,
     CoordOffset,
     Process,
+    ShellCondition,
 )
 from .rate_expression import arrhenius_scalar, bucket_warns_on_scatter
 
@@ -462,6 +465,134 @@ def translate_simple_hop_family(
     return out
 
 
+# ---------------------------------------------------------------------------
+# Dissolution family (analytical; Erlebacher/MESOSIM electrochemical law)
+# ---------------------------------------------------------------------------
+#
+# Unlike the hop families above, dissolution is NOT derived from the trajectory
+# catalogue. It is an analytical, coordination- and composition-dependent
+# electrochemical event: a surface atom (the anchor) leaves the lattice, its
+# site becoming Vacant. The bare barrier
+#
+#     E_bare = sum over occupied 1NN neighbours of eps(mover, neighbour)
+#
+# is baked here as the Process Ea_eV; the overpotential term Phi is subtracted
+# at runtime (see rateconst_eval in the generated proclist.h) so one compiled
+# binary runs at any applied potential.
+#
+# Each (mover_species, neighbour-composition) bucket becomes one 1-action
+# Process gated by exact occupied-species ShellConditions at the anchor's 1NN
+# shell. Buckets are mutually exclusive (every occupied species, INCLUDING the
+# count-0 ones, is gated), so exactly one dissolution Process fires per surface
+# atom. Only coordinations in [min, max] are emitted, so high-coordination
+# bulk/terrace atoms (N > max occupied neighbours) match no Process and cannot
+# dissolve -- this is the MESOSIM "<= N_max occupied neighbours" gate.
+#
+# NOTE on coordination: a surface atom's 1NN CSR list omits the absent
+# above-surface lattice neighbours, so the gated count is the number of
+# OCCUPIED present-neighbours = the physical coordination N. Counting occupied
+# species (not vacant) is therefore correct for both outer surfaces and the
+# internal void surfaces that form during dealloying.
+
+
+def compositions_of(n: int, species: tuple[str, ...]) -> list[dict[str, int]]:
+    """All neighbour-composition histograms of total occupied count ``n`` over
+    ``species``.
+
+    Each result is a dict ``{species: count}`` with ``sum(counts) == n`` that
+    lists EVERY species (including count 0), so the emitted ShellConditions
+    fully specify the bucket and buckets are mutually exclusive.
+    """
+    out: list[dict[str, int]] = []
+    for combo in itertools.combinations_with_replacement(species, n):
+        hist = dict.fromkeys(species, 0)
+        for sp in combo:
+            hist[sp] += 1
+        out.append(hist)
+    return out
+
+
+def _dissolution_bucket_label(hist: dict[str, int], species: tuple[str, ...]) -> str:
+    """Deterministic label from the nonzero part of a histogram, e.g.
+    ``{"Ni": 6, "Cr": 3}`` -> ``'ni6_cr3'``. Unique per mover because the
+    nonzero histogram (and hence N) is fully determined by these parts."""
+    parts = [f"{sp.lower()}{hist[sp]}" for sp in species if hist.get(sp, 0) > 0]
+    return "_".join(parts) if parts else "n0"
+
+
+def _emit_dissolution_process(
+    params: DissolutionParams,
+    mover_species: str,
+    hist: dict[str, int],
+    occupied_species: tuple[str, ...],
+    T_K: float,
+    shell: str = "1nn",
+) -> Process:
+    """One 1-action dissolution Process: ``mover`` at the anchor -> Vacant,
+    gated by the exact occupied-neighbour histogram at the anchor's ``shell``.
+
+    ``Ea_eV`` is the bare barrier E_bare; ``prefactor_Hz`` is the dissolution
+    attempt frequency nu_E; ``is_electrochemical`` flags the runtime to apply
+    the overpotential term. ``rate_constant`` is the phi=0 rate (diagnostic
+    only; the runtime recomputes from prefactor + Ea + phi at startup)."""
+    Ea = e_bare(params, mover_species, hist)
+    rate = dissolution_rate(params, mover_species, hist, T_K, phi_eV=0.0)
+    label = _dissolution_bucket_label(hist, occupied_species)
+    shell_conds = tuple(
+        ShellCondition(coord=ANCHOR, shell=shell, species=sp, count=hist.get(sp, 0))
+        for sp in occupied_species
+    )
+    return Process(
+        name=_safe_name("dissolution", mover_species, label),
+        family_id="dissolution",
+        Ea_eV=Ea,
+        rate_constant=float(rate),
+        prefactor_Hz=float(params.nu_E_Hz),
+        is_electrochemical=True,
+        conditions=(Condition(coord=ANCHOR, species=mover_species),),
+        actions=(Action(coord=ANCHOR, before=mover_species, after="Vacant"),),
+        shell_conditions=shell_conds,
+    )
+
+
+def translate_dissolution_family(
+    params: DissolutionParams,
+    species: list[str],
+    T_K: float,
+    shell: str = "1nn",
+) -> list[Process]:
+    """Emit the analytical electrochemical dissolution family.
+
+    Parameters
+    ----------
+    params : DissolutionParams
+        ε table, nu_E, and the [min, max] coordination gate.
+    species : list[str]
+        The full spec species list (``"Vacant"`` first). Movers and neighbour
+        species are the non-Vacant entries.
+    T_K : float
+        Temperature (used only for the diagnostic ``rate_constant``).
+    shell : str
+        Which shell the occupied-neighbour count is taken over ("1nn").
+
+    Returns one 1-action Process per (mover, occupied-neighbour histogram) for
+    every coordination N in ``[params.min_coordination, params.max_coordination]``.
+    """
+    occupied = tuple(s for s in species if s != "Vacant")
+    if not occupied:
+        return []
+    out: list[Process] = []
+    for mover in occupied:
+        for n in range(params.min_coordination, params.max_coordination + 1):
+            for hist in compositions_of(n, occupied):
+                out.append(
+                    _emit_dissolution_process(
+                        params, mover, hist, occupied, T_K, shell=shell
+                    )
+                )
+    return out
+
+
 def translate_surface_1NN_inplane(
     rows: list[FamilyBucketRow],
     k0_Hz: float = 1.0e13,
@@ -652,5 +783,7 @@ __all__ = (
     "ANCHOR",
     "translate_simple_hop_family",
     "translate_surface_1NN_inplane",
+    "translate_dissolution_family",
+    "compositions_of",
     "translate_all",
 )

@@ -15,7 +15,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib  # type: ignore[no-redef]
 
-from pylatkmc.spec import Key, KeyAxis, ModelSpec, RateData, Shell
+from pylatkmc.spec import DissolutionSpec, Key, KeyAxis, ModelSpec, RateData, Shell
 
 
 def load(path: str | Path) -> ModelSpec:
@@ -32,6 +32,14 @@ def load(path: str | Path) -> ModelSpec:
         if key in rd_raw and rd_raw[key] is not None:
             rd_raw[key] = (spec_path.parent / rd_raw[key]).resolve()
 
+    # Optional [dissolution] block. Resolve epsilon_table relative to the spec.
+    dissolution: DissolutionSpec | None = None
+    if "dissolution" in raw and raw["dissolution"] is not None:
+        d_raw: dict[str, Any] = dict(raw["dissolution"])
+        if "epsilon_table" in d_raw and d_raw["epsilon_table"] is not None:
+            d_raw["epsilon_table"] = (spec_path.parent / d_raw["epsilon_table"]).resolve()
+        dissolution = DissolutionSpec(**d_raw)
+
     spec = ModelSpec(
         name=raw["name"],
         lattice=raw.get("lattice", "fcc"),
@@ -39,5 +47,6 @@ def load(path: str | Path) -> ModelSpec:
         shells=[Shell(**s) for s in raw["shells"]],
         key=Key(axes=[KeyAxis(**a) for a in raw["key"]["axes"]]),
         rate_data=RateData(**rd_raw),
+        dissolution=dissolution,
     )
     return spec

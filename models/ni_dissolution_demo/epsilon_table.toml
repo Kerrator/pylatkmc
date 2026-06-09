@@ -1,0 +1,29 @@
+# Per-bond dissolution energies for the Erlebacher/MESOSIM electrochemical
+# dissolution rate:   k = nu_E * exp( -(E_bare - phi) / (kB*T) )
+# with E_bare = sum over occupied nearest neighbours of eps(mover, neighbour).
+#
+# This is the CANONICAL source of truth consumed by both engines via
+# dissolution_rate.load_params():
+#   - pylatkmc/pylatkmc/dissolution_rate.py    (baked into the rate table at codegen)
+#   - pyKMC-develop/pykmc/dissolution_rate.py  (evaluated per surface atom at runtime)
+#
+# E_bare is the BARE bond-breaking barrier. The overpotential term phi (= beta*z*e*eta,
+# beta ~ 0.5) is applied at RUNTIME, not baked here, so one compiled model runs at any
+# applied potential.
+
+[meta]
+nu_E_Hz = 1.0e4          # dissolution attempt frequency (exchange-current derived); NOT the 1e13 Debye prefactor used for diffusion
+default_phi_eV = 0.0     # overpotential term (eV); normally overridden by the engine at runtime
+max_coordination = 9     # MESOSIM gate: only atoms with <= 9 occupied 1NN can dissolve
+min_coordination = 3     # below this, treat as already detached / adatom
+anchor = "Ke & Taylor 2020 (JES 167:131508): ~9-coordinated Ni terrace atom E_bare ~ 1.8 eV => eps_NiNi ~ 0.2 eV/bond. Ni-Cr from configuration-resolved DFT (1.61-2.60 eV). Ni-Fe scaled from Ag-Au by homologous temperature (no DFT catalog)."
+
+# Unordered species pairs, key "A-B" with A,B lexicographically sorted (Cr < Fe < Ni).
+# Values in eV/bond.
+[epsilon_eV_per_bond]
+"Cr-Cr" = 0.289          # 2.60 eV / 9 (upper Ni-Cr DFT bound used as Cr homo-bond proxy)
+"Cr-Fe" = 0.207          # mean of Cr and Fe homo-bonds (no DFT; provisional)
+"Cr-Ni" = 0.234          # Ni-Cr DFT range 1.61-2.60 eV, midpoint / 9
+"Fe-Fe" = 0.162          # Ag-Au homologous-T scaling (no DFT)
+"Fe-Ni" = 0.180          # Ag-Au homologous-T scaling of Ni-Ni (no DFT)
+"Ni-Ni" = 0.200          # anchor: E_bare(9-coord Ni terrace) ~ 1.8 eV / 9 bonds

@@ -138,6 +138,37 @@ class RateData(BaseModel):
         return v
 
 
+class DissolutionSpec(BaseModel):
+    """Analytical electrochemical-dissolution family parameters.
+
+    When ``enabled``, the codegen appends one 1-action dissolution Process per
+    (mover, occupied-neighbour histogram) for occupied coordinations in
+    ``[min_coordination, max_coordination]``. The bare barrier ``E_bare`` is
+    baked from ``epsilon_table`` (a per-bond ε table; see
+    ``pylatkmc.dissolution_rate``); the overpotential term is applied at runtime
+    via ``physics.overpotential_phi_eV`` so one binary runs at any potential.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    enabled: bool = False
+    epsilon_table: Path  # epsilon_table.toml; resolved relative to the spec dir
+    nu_E_Hz: float = Field(default=1.0e4, gt=0.0)
+    default_phi_eV: float = 0.0
+    min_coordination: int = Field(default=3, ge=0)
+    max_coordination: int = Field(default=9, gt=0)
+    shell: Literal["1nn", "2nn"] = "1nn"
+
+    @model_validator(mode="after")
+    def _coord_range_ok(self) -> DissolutionSpec:
+        if self.min_coordination > self.max_coordination:
+            raise ValueError(
+                f"min_coordination ({self.min_coordination}) must not exceed "
+                f"max_coordination ({self.max_coordination})"
+            )
+        return self
+
+
 class ModelSpec(BaseModel):
     """Top-level specification for a compiled pylatkmc model.
 
@@ -153,6 +184,7 @@ class ModelSpec(BaseModel):
     shells: list[Shell]
     key: Key
     rate_data: RateData
+    dissolution: DissolutionSpec | None = None
 
     # --------------------------------------------------------------
     # Invariants beyond what pydantic field validators can express.

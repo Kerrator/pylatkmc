@@ -27,6 +27,12 @@ typedef struct {
 
     /* [physics] */
     double   temperature_K;          /* runtime Arrhenius T; rates computed from it at startup */
+    double   overpotential_phi_eV;   /* electrochemical overpotential term Phi (eV); 0 = thermal only.
+                                      * Subtracted from the bare barrier of electrochemical
+                                      * (dissolution) Processes at startup: k = nu_E*exp(-(Ea-Phi)/kT). */
+    double   dissolution_prefactor_Hz; /* optional nu_E override (Hz); 0 = use the baked value. */
+    uint64_t max_dissolution_events; /* extra vacancy-list capacity to budget for dissolution events
+                                      * (each dissolution is +1 vacancy). 0 = default slack only. */
 
     /* [validation] */
     char     rng_replay_path[512];   /* optional; empty if unused */
