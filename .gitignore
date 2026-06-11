@@ -69,11 +69,13 @@ Thumbs.db
 *.swo
 *~
 
-# AI coding assistant configs and agent docs (kept locally, not shipped)
+# AI coding assistant configs and agent docs (kept locally, not shipped).
+# Exception: the repo-level CLAUDE.md IS shipped — it is the authoritative
+# AI-assistant guide for this repo.
 .agents/
 AGENT.md
 AGENTS.md
-CLAUDE.md
+!CLAUDE.md
 GEMINI.md
 COPILOT.md
 .cursorrules
