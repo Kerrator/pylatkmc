@@ -1,0 +1,64 @@
+# ni_example — a SELF-CONTAINED pure-Ni teaching model.
+#
+# Unlike the other models, this one vendors its training data (data/) so it
+# REGENERATES standalone: a fresh clone of pylatkmc (with no apps/ sibling) can
+# run `pylatkmc-gen build` on this spec without any external files. See README.md.
+#
+# The rate table is the real, curated pure-Ni (100Ni) FCC family catalogue
+# produced by the off-lattice pyKMC pipeline (pARTn saddle search -> classified
+# events -> per-(family,bucket) Arrhenius statistics). pylatkmc expands each
+# (family, bucket) row into one C Process per symmetry direction.
+#
+# Generated C targets a binary named `pylatkmc_ni_example`.
+
+name    = "ni_example"
+lattice = "fcc"
+
+# Pure nickel. First element MUST be "Vacant".
+species = ["Vacant", "Ni"]
+
+[[shells]]
+name = "nn1"
+cutoff_mult = 1.05    # FCC 1NN
+
+[[shells]]
+name = "nn2"
+cutoff_mult = 1.50    # FCC 2NN (~sqrt(2) * d_nn)
+
+# ------------------------------------------------------------------
+# Key axes. Permanent axes site_class (3) and direction (5) are prepended
+# implicitly. The pattern-DB translator drives Processes from the catalogue
+# bucket keys (nv1/nv2), not from these axes, so a minimal valid key suffices.
+# (No Fe/Cr count axes here — this is a pure-Ni model.)
+# ------------------------------------------------------------------
+[[key.axes]]
+name = "mover_species"
+kind = "enum"
+max  = 1               # Ni only (Vacant excluded)
+skip_vacant = true
+
+[[key.axes]]
+name  = "n_vac_nn1"
+kind  = "count"
+shell = "nn1"
+match = "vac"
+max   = 5
+
+[[key.axes]]
+name  = "n_vac_nn2"
+kind  = "count"
+shell = "nn2"
+match = "vac"
+max   = 5
+
+# ------------------------------------------------------------------
+# Training data + physics. Paths are relative to this spec file's directory and
+# resolved by the loader. Only `family_table` is read by codegen; `primary`
+# (the 58 MB per-event catalogue) and `fallback_scalar` are optional and omitted
+# here so the model is fully self-contained.
+# ------------------------------------------------------------------
+[rate_data]
+family_table    = "data/rate_lookup_table_family.csv"
+temperature_K   = 500.0
+k0_Hz           = 1.0e13
+prefactor_style = "htst"

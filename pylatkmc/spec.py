@@ -123,7 +123,9 @@ class RateData(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    primary: Path  # classified_events_with_families.csv
+    primary: Path | None = None  # classified_events_with_families.csv; never opened by
+    # codegen (only family_table is read), so a self-contained model may omit it and
+    # avoid vendoring the large per-event catalogue.
     family_table: Path | None = None  # rate_lookup_table_family.csv (tier-6 fallback)
     fallback_scalar: Path | None = None  # rate_lookup_table.csv (tier-7 fallback, <110> only)
     temperature_K: float = Field(gt=0.0)
