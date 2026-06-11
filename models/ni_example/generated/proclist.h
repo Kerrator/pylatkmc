@@ -40,14 +40,24 @@ extern const int32_t pylatkmc_n_procs;
  *
  * NOTE: this typedef MUST stay layout-identical to the copy emitted by
  * pylatkmc.decision_tree.emit_rate_table into proclist.c (which does not
- * include this header). */
-typedef struct { double prefactor_Hz; double Ea_eV; } RateConst;
+ * include this header). The _Static_assert below guards against drift. */
+typedef struct { double prefactor_Hz; double Ea_eV; int32_t is_electrochemical; int32_t _pad; } RateConst;
+_Static_assert(sizeof(RateConst) == 24, "RateConst layout drift vs proclist.c");
 extern const RateConst *const pylatkmc_rate_table;
 
-/* Evaluate one Process's Arrhenius rate (Hz) at temperature T_K (Kelvin).
- * This is the single place the runtime un-bakes a rate from a prefactor. */
-static inline double rateconst_eval(RateConst rc, double T_K) {
-    return rc.prefactor_Hz * exp(-rc.Ea_eV / (PYLATKMC_KB_EV_PER_K * T_K));
+/* Evaluate one Process's rate (Hz) at temperature T_K (Kelvin) and applied
+ * overpotential phi_eV (eV). This is the single place the runtime un-bakes a
+ * rate from a prefactor.
+ *
+ * For an electrochemical dissolution Process, the overpotential lowers the
+ * baked bare barrier: k = prefactor * exp(-(Ea - phi) / (kB*T)), clamped at a
+ * barrierless floor (Ea - phi >= 0). Non-electrochemical Processes ignore phi,
+ * recovering the plain Arrhenius rate (so existing models are unaffected when
+ * phi = 0). */
+static inline double rateconst_eval(RateConst rc, double T_K, double phi_eV) {
+    double Ea = rc.Ea_eV - (rc.is_electrochemical ? phi_eV : 0.0);
+    if (Ea < 0.0) Ea = 0.0;
+    return rc.prefactor_Hz * exp(-Ea / (PYLATKMC_KB_EV_PER_K * T_K));
 }
 
 /* HopOutcome: returned by every apply function. The runtime uses
