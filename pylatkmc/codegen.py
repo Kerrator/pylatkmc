@@ -43,10 +43,15 @@ from pylatkmc.decision_tree import (
     emit_process_enum,
     emit_rate_table,
 )
+from pylatkmc.dissolution_rate import DissolutionParams, load_params
 from pylatkmc.processes import Process
 from pylatkmc.rate_expression import KB_EV_PER_K
-from pylatkmc.spec import ModelSpec
-from pylatkmc.translator import load_family_rate_table, translate_all
+from pylatkmc.spec import DissolutionSpec, ModelSpec
+from pylatkmc.translator import (
+    load_family_rate_table,
+    translate_all,
+    translate_dissolution_family,
+)
 
 # ---------------------------------------------------------------------------
 # kmos-style #@-prefixed template preprocessor (kept for backwards compat;
@@ -191,14 +196,24 @@ extern const int32_t pylatkmc_n_procs;
  *
  * NOTE: this typedef MUST stay layout-identical to the copy emitted by
  * pylatkmc.decision_tree.emit_rate_table into proclist.c (which does not
- * include this header). */
-typedef struct {{ double prefactor_Hz; double Ea_eV; }} RateConst;
+ * include this header). The _Static_assert below guards against drift. */
+typedef struct {{ double prefactor_Hz; double Ea_eV; int32_t is_electrochemical; int32_t _pad; }} RateConst;
+_Static_assert(sizeof(RateConst) == 24, "RateConst layout drift vs proclist.c");
 extern const RateConst *const pylatkmc_rate_table;
 
-/* Evaluate one Process's Arrhenius rate (Hz) at temperature T_K (Kelvin).
- * This is the single place the runtime un-bakes a rate from a prefactor. */
-static inline double rateconst_eval(RateConst rc, double T_K) {{
-    return rc.prefactor_Hz * exp(-rc.Ea_eV / (PYLATKMC_KB_EV_PER_K * T_K));
+/* Evaluate one Process's rate (Hz) at temperature T_K (Kelvin) and applied
+ * overpotential phi_eV (eV). This is the single place the runtime un-bakes a
+ * rate from a prefactor.
+ *
+ * For an electrochemical dissolution Process, the overpotential lowers the
+ * baked bare barrier: k = prefactor * exp(-(Ea - phi) / (kB*T)), clamped at a
+ * barrierless floor (Ea - phi >= 0). Non-electrochemical Processes ignore phi,
+ * recovering the plain Arrhenius rate (so existing models are unaffected when
+ * phi = 0). */
+static inline double rateconst_eval(RateConst rc, double T_K, double phi_eV) {{
+    double Ea = rc.Ea_eV - (rc.is_electrochemical ? phi_eV : 0.0);
+    if (Ea < 0.0) Ea = 0.0;
+    return rc.prefactor_Hz * exp(-Ea / (PYLATKMC_KB_EV_PER_K * T_K));
 }}
 
 /* HopOutcome: returned by every apply function. The runtime uses
@@ -287,6 +302,47 @@ def _resolve_family_csv(spec: ModelSpec, spec_path: Path | None) -> Path:
     return csv
 
 
+def _build_dissolution_processes(
+    spec: ModelSpec, diss_spec: DissolutionSpec
+) -> list[Process]:
+    """Load the ε table, build DissolutionParams from the spec, validate that
+    every occupied species pair has a per-bond energy, and translate the
+    analytical dissolution family into Processes.
+
+    The spec fields (nu_E_Hz, min/max_coordination) are authoritative over the
+    ε table's [meta]; the table is consulted only for the per-bond ε values.
+    """
+    table = load_params(diss_spec.epsilon_table)
+    params = DissolutionParams(
+        epsilon=table.epsilon,
+        nu_E_Hz=diss_spec.nu_E_Hz,
+        phi_eV=diss_spec.default_phi_eV,
+        min_coordination=diss_spec.min_coordination,
+        max_coordination=diss_spec.max_coordination,
+    )
+    occupied = [s for s in spec.species if s != "Vacant"]
+    missing = sorted(
+        {
+            tuple(sorted((a, b)))
+            for i, a in enumerate(occupied)
+            for b in occupied[i:]
+            if tuple(sorted((a, b))) not in params.epsilon
+        }
+    )
+    if missing:
+        raise ValueError(
+            f"dissolution: epsilon_table {diss_spec.epsilon_table} is missing "
+            f"per-bond energies for species pairs {missing} (model species: "
+            f"{occupied}). Add them to the [epsilon_eV_per_bond] table."
+        )
+    return translate_dissolution_family(
+        params,
+        spec.species,
+        T_K=spec.rate_data.temperature_K,
+        shell=diss_spec.shell,
+    )
+
+
 def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None) -> list[Path]:
     """Render `proclist.c` + `proclist.h` for `spec` and write them to
     `out_dir`. Returns the list of written paths.
@@ -317,6 +373,12 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
         style=spec.rate_data.prefactor_style,
         on_unknown_family=lambda f: print(f"pylatkmc-gen: skipping unknown family {f!r}"),
     )
+
+    # Append the analytical electrochemical dissolution family (if enabled).
+    if spec.dissolution is not None and spec.dissolution.enabled:
+        diss = _build_dissolution_processes(spec, spec.dissolution)
+        print(f"pylatkmc-gen: + {len(diss)} dissolution Processes")
+        processes = processes + diss
 
     written: list[Path] = []
 

@@ -25,9 +25,11 @@ static const char INITCONFIG_MAGIC[8] = { 'K','M','C','I','C','v','0','1' };
  *   u8 [M2]    nn2_dir_family
  */
 
-int initconfig_load(const char *path, Lattice *lat_out, State *st_out)
+int initconfig_load(const char *path, Lattice *lat_out, State *st_out,
+                    int32_t extra_vac_capacity)
 {
     if (!path || !lat_out || !st_out) return -EINVAL;
+    if (extra_vac_capacity < 0) extra_vac_capacity = 0;
     memset(lat_out, 0, sizeof(*lat_out));
 
     KmcMap map;
@@ -129,9 +131,12 @@ int initconfig_load(const char *path, Lattice *lat_out, State *st_out)
     for (int32_t s = 0; s < N; ++s) {
         if (initial_species[s] == 0 /* SP_VACANT */) n_vac_initial++;
     }
-    /* Budget some slack for future vacancies arising from exchanges
-     * (M2+). For M1 the count never changes. */
-    int32_t n_vac_max = n_vac_initial > 0 ? n_vac_initial + 4 : 4;
+    /* Budget slack for vacancies created at runtime. Conservative hops keep
+     * n_vac constant; non-conservative dissolution events each add +1. The
+     * caller passes max_dissolution_events as extra_vac_capacity; we always
+     * keep at least a small floor of slack for exchange-type events. */
+    int32_t slack = extra_vac_capacity > 4 ? extra_vac_capacity : 4;
+    int32_t n_vac_max = n_vac_initial + slack;
 
     int scode = state_alloc(st_out, N, n_vac_max);
     if (scode != 0) {

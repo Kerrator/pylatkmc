@@ -455,7 +455,10 @@ def emit_rate_table(processes: list[Process]) -> str:
     if not processes:
         return "/* no processes; rate_table omitted */\n"
     lines = [
-        "typedef struct { double prefactor_Hz; double Ea_eV; } RateConst;",
+        "typedef struct { double prefactor_Hz; double Ea_eV; "
+        "int32_t is_electrochemical; int32_t _pad; } RateConst;",
+        '_Static_assert(sizeof(RateConst) == 24, '
+        '"RateConst layout drift vs proclist.h");',
         "static const RateConst rate_table[N_PROCS] = {",
     ]
     for p in processes:
@@ -465,9 +468,10 @@ def emit_rate_table(processes: list[Process]) -> str:
                 f"{p.rate_constant!r}; Bystander expressions not yet supported"
             )
         prefactor = p.prefactor_Hz if p.prefactor_Hz is not None else float(p.rate_constant)
+        echem = 1 if p.is_electrochemical else 0
         lines.append(
             f"    [P_{p.name}] = {{ .prefactor_Hz = {float(prefactor):.10e}, "
-            f".Ea_eV = {p.Ea_eV:.6f} }},"
+            f".Ea_eV = {p.Ea_eV:.6f}, .is_electrochemical = {echem}, ._pad = 0 }},"
         )
     lines.append("};")
     return "\n".join(lines) + "\n"

@@ -299,6 +299,13 @@ class Process(BaseModel):
         evaluated by the runtime from `physics.temperature_K`. ``None``
         means "not split out" (legacy/test Processes); the emitter then
         falls back to the scalar `rate_constant` as the prefactor.
+    is_electrochemical : bool
+        Marks an electrochemical dissolution Process. The codegen emits this
+        flag into the C ``RateConst`` so the runtime computes the rate with the
+        overpotential term: ``k = prefactor_Hz * exp(-(Ea_eV - phi) / (kB*T))``
+        instead of the plain Arrhenius form. ``phi`` is the runtime
+        ``physics.overpotential_phi_eV``; for non-electrochemical Processes
+        (``False``) it is ignored. Default ``False``.
     conditions : tuple[Condition, ...]
         ANDed boolean predicates. Empty = process always eligible at
         every anchor site (rare; usually has at least the anchor's own
@@ -321,6 +328,7 @@ class Process(BaseModel):
     Ea_eV: float
     rate_constant: str | float
     prefactor_Hz: float | None = None
+    is_electrochemical: bool = False
     conditions: tuple[Condition, ...]
     actions: tuple[Action, ...] = Field(..., min_length=1)
     shell_conditions: tuple[ShellCondition, ...] = ()

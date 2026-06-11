@@ -27,6 +27,12 @@ typedef struct State {
     /* Per-event-family counters for summary.json. */
     uint64_t  motif_counts[8];      /* MF_COUNT; fixed for ABI stability */
     uint64_t  direction_counts[5];  /* DF_COUNT */
+
+    /* Count of electrochemical dissolution events applied this run (atoms that
+     * left the lattice). Incremented in kmc.c apply_event for any Process whose
+     * rate_table entry is electrochemical. Appended at the END of the struct so
+     * the ctypes test mirrors (which read a prefix) stay valid. */
+    uint64_t  n_dissolution;
 } State;
 
 int  state_alloc(State *st, int32_t n_sites, int32_t n_vac_max);

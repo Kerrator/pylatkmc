@@ -73,6 +73,9 @@ static void apply_event(KmcContext *ctx, int32_t proc, int32_t site)
      * from the Process's actions and calls state_apply_actions internally. */
     HopOutcome ho = pylatkmc_apply_table[proc](st, lat, site);
 
+    /* Count non-conservative dissolution events (an atom left the lattice). */
+    if (pylatkmc_rate_table[proc].is_electrochemical) st->n_dissolution++;
+
     /* Single-vacancy hop heuristic: if v_origin and v_dest are both valid,
      * the vacancy that was at v_origin moved to v_dest. Update its
      * unwrapped_xyz slot accordingly.
@@ -215,7 +218,8 @@ int kmc_run(KmcContext *ctx)
             if (xyz.fp) xyz_write_frame(&xyz, ctx->st);
             if (out_log.fp) {
                 double k_event = (proc_done >= 0)
-                    ? rateconst_eval(pylatkmc_rate_table[proc_done], ctx->temperature_K)
+                    ? rateconst_eval(pylatkmc_rate_table[proc_done],
+                                     ctx->temperature_K, ctx->overpotential_phi_eV)
                     : 0.0;
                 double Ea_eV   = (proc_done >= 0) ? pylatkmc_rate_table[proc_done].Ea_eV : 0.0;
                 pykmc_out_write_row(&out_log,

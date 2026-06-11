@@ -44,6 +44,7 @@ typedef struct {
     Rng              *rng;
     const KmcRunConfig *cfg;
     double            temperature_K;
+    double            overpotential_phi_eV;  /* electrochemical overpotential Phi (eV); 0 = thermal */
 } KmcContext;
 
 /* One rejection-free step:

@@ -1,0 +1,92 @@
+# ni_dissolution_demo — minimal model exercising the electrochemical
+# dissolution event (Erlebacher/MESOSIM law). Reuses the ni_fe_cr_v1 curated
+# family catalogue for the conservative hop processes and adds an analytical
+# [dissolution] family on top.
+#
+# Run it on a VACANCY-FREE pure-Ni slab so that hops (which need a Vacant
+# anchor) cannot fire and dissolution is the only available event; see
+# examples/. Generated C targets a binary named `pylatkmc_ni_dissolution_demo`.
+
+name    = "ni_dissolution_demo"
+lattice = "fcc"
+
+species = ["Vacant", "Ni", "Fe", "Cr"]
+
+[[shells]]
+name = "nn1"
+cutoff_mult = 1.05
+
+[[shells]]
+name = "nn2"
+cutoff_mult = 1.50
+
+[[key.axes]]
+name = "mover_species"
+kind = "enum"
+max  = 3
+skip_vacant = true
+
+[[key.axes]]
+name  = "n_vac_nn1"
+kind  = "count"
+shell = "nn1"
+match = "vac"
+max   = 5
+
+[[key.axes]]
+name  = "n_Fe_nn1"
+kind  = "count"
+shell = "nn1"
+match = "Fe"
+max   = 5
+
+[[key.axes]]
+name  = "n_Cr_nn1"
+kind  = "count"
+shell = "nn1"
+match = "Cr"
+max   = 5
+
+[[key.axes]]
+name  = "n_vac_nn2"
+kind  = "count"
+shell = "nn2"
+match = "vac"
+max   = 5
+
+[[key.axes]]
+name  = "n_Fe_nn2"
+kind  = "count"
+shell = "nn2"
+match = "Fe"
+max   = 5
+
+[[key.axes]]
+name  = "n_Cr_nn2"
+kind  = "count"
+shell = "nn2"
+match = "Cr"
+max   = 5
+
+[rate_data]
+primary         = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/classified_events_with_families.csv"
+family_table    = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv"
+fallback_scalar = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table.csv"
+temperature_K   = 500.0
+k0_Hz           = 1.0e13
+prefactor_style = "htst"
+
+# ------------------------------------------------------------------
+# Electrochemical dissolution family (Erlebacher/MESOSIM).
+#   k = nu_E * exp(-(E_bare - Phi) / (kB*T)),  E_bare = sum_j eps(mover, nbr_j)
+# E_bare is baked from epsilon_table; the overpotential Phi is set at runtime
+# (physics.overpotential_phi_eV in input.ini), so one binary runs at any Phi.
+# ------------------------------------------------------------------
+[dissolution]
+enabled          = true
+epsilon_table    = "epsilon_table.toml"
+nu_E_Hz          = 1.0e4
+default_phi_eV   = 0.0
+min_coordination = 3
+max_coordination = 9
+shell            = "1nn"

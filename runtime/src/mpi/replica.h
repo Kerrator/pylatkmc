@@ -15,6 +15,7 @@ typedef struct {
     double   mean_msd_A2;
     uint64_t motif_counts[8];
     uint64_t direction_counts[5];
+    uint64_t n_dissolution;          /* electrochemical dissolution events applied */
 } ReplicaStats;
 
 typedef struct {

@@ -28,7 +28,14 @@
 
 /* Loads lattice topology AND initial species array. Caller owns State's
  * dynamic buffers (vac_list, vac_idx_of, unwrapped_ijk); initial species are
- * copied from the mmap into st->species so the state is freely mutable. */
-int initconfig_load(const char *path, Lattice *lat_out, State *st_out);
+ * copied from the mmap into st->species so the state is freely mutable.
+ *
+ * `extra_vac_capacity` budgets additional vacancy-list slots on top of the
+ * initial vacancy count. Conservative hop/exchange events keep n_vac constant,
+ * but non-conservative dissolution events grow it by +1 each; pass the run's
+ * max_dissolution_events here so state_apply_actions doesn't reject dissolutions
+ * once n_vac would exceed n_vac_max. A small default slack is always applied. */
+int initconfig_load(const char *path, Lattice *lat_out, State *st_out,
+                    int32_t extra_vac_capacity);
 
 #endif /* LATKMC_INITCONFIG_H */

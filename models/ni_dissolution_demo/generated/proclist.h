@@ -1,6 +1,6 @@
-/* proclist.h — GENERATED from ni_fe_cr_v1.kmcspec.toml.
+/* proclist.h — GENERATED from ni_dissolution_demo.kmcspec.toml.
  *
- * DO NOT EDIT. Regenerate with `pylatkmc-gen build ni_fe_cr_v1.kmcspec.toml`.
+ * DO NOT EDIT. Regenerate with `pylatkmc-gen build ni_dissolution_demo.kmcspec.toml`.
  *
  * Public interface: just enough symbols for the runtime backbone
  * (kmc.c, replica.c, main.c) to call into proclist.c. Internal
