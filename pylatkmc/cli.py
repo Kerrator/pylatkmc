@@ -7,6 +7,8 @@ Usage:
     pylatkmc-gen info  <spec.kmcspec.toml>      # print spec axes / paths
     pylatkmc-gen processes <spec.kmcspec.toml>  # translate catalogue → Processes (read-only summary)
     pylatkmc-gen clean <spec.kmcspec.toml>      # rm -rf generated/
+    pylatkmc-gen export-catalogue <spec.kmcspec.toml>  # serialise catalogue → generated/catalogue.json
+    pylatkmc-gen eligible <spec.kmcspec.toml> --kmcinit <file> --site <n>  # list eligible processes (read-only)
 """
 
 from __future__ import annotations
@@ -127,6 +129,35 @@ def cmd_clean(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_catalogue(args: argparse.Namespace) -> int:
+    from .engine.catalogue import export_catalogue
+
+    spec_path = Path(args.spec).resolve()
+    out = export_catalogue(spec_path, out_path=args.output, family_csv=args.family_csv)
+    print(f"pylatkmc-gen: wrote catalogue -> {out}")
+    return 0
+
+
+def cmd_eligible(args: argparse.Namespace) -> int:
+    from .engine.catalogue import compile_catalogue, load_catalogue
+    from .engine.executor import is_eligible
+    from .engine.lattice import read_kmcinit
+    from .engine.state import state_from_lattice
+    from .loader import load
+
+    spec_path = Path(args.spec).resolve()
+    spec = load(spec_path)
+    processes = load_catalogue(spec_path, family_csv=args.family_csv)
+    compiled = compile_catalogue(processes, list(spec.species))
+    lat = read_kmcinit(args.kmcinit)
+    st = state_from_lattice(lat)
+    eligible = [cp.name for cp in compiled if is_eligible(lat, st, cp, args.site)]
+    print(f"{len(eligible)} eligible process(es) at site {args.site}:")
+    for name in eligible:
+        print(f"  {name}")
+    return 0
+
+
 def _make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="pylatkmc-gen",
@@ -157,6 +188,25 @@ def _make_parser() -> argparse.ArgumentParser:
     p_clean = sub.add_parser("clean", help="Remove <spec_dir>/generated/")
     p_clean.add_argument("spec", help="Path to .kmcspec.toml")
     p_clean.set_defaults(func=cmd_clean)
+
+    p_export = sub.add_parser(
+        "export-catalogue",
+        help="Serialise translate_all(...) to generated/catalogue.json",
+    )
+    p_export.add_argument("spec", help="Path to .kmcspec.toml")
+    p_export.add_argument("--family-csv", default=None, help="Override the family CSV path")
+    p_export.add_argument("-o", "--output", default=None, help="Output JSON path")
+    p_export.set_defaults(func=cmd_export_catalogue)
+
+    p_elig = sub.add_parser(
+        "eligible",
+        help="List processes eligible at one anchor site (read-only debug)",
+    )
+    p_elig.add_argument("spec", help="Path to .kmcspec.toml")
+    p_elig.add_argument("--kmcinit", required=True, help="Path to a .kmcinit lattice")
+    p_elig.add_argument("--site", type=int, required=True, help="Anchor site index")
+    p_elig.add_argument("--family-csv", default=None, help="Override the family CSV path")
+    p_elig.set_defaults(func=cmd_eligible)
 
     return p
 
