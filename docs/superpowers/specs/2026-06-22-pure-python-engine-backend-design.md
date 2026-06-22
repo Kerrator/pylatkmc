@@ -53,11 +53,27 @@ No codegen and no C are in the Python engine's path.
 | Module | Responsibility |
 |---|---|
 | `lattice.py` | Read `.kmcinit` (magic `KMCICv01`) into in-memory state: positions, CSR 1NN/2NN neighbour lists, `species` (mutable), `site_class`, `layer_index`, and a `vac_list`. Reuse `tools/kmcfmt.py` for the header/payload envelope. |
+| `catalogue.py` | Produce the `list[Process]` the executor interprets and compile it to an index-based form. Source priority: explicit `--family-csv` → spec's `family_table` if it resolves → committed `generated/catalogue.json`. Also implements `export-catalogue`. |
 | `coords.py` | Build and resolve the per-site neighbour table `coord_table[site*23 + code_idx] → absolute site \| -1` for the 23 `NEIGHBOUR_CODES`. `NC_ANCHOR` resolves to the site itself. |
 | `rng.py` | Reproducible per-replica RNG: `numpy.random.default_rng(SeedSequence(base_seed, spawn_key=(rank,)))`. Independent streams, reproducible across Python runs. **No obligation to match the C RNG** (see §5). |
 | `executor.py` | The BKL / n-fold-way main loop: enroll eligible `(Process, anchor)` pairs, build cumulative rates, draw, select, apply, advance time, sample. |
 | `runner.py` | Parse `input.ini`, loop over replicas (plain Python loop, **no MPI**), aggregate, write outputs. |
 | `io.py` | `input.ini` parser (matching the C INI semantics & defaults) and the output writers (`summary.json`, `aggregate_summary.json`, optional `pykmc.out` / `trajkmc.xyz`). |
+
+**Catalogue sourcing (important).** The spec's `family_table` points *outside* the
+repo (`../../../apps/PyKMC_Analysis/...`), so it does **not** resolve in worktrees, CI,
+or fresh clones — only on a full workspace checkout. The committed artifact that
+travels with the repo is `generated/proclist.{c,h}` (which the C build already falls
+back to). To make the Python engine self-contained the same way, add a
+`pylatkmc-gen export-catalogue <spec>` command that serializes `translate_all(...)` to
+`generated/catalogue.json` (Pydantic `model_dump_json`), committed alongside the
+proclist. `catalogue.py` then loads, in priority order: an explicit `--family-csv`, the
+spec's `family_table` if it resolves, else the committed `catalogue.json`.
+`translate_all` from the CSV stays the source of truth; the JSON is its portable,
+committed projection. (Producing the JSON the first time requires the CSV to resolve
+once — the same precondition as regenerating `proclist.c`.) The executor's own unit
+tests use small *synthetic* `Process` catalogues built in-test, so they need neither
+the CSV nor the JSON.
 
 CLI: add a `run` subcommand — `pylatkmc-gen run --backend=python <input.ini>` —
 mirroring `cmd_build` in [`cli.py`](../../../pylatkmc/cli.py). (`--backend=c` wrapper
@@ -124,9 +140,10 @@ The Python engine uses its **own** RNG (numpy) — no bit-exact port of
 
 ## 6. Out of scope (YAGNI)
 
-- `.kmcrt` reading/writing — build rates directly from the spec family CSV via
-  `translate_all`. This also sidesteps the **missing `pylatkmc-gen rate` subcommand**
-  that the compare scripts reference but `cli.py` does not define.
+- `.kmcrt` reading/writing — the engine builds its catalogue from `catalogue.json` /
+  the family CSV (see §3 *Catalogue sourcing*), never from the binary `.kmcrt`. This
+  also sidesteps the **missing `pylatkmc-gen rate` subcommand** that the compare
+  scripts reference but `cli.py` does not define.
 - Real MPI — replicas are a Python loop.
 - The frequency-optimised decision tree — brute-force eligibility instead.
 - Incremental `avail_sites` — full rescan each step (semantically identical).
@@ -172,8 +189,9 @@ known analytic answer; same-seed reproducibility.
 
 ## 9. Milestones
 
-- **M1 — Front-end interpretation, no loop.** `lattice.py` (`.kmcinit` reader via
-  `kmcfmt`) + `coords.py` (23-code resolver) + a read-only "eligible processes at
+- **M1 — Front-end interpretation, no loop.** `coords.py` (23-code resolver) +
+  `lattice.py` (`.kmcinit` reader via `kmcfmt`) + `catalogue.py` (load/compile +
+  `export-catalogue`) + executor eligibility + a read-only "eligible processes at
   site" debug dump. Acceptance: for a known slab + vacancy, the engine lists the same
   eligible processes the C engine would enroll.
 - **M2 — Single-replica run.** `rng.py` + `executor.py` BKL loop + single-replica run
