@@ -158,6 +158,22 @@ def cmd_eligible(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_run(args: argparse.Namespace) -> int:
+    if args.backend != "python":
+        print(
+            f"pylatkmc-gen run: backend {args.backend!r} not supported "
+            "(only 'python'; use mpirun for the C backend)",
+            file=sys.stderr,
+        )
+        return 2
+    from .engine.runner import run
+
+    spec_path = Path(args.spec).resolve()
+    agg = run(spec_path, args.input, n_replicas=args.replicas, family_csv=args.family_csv)
+    print(f"pylatkmc-gen run: wrote {agg}")
+    return 0
+
+
 def _make_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="pylatkmc-gen",
@@ -207,6 +223,14 @@ def _make_parser() -> argparse.ArgumentParser:
     p_elig.add_argument("--site", type=int, required=True, help="Anchor site index")
     p_elig.add_argument("--family-csv", default=None, help="Override the family CSV path")
     p_elig.set_defaults(func=cmd_eligible)
+
+    p_run = sub.add_parser("run", help="Run a model with the pure-Python engine")
+    p_run.add_argument("spec", help="Path to .kmcspec.toml")
+    p_run.add_argument("input", help="Path to input.ini")
+    p_run.add_argument("--backend", default="python", choices=["python"])
+    p_run.add_argument("--replicas", type=int, default=1, help="Number of replicas")
+    p_run.add_argument("--family-csv", default=None, help="Override the family CSV path")
+    p_run.set_defaults(func=cmd_run)
 
     return p
 
