@@ -123,8 +123,8 @@ ruff check pylatkmc/ tests/ tools/ && mypy pylatkmc/     # ruff = hard gate; myp
 
 - **Dispatched sub-agents** (`.claude/agents/`, zero trigger surface — invoke via the `Task` tool):
   `engine-codegen-runtime` (spec/codegen/runtime edits, add species/family, regenerate), 
-  `ingest-htst-bridge` (build the catalogue + HTST ν₀), `cross-engine-validation` (MSD/diffusivity
-  vs off-lattice pyKMC).
+  `curate-rate-catalogue` (build the catalogue + HTST ν₀; formerly `ingest-htst-bridge`),
+  `cross-engine-validation` (MSD/diffusivity vs off-lattice pyKMC).
 - **Skills** (`.claude/skills/`, auto-trigger): `build-run-model`, `verify-pylatkmc-change`.
 - **Docs** (`docs/`): `PATTERN_DB.md` (primary: CSV → IR → decision tree → avail_sites → BKL →
   state), `ARCHITECTURE.md`, `HOW_IT_WORKS.md`, `CATALOGUE_SCHEMA.md`, `FAMILY_REGISTRY.md`,
