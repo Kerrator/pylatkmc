@@ -130,3 +130,17 @@ ruff check pylatkmc/ tests/ tools/ && mypy pylatkmc/     # ruff = hard gate; myp
   state), `ARCHITECTURE.md`, `HOW_IT_WORKS.md`, `CATALOGUE_SCHEMA.md`, `FAMILY_REGISTRY.md`,
   `INGEST_PIPELINE.md`, `KMOS_COMPARISON.md`, `PYKMC_INTEGRATION.md`. Several predate the
   dissolution merge and still describe the baked-rate model / stale test counts — trust code.
+
+## Agent skills
+
+Per-repo config for the engineering-pipeline skills (`to-prd`, `to-issues`, `triage`, …), written
+by `configure-engineering-workflow` (2026-07-17):
+
+- **Issue tracker — local markdown** (`docs/agents/issue-tracker.md`): issues/PRDs live under
+  `.scratch/<feature-slug>/` (gitignored, machine-local). No GitHub Issues; PRs are not a triage
+  surface.
+- **Triage labels** (`docs/agents/triage-labels.md`): the five canonical roles keep their default
+  strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`), recorded
+  in each issue file's `Status:` line.
+- **Domain docs** (`docs/agents/domain.md`): single-context — `CONTEXT.md` + `docs/adr/` at the
+  repo root (neither exists yet; skills proceed silently until they do).

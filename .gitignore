@@ -83,6 +83,9 @@ COPILOT.md
 .aider*
 .claude/
 .codeium*
+# Local-markdown issue tracker (PRDs/issues written by the engineering skills;
+# machine-local working files, not shipped — see docs/agents/issue-tracker.md).
+.scratch/
 
 # NOTE: We DO commit models/*/generated/*.{c,h,json} so users can compile
 # without running `pylatkmc-gen build` first. The committed generated
