@@ -32,6 +32,7 @@ ingest = [
     "numpy>=1.24",
     "scipy>=1.10",
     "ase>=3.22",
+    "pyarrow>=14",
 ]
 
 [project.urls]
