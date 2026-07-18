@@ -128,11 +128,15 @@ class RateData(BaseModel):
     # avoid vendoring the large per-event catalogue.
     family_table: Path | None = None  # rate_lookup_table_family.csv (tier-6 fallback)
     fallback_scalar: Path | None = None  # rate_lookup_table.csv (tier-7 fallback, <110> only)
+    event_class_table: Path | None = None  # EventClass Parquet catalogue (Phase B v2
+    # path). When set, codegen translates it via translator_v2/pattern_codegen
+    # (species-resolved, D4h-expanded, data-driven tables) INSTEAD of the
+    # family-CSV path; family_table is then ignored. Requires [ingest] extras.
     temperature_K: float = Field(gt=0.0)
     k0_Hz: float = Field(gt=0.0)  # global prefactor; also the per-family HTST fallback
     prefactor_style: Literal["constant", "htst"] = "constant"
 
-    @field_validator("primary", "family_table", "fallback_scalar")
+    @field_validator("primary", "family_table", "fallback_scalar", "event_class_table")
     @classmethod
     def _absolute_or_relative(cls, v: Path | None) -> Path | None:
         # Paths are left unresolved here; the loader is responsible for rooting

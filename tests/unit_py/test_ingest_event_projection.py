@@ -523,3 +523,20 @@ def test_depth_sig_surface_at_top_layer():
     ctx = _slab_context(mover_k=2, k_top=2, reach=3)
     ds = compute_depth_sig(ctx, [(0, 0, 2)], [], d_max=3)
     assert ds.kind == DepthKind.SURFACE
+
+
+def test_resolve_nu0_units_hz_vs_psinv():
+    """nu0 is stored in Hz; the k_prefactor fallback is ps^-1 and must scale by 1e12.
+
+    Regression for the ingest-boundary variant of the pyKMC k0-units trap: a row
+    with only the k0 = 1.0 ps^-1 default must resolve to 1e12 Hz, not 1 Hz.
+    """
+    from pylatkmc.ingest.event_projection import _resolve_nu0_hz
+
+    # HTST nu0 present: used verbatim (already Hz), fallback ignored.
+    assert _resolve_nu0_hz({"nu0": 1.94e13, "k_prefactor": 19.4}) == 1.94e13
+    # No nu0: k_prefactor (ps^-1) converts to Hz.
+    assert _resolve_nu0_hz({"k_prefactor": 1.0}) == 1.0e12
+    assert _resolve_nu0_hz({"nu0": float("nan"), "k_prefactor": 19.4}) == 19.4e12
+    # Neither present -> NaN.
+    assert math.isnan(_resolve_nu0_hz({}))

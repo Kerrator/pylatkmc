@@ -66,6 +66,14 @@ def cmd_processes(args: argparse.Namespace) -> int:
     spec_path = Path(args.spec).resolve()
     spec = load(spec_path)
 
+    if not args.family_csv and spec.rate_data.family_table is None:
+        print(
+            "pylatkmc-gen processes: this spec has no rate_data.family_table "
+            "(v2 EventClass-catalogue specs are reported by `pylatkmc-gen build` "
+            "itself); pass --family-csv to inspect a family CSV explicitly.",
+            file=sys.stderr,
+        )
+        return 1
     family_csv = Path(args.family_csv) if args.family_csv else Path(spec.rate_data.family_table)
     if not family_csv.is_absolute():
         # Relative to spec dir
@@ -84,6 +92,9 @@ def cmd_processes(args: argparse.Namespace) -> int:
         rows,
         k0_Hz=spec.rate_data.k0_Hz,
         T_K=spec.rate_data.temperature_K,
+        # The family CSV carries no species info; this legacy report path is
+        # Ni-only by construction (translator_v2 is the species-resolved path).
+        mover_species="Ni",
         style=spec.rate_data.prefactor_style,
         on_scatter_warn=scatter_warnings.append,
         on_unknown_family=unknown_families.append,

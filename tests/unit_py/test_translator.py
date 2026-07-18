@@ -347,7 +347,7 @@ def test_translate_all_dispatches_per_family() -> None:
         _row("subsurface_migration_interlayer", "nv1=2", 30, 1.0),  # 8
     ]
     expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 4 + 4 + 8 + 12 + 8  # = 86
-    out = translate_all(rows)
+    out = translate_all(rows, mover_species="Ni")
     assert len(out) == expected_total
 
     # All names unique
@@ -361,7 +361,7 @@ def test_translate_all_reports_unknown_family() -> None:
         _row("mystery_family", "nv1=0", 10, 0.5),
     ]
     unknown_seen: list[str] = []
-    out = translate_all(rows, on_unknown_family=unknown_seen.append)
+    out = translate_all(rows, mover_species="Ni", on_unknown_family=unknown_seen.append)
     assert "mystery_family" in unknown_seen
     # Only surface_1NN_inplane (the known one) emitted Processes
     assert all(p.family_id == "surface_1NN_inplane" for p in out)
@@ -378,14 +378,14 @@ def test_translate_all_known_skipped_no_warning() -> None:
         # be silently skipped.
     ]
     unknown_seen: list[str] = []
-    out = translate_all(rows, on_unknown_family=unknown_seen.append)
+    out = translate_all(rows, mover_species="Ni", on_unknown_family=unknown_seen.append)
     # Only surface_1NN_inplane emitted Processes; no unknowns flagged.
     assert unknown_seen == []
     assert len(out) == 4
 
 
 def test_translate_all_empty_input() -> None:
-    assert translate_all([]) == []
+    assert translate_all([], mover_species="Ni") == []
 
 
 # ===========================================================================

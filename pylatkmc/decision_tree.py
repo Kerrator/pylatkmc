@@ -453,7 +453,16 @@ def emit_rate_table(processes: list[Process]) -> str:
     are independent translation-unit copies of the same struct.
     """
     if not processes:
-        return "/* no processes; rate_table omitted */\n"
+        # The typedef must still be emitted: the public glue references
+        # RateConst (`pylatkmc_rate_table = NULL`) even when the table
+        # itself is omitted, and proclist.c does not include proclist.h.
+        return (
+            "/* no processes; rate_table omitted */\n"
+            "typedef struct { double prefactor_Hz; double Ea_eV; "
+            "int32_t is_electrochemical; int32_t _pad; } RateConst;\n"
+            '_Static_assert(sizeof(RateConst) == 24, '
+            '"RateConst layout drift vs proclist.h");\n'
+        )
     lines = [
         "typedef struct { double prefactor_Hz; double Ea_eV; "
         "int32_t is_electrochemical; int32_t _pad; } RateConst;",

@@ -65,6 +65,9 @@ def liblat(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
         "-Werror",
         "-O2",
         "-DNDEBUG",
+        # This fixture links lattice.c, so the helpers may expose wrappers
+        # for its non-inline functions (see _runtime_test_helpers.c).
+        "-DPYLATKMC_TEST_HAVE_LATTICE_C",
         "-fPIC",
         "-shared",
         "-I",
@@ -128,6 +131,11 @@ class _CLattice(ctypes.Structure):
         ("nn2_indices", ctypes.c_void_p),
         ("nn2_dir_family", ctypes.c_void_p),
         ("coord_table", ctypes.c_void_p),
+        ("site_grid", ctypes.c_void_p),
+        ("grid_nx", ctypes.c_int32),
+        ("grid_ny", ctypes.c_int32),
+        ("grid_nz", ctypes.c_int32),
+        ("site_ijk", ctypes.c_void_p),
         ("_mmap_base", ctypes.c_void_p),
         ("_mmap_size", ctypes.c_size_t),
     ]
@@ -198,8 +206,12 @@ def _build_fcc100_slab(nx: int, ny: int, nz: int, nn_d: float = 2.5):
     return positions, cell, nn1_off, nn1_idx, nn2_off, nn2_idx
 
 
-def _make_lattice(lib, nx, ny, nz, nn_d=2.5):
+def _make_lattice(lib, nx, ny, nz, nn_d=2.5, vacuum_planes=0):
+    """Build a test lattice; `vacuum_planes` grows the z cell by that many
+    empty tetragonal grid planes above the slab (a vacuum gap)."""
     positions, cell, n1o, n1i, n2o, n2i = _build_fcc100_slab(nx, ny, nz, nn_d)
+    if vacuum_planes:
+        cell = [cell[0], cell[1], cell[2] + vacuum_planes * (nn_d / math.sqrt(2.0))]
     n = nx * ny * nz
     pos_arr = (ctypes.c_float * (n * 3))(*positions)
     cell_arr = (ctypes.c_float * 3)(*cell)
@@ -417,5 +429,125 @@ def test_no_two_codes_resolve_to_same_neighbour_for_bulk_site(liblat) -> None:
             if n_idx >= 0:
                 seen.append(n_idx)
         assert len(seen) == len(set(seen)), f"duplicate neighbours across codes: {seen}"
+    finally:
+        liblat.pylatkmc_test_free_lattice(lat)
+
+
+# ---------------------------------------------------------------------------
+# v2 integer site grid (lattice_build_site_grid / lattice_resolve_offset)
+# ---------------------------------------------------------------------------
+
+# NeighbourCode -> integer cell offset in the runtime's tetragonal frame
+# (hx = hy = nn_d/2, hz = nn_d/sqrt(2)); derived from the Cartesian deltas
+# in coord_codes.c. The grid resolver must agree with the coord_table on
+# every code it can express.
+_NC_CELL = {
+    NC_NN1_PX: (2, 0, 0), NC_NN1_MX: (-2, 0, 0),
+    NC_NN1_PY: (0, 2, 0), NC_NN1_MY: (0, -2, 0),
+    NC_NN1_DOWN_PP: (1, 1, -1), NC_NN1_DOWN_PM: (1, -1, -1),
+    NC_NN1_DOWN_MP: (-1, 1, -1), NC_NN1_DOWN_MM: (-1, -1, -1),
+    NC_NN1_UP_PP: (1, 1, 1), NC_NN1_UP_PM: (1, -1, 1),
+    NC_NN1_UP_MP: (-1, 1, 1), NC_NN1_UP_MM: (-1, -1, 1),
+    NC_NN2_DIAG_PP: (2, 2, 0), NC_NN2_DIAG_PM: (2, -2, 0),
+    NC_NN2_DIAG_MP: (-2, 2, 0), NC_NN2_DIAG_MM: (-2, -2, 0),
+    NC_NN2_PX: (4, 0, 0), NC_NN2_MX: (-4, 0, 0),
+    NC_NN2_PY: (0, 4, 0), NC_NN2_MY: (0, -4, 0),
+    NC_NN2_PZ: (0, 0, 2), NC_NN2_MZ: (0, 0, -2),
+}
+
+
+def _bind_grid_fns(lib: ctypes.CDLL) -> None:
+    lib.lattice_build_site_grid.restype = ctypes.c_int
+    lib.lattice_build_site_grid.argtypes = [ctypes.c_void_p]
+    lib.pylatkmc_test_resolve_offset.restype = ctypes.c_int32
+    lib.pylatkmc_test_resolve_offset.argtypes = [
+        ctypes.c_void_p, ctypes.c_int32,
+        ctypes.c_int32, ctypes.c_int32, ctypes.c_int32,
+    ]
+    lib.pylatkmc_test_max_empty_axis_run.restype = ctypes.c_int
+    lib.pylatkmc_test_max_empty_axis_run.argtypes = [ctypes.c_void_p, ctypes.c_int]
+
+
+def test_site_grid_builds_on_fcc100_slab(liblat) -> None:
+    """The tetragonal grid accepts the runtime's [110]-in-plane slab geometry."""
+    _bind_grid_fns(liblat)
+    lat, n, _ = _make_lattice(liblat, 6, 6, 4)
+    try:
+        assert liblat.lattice_build_site_grid(lat) == 0
+        view = _CLattice.from_address(lat)
+        assert view.site_grid and view.site_ijk
+        # 6x6 in-plane sites at nn_d spacing -> 12x12 cells; 4 layers.
+        assert (view.grid_nx, view.grid_ny, view.grid_nz) == (12, 12, 4)
+        # Zero offset resolves to the site itself.
+        for s in (0, n // 2, n - 1):
+            assert liblat.pylatkmc_test_resolve_offset(lat, s, 0, 0, 0) == s
+    finally:
+        liblat.pylatkmc_test_free_lattice(lat)
+
+
+def test_site_grid_agrees_with_coord_table(liblat) -> None:
+    """For every site and every NeighbourCode the coord_table resolves, the
+    integer-grid resolver must return the SAME neighbour.
+
+    This is the equivalence gate between the v0.3 CSR-matched coord_table
+    and the v2 arithmetic resolver: same lattice, two mechanisms, one answer.
+    """
+    _bind_grid_fns(liblat)
+    lat, n, _ = _make_lattice(liblat, 6, 6, 4)
+    try:
+        assert liblat.lattice_build_coord_table(lat) == 0
+        assert liblat.lattice_build_site_grid(lat) == 0
+        checked = 0
+        for s in range(n):
+            for nc, (du, dv, dw) in _NC_CELL.items():
+                via_table = _coord_at(lat, n, s, nc)
+                if via_table == n:  # stub: CSR had no such neighbour
+                    continue
+                via_grid = liblat.pylatkmc_test_resolve_offset(lat, s, du, dv, dw)
+                assert via_grid == via_table, (
+                    f"site {s} code {nc}: coord_table={via_table} grid={via_grid}"
+                )
+                checked += 1
+        assert checked > 0
+    finally:
+        liblat.pylatkmc_test_free_lattice(lat)
+
+
+def test_max_empty_axis_run_measures_vacuum_gap(liblat) -> None:
+    """The vacuum gap in z is measured in grid planes; the fully periodic
+    in-plane axes report 0 (used by the replica-startup pattern-reach guard:
+    a gap thinner than the pattern reach would wrap-alias the far surface)."""
+    _bind_grid_fns(liblat)
+    vacuum = 5
+    lat, n, _ = _make_lattice(liblat, 6, 6, 4, vacuum_planes=vacuum)
+    try:
+        assert liblat.lattice_build_site_grid(lat) == 0
+        view = _CLattice.from_address(lat)
+        assert view.grid_nz == 4 + vacuum
+        assert liblat.pylatkmc_test_max_empty_axis_run(lat, 2) == vacuum
+        assert liblat.pylatkmc_test_max_empty_axis_run(lat, 0) == 0
+        assert liblat.pylatkmc_test_max_empty_axis_run(lat, 1) == 0
+        assert liblat.pylatkmc_test_max_empty_axis_run(lat, 3) < 0  # bad axis
+        # With the gap present, a z offset just past the top surface is the
+        # stub (vacuum), not a wrap onto the bottom layer.
+        top_site = n - 1  # last site is in the top layer
+        assert liblat.pylatkmc_test_resolve_offset(lat, top_site, 0, 0, 1) == n
+    finally:
+        liblat.pylatkmc_test_free_lattice(lat)
+
+
+def test_site_grid_out_of_slab_is_stub(liblat) -> None:
+    """An offset past the (unwrapped span of the) slab returns the stub index.
+
+    The test slab's cell is tight in z (no vacuum), so z wraps like x/y; a
+    LARGE z offset still lands on a site. Use a non-existent sublattice cell
+    instead: (1, 0, 0) has u != v parity -> never a site.
+    """
+    _bind_grid_fns(liblat)
+    lat, n, _ = _make_lattice(liblat, 6, 6, 4)
+    try:
+        assert liblat.lattice_build_site_grid(lat) == 0
+        assert liblat.pylatkmc_test_resolve_offset(lat, 0, 1, 0, 0) == n
+        assert liblat.pylatkmc_test_resolve_offset(lat, 0, 0, 0, 1) == n
     finally:
         liblat.pylatkmc_test_free_lattice(lat)

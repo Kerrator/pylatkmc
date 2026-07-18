@@ -125,8 +125,33 @@ void pylatkmc_test_free_lattice(Lattice *lat)
     free(lat->nn2_offsets);
     free(lat->nn2_indices);
     free(lat->coord_table);
+    free(lat->site_grid);
+    free(lat->site_ijk);
     free(lat);
 }
+
+/* ctypes-callable wrapper for the static-inline offset resolver
+ * (lattice.h). Used by test_coord_table's grid-vs-coord-table
+ * equivalence test. */
+int32_t pylatkmc_test_resolve_offset(const Lattice *lat, int32_t site,
+                                     int32_t di, int32_t dj, int32_t dk)
+{
+    if (!lat || !lat->site_grid || !lat->site_ijk) return -2;
+    if (site < 0 || site >= lat->n_sites) return -2;
+    return lattice_resolve_offset(lat, site, di, dj, dk);
+}
+
+/* ctypes-callable passthrough for the vacuum-gap measurement used by the
+ * replica-startup reach guard. lattice_max_empty_axis_run lives in
+ * lattice.c, which only test_coord_table's fixture links — fixtures that
+ * build these helpers WITHOUT lattice.c (state_actions, active_filter)
+ * must not reference the symbol, or their dlopen fails. */
+#ifdef PYLATKMC_TEST_HAVE_LATTICE_C
+int pylatkmc_test_max_empty_axis_run(const Lattice *lat, int axis)
+{
+    return lattice_max_empty_axis_run(lat, axis);
+}
+#endif
 
 /* Build a minimal State. Populates:
  *   - n_vac, n_vac_max

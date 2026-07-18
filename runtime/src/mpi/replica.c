@@ -105,6 +105,54 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         return rc;
     }
 
+    /* Build the integer site grid (v2 pattern matcher). Same lattice data,
+     * same failure semantics: an ideal FCC config always succeeds, and a
+     * config it rejects (off-grid / colliding sites) would also mis-route
+     * the coord_table path. */
+    rc = lattice_build_site_grid(&lat);
+    if (rc != 0) {
+        fprintf(stderr, "[rank %d] lattice_build_site_grid failed: %d\n",
+                rep->rank, rc);
+        state_free(&st); lattice_free(&lat);
+        return rc;
+    }
+
+#ifdef PYLATKMC_V2_MAX_REACH_K
+    /* v2 pattern offsets resolve with wrap on every axis. Wrap is correct
+     * for a periodic (fully occupied) axis, and harmless when the empty gap
+     * (vacuum) is at least the pattern reach — offsets past the surface then
+     * hit empty grid cells (the stub) before they can reach the far surface.
+     * A thinner gap would silently alias patterns across the vacuum, so
+     * refuse it up front. The reach macros come from the generated
+     * proclist.h (v2 models only; v0.3 proclists don't define them). */
+    {
+        static const int axis_reach[3] = {
+            PYLATKMC_V2_MAX_REACH_IJ, PYLATKMC_V2_MAX_REACH_IJ,
+            PYLATKMC_V2_MAX_REACH_K,
+        };
+        for (int ax = 0; ax < 3; ++ax) {
+            int gap = lattice_max_empty_axis_run(&lat, ax);
+            if (gap < 0) {
+                fprintf(stderr,
+                        "[rank %d] lattice_max_empty_axis_run(axis %d) failed: %d\n",
+                        rep->rank, ax, gap);
+                state_free(&st); lattice_free(&lat);
+                return gap;
+            }
+            if (gap > 0 && gap < axis_reach[ax]) {
+                fprintf(stderr,
+                        "[rank %d] axis %d vacuum gap (%d grid planes) is thinner "
+                        "than the v2 pattern reach (%d): pattern offsets would "
+                        "wrap across the gap and silently match the far surface. "
+                        "Thicken the vacuum in the initial configuration.\n",
+                        rep->rank, ax, gap, axis_reach[ax]);
+                state_free(&st); lattice_free(&lat);
+                return -EINVAL;
+            }
+        }
+    }
+#endif
+
     /* Allocate avail_sites with N_PROCS from the generated proclist. */
     rc = avail_sites_alloc(&as, pylatkmc_n_procs, lat.n_sites);
     if (rc != 0) {

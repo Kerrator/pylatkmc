@@ -17,7 +17,13 @@ Three layers, one direction of dependency:
    (family CSV → `list[Process]`), `decision_tree.py` (Processes → nested-switch `touchup_a` +
    rate table), `codegen.py` (`generate()` → `proclist.{c,h}`). `processes.py` is the frozen
    pydantic Process IR; `spec.py` the spec contract; `rate_expression.py`/`dissolution_rate.py`
-   the rate laws.
+   the rate laws. **Phase B adds a second, explicitly-selected translation path**: when
+   `[rate_data].event_class_table` names an EventClass Parquet catalogue (Phase A,
+   `pylatkmc/ingest/`), `generate()` routes through `translator_v2.py` (catalogue →
+   species-resolved, D4h-orientation-expanded `LatticePattern`s) + `pattern_codegen.py`
+   (packed static pattern tables + a generic matcher emitted into `proclist.c`) instead of
+   the family-CSV/nested-switch pipeline. The v2 path lazily imports `pylatkmc.ingest`
+   (needs the `[ingest]` extras); the bare core stays importable without them.
 2. **Generated C** — `models/<name>/generated/proclist.{c,h}`: model-specific, **committed** so
    users compile without regenerating. Codegen emits **only** these two files.
 3. **Static C runtime** — `runtime/src/{core,io,mpi}/`: model-agnostic backbone (lattice/coord
@@ -54,14 +60,19 @@ and the deleted `.agents/AGENT.md` claim rates are baked-per-T and that a T-mism
 
 ## Invariants — things that break silently
 
-- **Diffusion hops are HARDCODED to mover species `'Ni'`.** `codegen.generate()` calls
-  `translate_all()` with no `mover_species`, so every hop emits `SP_NI` regardless of
-  `spec.species` (`translator.py` default `'Ni'`). Only **dissolution** is species-aware. A non-Ni
-  model compiles and runs but never diffuses its real species — no error at any stage.
-- **`RateConst` is typedef'd in TWO translation units** — `decision_tree.emit_rate_table` (into
-  `proclist.c`) and `codegen._PROCLIST_H_TEMPLATE` (into `proclist.h`); `proclist.c` does **not**
-  include `proclist.h`. `_Static_assert(sizeof==24)` guards size, **not field order**. A one-sided
-  reorder passes the assert and reads garbage rates.
+- **Family-CSV (v0.3) diffusion hops are Ni-only — now stated, not silent.** The old
+  `mover_species='Ni'` default is DEAD: `translate_all()` requires the argument
+  (keyword-only) and `codegen.generate()`/`cli.py` pass `"Ni"` explicitly, because the family
+  CSV carries no species information. The **species-resolved path is `translator_v2`**
+  (EventClass catalogue): mover species come from each class's delta. Species bridge between
+  the ingest `Occ` enum and the runtime `Species` enum is **by NAME only** — their integers
+  DISAGREE (`Occ.CR=2, Occ.FE=3` vs `SP_FE=2, SP_CR=3`); mapping by integer silently swaps
+  Cr and Fe.
+- **`RateConst` is typedef'd in multiple translation units that must stay in lockstep** —
+  `decision_tree.emit_rate_table` and `pattern_codegen.emit_v2_rate_table` (each into its
+  path's `proclist.c`) and `codegen._PROCLIST_H_TEMPLATE` (into `proclist.h`); `proclist.c`
+  does **not** include `proclist.h`. `_Static_assert(sizeof==24)` guards size, **not field
+  order**. A one-sided reorder passes the assert and reads garbage rates.
 - **Codegen must be byte-deterministic** across `PYTHONHASHSEED`. Tie-breaks use stable string
   sorts — never `hash()`/set/dict iteration order. A regression test diffs two seeds.
 - **`generated/proclist.{c,h}` is committed; CI links it and never regenerates/diffs it.** Any
@@ -74,6 +85,30 @@ and the deleted `.agents/AGENT.md` claim rates are baked-per-T and that a T-mism
 - **`coord_table` absent-neighbour sentinel is `n_sites`, NOT `-1`** (and `species[n_sites]=255`
   makes void reads a no-op). Three docstrings still say `-1` (`lattice.h`, `coord_codes.h`) — they
   are wrong; **don't** change the sentinel to match them (→ out-of-bounds / corruption).
+- **The v2 integer site grid lives in the RUNTIME slab frame, not the crystal frame.** The
+  runtime slab's in-plane axes are the crystal **[110]** directions (in-plane 1NN at
+  `(±nn_d, 0, 0)`, `coord_codes.c`), so sites form the same-parity sublattice
+  (`u ≡ v ≡ w mod 2`) of a **tetragonal** grid `(nn_d/2, nn_d/2, nn_d/√2)` — NOT the a/2
+  cubic grid the ingest identity layer uses. `translator_v2.to_runtime_frame` bridges with
+  `(u,v,w) = (i+j, j−i, k)`, and the D4h orientation transversal must be computed AFTER
+  that map (coset representatives don't survive the frame change). `lattice_build_site_grid`
+  rejects off-grid/off-sublattice configs with `-EINVAL` at startup. Two corollaries:
+  (1) **saddle tokens bind to movers by CRYSTAL-frame rank** (Phase A `start_rank` order) —
+  `to_runtime_frame` does not preserve lex order, so sorting the runtime offsets mis-binds
+  tokens on concerted multi-mover classes (`_movers_in_token_order`); (2) **the grid wraps
+  every axis**, so a vacuum gap thinner than the pattern reach would alias offsets onto the
+  far surface — the generated proclist.h exposes `PYLATKMC_V2_MAX_REACH_{IJ,K}` and
+  replica.c refuses such configs at startup (`lattice_max_empty_axis_run`).
+- **v2 matcher EMPTY semantics are asymmetric by design.** A context `EMPTY` row matches
+  `SP_VACANT` **or** an absent site (stub 255) — harvest-side EMPTY can't distinguish a
+  vacancy from vacuum beyond the slab. A **delta** `Vacant` row is strict `SP_VACANT`: the
+  site must exist to receive an atom (adatom moves onto non-sites correctly never fire).
+- **v2 translation skips are counted, never silent** (`TranslationReport`): empty-delta,
+  non-conserving (`delta_atoms != 0`, off by default — these would fire as spontaneous
+  atom creation/deletion), token-mismatch, unsupported predicates, offset overflow. On the
+  2026-07-18 production NiCr catalogue: 439 classes → 275 translated / 4392 oriented procs.
+  An all-skipped (empty) catalogue emits a compilable stub proclist — the empty rate-table
+  branch still carries the `RateConst` typedef the NULL public glue references (both paths).
 - **Dissolution under-budgeting silently caps events.** The vac list is fixed-size
   (`n_vac_initial + max(max_dissolution_events, 4)`); past the cap, `state_apply_actions` returns
   `-EINVAL` and no-ops, but the discarded return + unconditional `n_dissolution++` + advancing

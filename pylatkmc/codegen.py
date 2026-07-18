@@ -180,7 +180,7 @@ _PROCLIST_H_TEMPLATE = """\
  * pylatkmc.rate_expression.KB_EV_PER_K — the single source of truth shared
  * by the Python codegen and this C runtime, so the two cannot drift. */
 #define PYLATKMC_KB_EV_PER_K {kb_ev_per_k:.10e}
-
+{extra_defines}
 /* Number of Processes in this model. Defined by the generated enum
  * in proclist.c; exposed here as a const for sizeof / loop bounds. */
 extern const int32_t pylatkmc_n_procs;
@@ -267,19 +267,27 @@ const RateConst *const pylatkmc_rate_table = rate_table;
 const ApplyFn   *const pylatkmc_apply_table = apply_table;
 """
     if not processes:
-        # Empty case: rate_table / apply_table aren't emitted, fall back to NULL.
+        # Empty case: rate_table isn't emitted (its RateConst typedef still
+        # is); the empty apply_table stub IS emitted — alias it so it isn't
+        # flagged unused.
         public_glue = """
 
 const int32_t pylatkmc_n_procs = 0;
 const RateConst *const pylatkmc_rate_table = NULL;
-const ApplyFn   *const pylatkmc_apply_table = NULL;
+const ApplyFn   *const pylatkmc_apply_table = apply_table;
 """
     _ = n_procs  # silence unused
     return preamble + body + public_glue
 
 
-def _build_proclist_h(spec: ModelSpec) -> str:
-    return _PROCLIST_H_TEMPLATE.format(spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K)
+def _build_proclist_h(spec: ModelSpec, extra_defines: str = "") -> str:
+    """Render proclist.h. ``extra_defines`` slots extra ``#define`` lines
+    after the kB constant (v2 pattern-reach macros); the default ``""``
+    renders byte-identically to the pre-slot template, so v0.3 models
+    do not need regenerating."""
+    return _PROCLIST_H_TEMPLATE.format(
+        spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K, extra_defines=extra_defines
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -343,11 +351,115 @@ def _build_dissolution_processes(
     )
 
 
+def _resolve_event_class_table(spec: ModelSpec, spec_path: Path | None) -> Path:
+    """Resolve `spec.rate_data.event_class_table` relative to the spec file."""
+    ect = spec.rate_data.event_class_table
+    assert ect is not None  # caller checks
+    ect = Path(ect)
+    if not ect.is_absolute() and spec_path is not None:
+        ect = (spec_path.parent / ect).resolve()
+    return ect
+
+
+def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Path]:
+    """The Phase B path: EventClass Parquet → pattern tables → proclist.{c,h}.
+
+    Species-resolved end to end (no mover-species default anywhere) and
+    D4h-orientation-expanded at translate time. The emitted proclist.h is the
+    same template as the v0.3 path, so the runtime cannot tell the strategies
+    apart. Skipped classes are reported, never silent.
+    """
+    from pylatkmc.pattern_codegen import (
+        emit_pattern_tables,
+        emit_v2_enum,
+        emit_v2_rate_table,
+        n_procs_of,
+        pattern_reach,
+    )
+    from pylatkmc.translator_v2 import translate_catalogue
+
+    ect = _resolve_event_class_table(spec, spec_path)
+    patterns, report = translate_catalogue(ect)
+
+    # Every harvested species must be declared in the spec — a catalogue
+    # species missing from spec.species would silently never occur in the
+    # initial configuration, which is a modelling error, not a codegen one.
+    harvested = sorted({sp for p in patterns for sp in p.mover_species})
+    missing = [sp for sp in harvested if sp not in spec.species]
+    if missing:
+        raise ValueError(
+            f"catalogue movers {missing} are not in spec.species "
+            f"{spec.species}; declare them in the model spec"
+        )
+
+    for line in report.summary_lines():
+        print(f"pylatkmc-gen [v2]: {line}")
+
+    rd = spec.rate_data
+    preamble = _PROCLIST_C_PREAMBLE.format(
+        spec_name=spec.name,
+        temperature_K=rd.temperature_K,
+        k0_Hz=rd.k0_Hz,
+    )
+    n_procs = n_procs_of(patterns)
+    body = (
+        emit_v2_enum(patterns)
+        + "\n"
+        + emit_v2_rate_table(patterns)
+        + "\n"
+        + emit_pattern_tables(patterns)
+    )
+    public_glue = """
+
+/* ---- Public linkage (mirrored in proclist.h) ---- */
+const int32_t pylatkmc_n_procs = (int32_t)N_PROCS;
+const RateConst *const pylatkmc_rate_table = rate_table;
+const ApplyFn   *const pylatkmc_apply_table = apply_table;
+"""
+    if n_procs == 0:
+        # rate_table isn't emitted (RateConst typedef still is); the empty
+        # apply_table stub IS emitted — alias it so it isn't flagged unused.
+        public_glue = """
+
+const int32_t pylatkmc_n_procs = 0;
+const RateConst *const pylatkmc_rate_table = NULL;
+const ApplyFn   *const pylatkmc_apply_table = apply_table;
+"""
+
+    # Pattern reach macros: replica.c refuses a config whose vacuum gap is
+    # thinner than the reach (grid offsets wrap every axis; a too-thin gap
+    # would alias pattern rows onto the far surface instead of the stub).
+    reach_ij, reach_k = pattern_reach(patterns)
+    extra_defines = (
+        "\n/* Max v2 pattern reach in grid cells (D4h-invariant), over all\n"
+        " * delta+context rows. The runtime rejects a configuration whose\n"
+        " * vacuum gap is thinner than this on any axis (see replica.c). */\n"
+        f"#define PYLATKMC_V2_MAX_REACH_IJ {reach_ij}\n"
+        f"#define PYLATKMC_V2_MAX_REACH_K {reach_k}\n"
+    )
+
+    written: list[Path] = []
+    proclist_c_path = out / "proclist.c"
+    proclist_c_path.write_text(preamble + body + public_glue)
+    written.append(proclist_c_path)
+    proclist_h_path = out / "proclist.h"
+    proclist_h_path.write_text(_build_proclist_h(spec, extra_defines=extra_defines))
+    written.append(proclist_h_path)
+    return written
+
+
 def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None) -> list[Path]:
     """Render `proclist.c` + `proclist.h` for `spec` and write them to
     `out_dir`. Returns the list of written paths.
 
-    Pipeline:
+    Two explicit paths, selected by the spec:
+
+    - **v2 (Phase B)** — `spec.rate_data.event_class_table` set: translate the
+      EventClass Parquet catalogue via translator_v2 into data-driven pattern
+      tables + a generic matcher (species-resolved, D4h-expanded).
+    - **v0.3** — otherwise: the family-CSV pipeline below.
+
+    v0.3 pipeline:
       1. Load the family-rate-table CSV (path from spec.rate_data.family_table,
          resolved relative to `spec_path` if given).
       2. translate_all → list[Process].
@@ -357,11 +469,15 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
       5. Write proclist.c and proclist.h, overwriting any existing files.
 
     `spec_path` is used to resolve relative paths in
-    `spec.rate_data.family_table`. Pass it from `pylatkmc-gen build` so
-    relative CSV paths stay anchored at the spec file's directory.
+    `spec.rate_data.family_table` / `.event_class_table`. Pass it from
+    `pylatkmc-gen build` so relative paths stay anchored at the spec file's
+    directory.
     """
     out = Path(out_dir).resolve()
     out.mkdir(parents=True, exist_ok=True)
+
+    if spec.rate_data.event_class_table is not None:
+        return _generate_v2(spec, out, spec_path)
 
     family_csv = _resolve_family_csv(spec, spec_path)
 
@@ -370,6 +486,10 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
         rows,
         k0_Hz=spec.rate_data.k0_Hz,
         T_K=spec.rate_data.temperature_K,
+        # The family CSV carries no species information, so this legacy path
+        # can only emit Ni movers — stated EXPLICITLY here since translator
+        # v2 removed the silent default (the v2 path is species-resolved).
+        mover_species="Ni",
         style=spec.rate_data.prefactor_style,
         on_unknown_family=lambda f: print(f"pylatkmc-gen: skipping unknown family {f!r}"),
     )

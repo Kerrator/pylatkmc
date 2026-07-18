@@ -476,8 +476,15 @@ def _get(row: Mapping[str, Any], key: str, default: Any = None) -> Any:
 
 
 def _resolve_nu0_hz(row: Mapping[str, Any]) -> float:
-    """Resolve the forward prefactor in Hz: HTST ``nu0`` if present, else ``k_prefactor``."""
-    for key in ("nu0", "k_prefactor"):
+    """Resolve the forward prefactor in Hz: HTST ``nu0`` if present, else ``k_prefactor``.
+
+    Units trap (the pyKMC k0 incident, see AGENTS.md memory): the reference
+    table's ``nu0`` column is stored in **Hz**, but ``k_prefactor`` (the resolved
+    pyKMC prefactor, same units as ``k``) is stored in **ps^-1**. The fallback
+    must therefore be scaled by 1e12; reading it as Hz turns the k0 = 1.0 ps^-1
+    default into a 1 Hz prefactor and silently kills the class's rate.
+    """
+    for key, scale in (("nu0", 1.0), ("k_prefactor", 1.0e12)):
         val = _get(row, key)
         if val is None:
             continue
@@ -486,7 +493,7 @@ def _resolve_nu0_hz(row: Mapping[str, Any]) -> float:
         except (TypeError, ValueError):
             continue
         if math.isfinite(f) and f > 0.0:
-            return f
+            return f * scale
     return float("nan")
 
 

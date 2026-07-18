@@ -695,7 +695,8 @@ def translate_all(
     rows: list[FamilyBucketRow],
     k0_Hz: float = 1.0e13,
     T_K: float = 500.0,
-    mover_species: str = "Ni",
+    *,
+    mover_species: str,
     style: str = "constant",
     on_scatter_warn: Callable[[str], None] | None = None,
     on_unknown_family: Callable[[str], None] | None = None,
@@ -703,6 +704,13 @@ def translate_all(
     bucket_exclusions: set[tuple[str, str]] | None = None,
 ) -> list[Process]:
     """Translate every supported family in the catalogue into Processes.
+
+    ``mover_species`` is now REQUIRED (keyword-only): the family CSV carries
+    no species information, so the caller must state which species every hop
+    moves. The old silent ``"Ni"`` default was the incumbent's documented
+    species-blindness trap ("a non-Ni model compiles and runs but never
+    diffuses its real species"); the species-resolved path is
+    ``translator_v2`` (EventClass catalogue).
 
     Iterates `_FAMILY_DIRECTIONS` and dispatches each to
     translate_simple_hop_family. Unknown family_ids in the catalogue
