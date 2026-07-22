@@ -1,0 +1,14 @@
+# dE_model_version=H_sigma_v1_pair12  fit 2026-07-21, alpha=0.1, clean harvested
+feature,theta_eV
+pt_NI,2.449509
+pt_CR,3.535795
+b1_NN,-0.155655
+b1_NC,-0.271524
+b1_CC,-0.344616
+b1_NU,-0.045887
+b1_CU,-0.381301
+b2_NN,-0.138148
+b2_NC,-0.116329
+b2_CC,-0.273958
+b2_NU,-0.427846
+b2_CU,-0.228515

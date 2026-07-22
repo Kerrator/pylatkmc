@@ -1,0 +1,20 @@
+# dE_model_version=H_sigma_v2_surfsplit_aug  fit 2026-07-21  alpha=0.1  clean harvested (n=422) + direct evals (n=244)
+feature,theta_eV
+pt_NI,2.552761
+pt_CR,3.537608
+b1B_NN,-0.213415
+b1B_NC,-0.285919
+b1B_CC,-0.321563
+b1S_NN,-0.242165
+b1S_NC,-0.329162
+b1S_CC,-0.405895
+b2B_NN,-0.074818
+b2B_NC,-0.091267
+b2B_CC,-0.102030
+b2S_NN,-0.063623
+b2S_NC,-0.070600
+b2S_CC,-0.211511
+b1_NU,-0.015456
+b1_CU,-0.368303
+b2_NU,-0.520683
+b2_CU,-0.243664

@@ -1,0 +1,1050 @@
+{
+ "1-barrier-surrogate": {
+  "runId": "wf_132cb1e8-2d0",
+  "args": "Continuous local barrier surrogate vs discrete class catalogue for on-lattice KMC of concentrated FCC Ni-Cr and Ni-Fe alloys (vacancy migration, vacancy-mediated exchange, and dealloying). Context: a hybrid engine harvests events from off-lattice saddle searches (pARTn/ART-like, strongly relaxed geometries, median off-lattice relaxation ~1.4 A) and replays them on a rigid FCC lattice; the current design uses a discrete exact-class rate catalogue with an energy lumping tolerance (split_tol=0.15 eV) plus a planned low-order bond-count/generalized-coordination-number regression fallback. Research questions: (a) What is the demonstrated predictive accuracy (eV RMSE) of Bronsted-Evans-Polanyi, broken-bond, and generalized-coordination-number models for BULK vacancy-migration and exchange barriers in concentrated FCC transition-metal alloys \u2014 as opposed to their home turf of surface adsorption \u2014 and where do they break? (b) What accuracy and descriptor order do kinetically-resolved-activation (KRA) local cluster expansions, beyond-KRA transition-state/tensorial cluster expansions, and ML surrogates (one-hot occupation regression, SOAP-GP, NN) achieve for environment-dependent alloy barriers, and does a continuous surrogate eliminate the need for a within-class lumping tolerance entirely? (c) How is detailed balance ENFORCED per-pair in lumped/parametric alloy KMC (KRA symmetric+antisymmetric decomposition from one configurational energy model), and what is the correct harmonic-TST prefactor constraint (nu0_f/nu0_b = Zvib_initial/Zvib_final) when forward/backward prefactors are recovered separately? (d) How is out-of-distribution extrapolation into Cr-enriched dealloying-front compositions detected and controlled (predictive variance, leverage, convex hull, conformal)? (e) Is there ANY published evidence that concerted/multi-atom saddle barriers are predictable from atom-centered local descriptors, or does that regime force an on-the-fly search channel? Also quantify: does transport in concentrated FCC solid solutions really percolate through the low-barrier tail of the barrier distribution (Osetsky et al. lineage), such that trimmed-mean class aggregation suppresses the dominant Cr channel?",
+  "confirmed": [
+   {
+    "claim": "Ta-W diffusion shows a crossover from dilute solute trapping to percolated low-barrier transport: below xTa*~9.8% (near the BCC bond percolation threshold pc~0.18) dilute Ta acts as a dragging/trapping solute raising activation energy, while for moderate Ta (~11-59%) Ta forms percolated networks that support long-range diffusion \u2014 direct evidence that transport can percolate through a low-barrier alloy channel rather than being set by mean barriers.",
+    "source": "https://arxiv.org/abs/2605.23612",
+    "quote": "xTa*\u22489.8% aligns with bond percolation threshold in bcc solids...pc\u22480.18 ... moderate Ta (11-59%) forming percolated networks that support long-range diffusion ... dilute Ta acting as a dragging solute",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A generalized-BEP machine-learning surrogate for activation energies of C/O/N/H surface reactions on metals achieves MAE = 0.11 eV on training and 0.23 eV on a held-out test set \u2014 quantifying BEP-family accuracy on its surface-chemistry home turf (an ~0.23 eV out-of-sample error floor), not on bulk alloy vacancy barriers.",
+    "source": "https://chemistry-europe.onlinelibrary.wiley.com/doi/10.1002/cctc.202201108",
+    "quote": "The best approach we developed shows a Mean Absolute Error (MAE) of 0.11 eV for the training set (80 % of the data set) and 0.23 eV for the test set (20 % of the data set).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A transition-state tensorial cluster expansion (TCE) for Ta-W vacancy-migration barriers achieves 0.12 eV RMSE on training and 0.18 eV RMSE on testing data, quantifying the accuracy attainable by a beyond-KRA cluster-expansion barrier surrogate for a concentrated BCC transition-metal alloy.",
+    "source": "https://arxiv.org/abs/2605.23612",
+    "quote": "the root mean square error (RMSE) in the training and testing sets, respectively 0.12 eV and 0.18 eV",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "On identical Pt-Ni training data, the simple broken-bond model has the worst barrier accuracy (0.281 eV RMSE), the detailed-balance-corrected KRA broken-bond model 0.227 eV, a constant-activation-energy model 0.214 eV, a Marcus-like parabolic-potential model 0.204 eV, and the transition-state cluster expansion 0.127 eV \u2014 i.e., low-order bond-count regressions carry roughly 0.2-0.3 eV RMSE in this FCC transition-metal alloy.",
+    "source": "https://arxiv.org/abs/2009.12474",
+    "quote": "The simple broken bond model has the largest root-mean-square LOOCV error (0.281 eV), followed by the KRA broken bond model (0.227 eV), the constant activation energy model (0.214 eV), the parabolic potential model (0.204 eV), and the cluster expansion (0.127 eV) (Figure 3).",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "A continuous one-hot lattice-occupation surrogate (PCA + ridge regression, trained on 2000 of 2500 DFT+CI-NEB Al-Mg-Zn events, 500 held-out test) predicts both the vacancy migration barrier deltaEa and the driving force deltaE with RMSE below 0.04 eV and R2 near/above 90% - i.e. a continuous occupation-regression surrogate reaches accuracy far finer than a 0.15 eV within-class lumping tolerance.",
+    "source": "https://arxiv.org/pdf/2206.02879",
+    "quote": "the RMSE values of both \u2206E and \u2206Ea values are less than 0.04 eV, indicating our surrogate models can give precise descriptions of both the energetic driving force and energy barrier of vacancy migrations in complex local chemical environments.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The constant-KRA / Kinetic Ising decomposition (deltaEa = delta-e_a + 1/2 deltaE with a constant kinetically-resolved barrier delta-e_a per migrating species) is NOT broadly applicable to FCC alloys because local lattice distortion from the changing chemical environment makes delta-e_a environment-dependent - identifying where broken-bond/BEP-style constant-barrier models break in bulk FCC alloys.",
+    "source": "https://arxiv.org/pdf/2206.02879",
+    "quote": "The widely applied Kinetic Ising model [10], which states \u2206Ea = \u2206ea + 12 \u2206E and \u2206ea is a constant value for one type of migrating atom in different local chemical environments inside a lattice, is not broadly applicable to FCC alloys, such as multicomponent Al alloys (Al-Mg system and Al-Mg-Zn system). This is because of the local lattice distortion effects resulting from changes in the chemical environment experienced by a migrating atom.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Barrier distributions in concentrated FCC alloys can be bimodal, and the authors explicitly link distinct low-barrier peaks to percolation through fast diffusion channels \u2014 direct support for the Osetsky-lineage concern that transport is carried by the low-barrier tail, which trimmed-mean class aggregation would suppress.",
+    "source": "https://www.frontiersin.org/journals/materials/articles/10.3389/fmats.2021.673574/full",
+    "quote": "the presence of two distinct peaks in Cu-based alloys indicates that percolation effect could be expected in these alloys, i.e., certain atomic environment may provide faster channels of diffusion compared to others.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A single continuous ANN surrogate \u2014 trained on ~32,000 pre-calculated NEB barriers \u2014 predicts vacancy migration barriers for arbitrary local atomic environments in fcc Ni-Fe, spanning both random solid solutions and short-range-ordered configurations, demonstrating that a continuous environment-dependent barrier model (not a discrete class catalogue) is viable for concentrated FCC alloys.",
+    "source": "https://www.sciencedirect.com/science/article/abs/pii/S0925838822048484",
+    "quote": "Based on about 32,000 pre-calculated NEB barriers, they developed an artificial neural network (ANN) based machine learning model to accurately predict the vacancy migration barriers for arbitrary local atomic environments, including both random solution configurations and alloys with short-range orders.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "Classical BEP relationships are not universal: they must be re-parameterized for each distinct class of reactions, which is the specific limitation the authors' generalized-BEP/ML approach was built to overcome.",
+    "source": "https://chemistry-europe.onlinelibrary.wiley.com/doi/10.1002/cctc.202201108",
+    "quote": "Br\u00f8nsted\u2010Evans\u2010Polanyi (BEP) relationships, i. e., a linear scaling between reaction and activation energies, lie at the core of computational design of heterogeneous catalysts. However, BEPs are not general and often require reparameterization for each class of reactions.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The kinetically-resolved activation (KRA) approximation is demonstrably insufficient for Ta-W because migration barriers correlate only weakly (r2 = 0.21) with the thermodynamic driving force, so barriers cannot be written as a function of the endpoint energy difference alone \u2014 motivating an explicit transition-state expansion rather than a KRA/BEP-style driving-force model.",
+    "source": "https://arxiv.org/abs/2605.23612",
+    "quote": "the energy barrier cannot be written as a function of solely E'-E\u00b0, regardless of how those energies are computed, therefore the KRA barrier expression...is insufficient for running vacancy hopping KMC for the Ta-W system",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Forward and backward migration barriers depend on different sets of atoms (initial-side vs final-side neighbors) and are therefore only weakly correlated, meaning a single symmetric descriptor cannot recover both directions -- directly bearing on how detailed balance and separate forward/backward prefactors must be enforced per pair.",
+    "source": "https://www.science.org/doi/10.1126/sciadv.adr4697",
+    "quote": "The forward E_b depends on I1, I2, and F1 atoms, while the backward E_b does on F2, I1 and I1 atoms. This distinction elucidates the observed weak correlation between forward and backward E_b in RHEAs.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The ML surrogate trained ONLY on binary-alloy defect-energy data extrapolates compositionally: it predicts vacancy migration energies in ternary, quaternary, and quinary FCC compositions without retraining, suggesting binary training sets can cover concentration drift such as a Cr-enriched dealloying front (though the paper does not use uncertainty-based OOD detection).",
+    "source": "https://www.frontiersin.org/journals/materials/articles/10.3389/fmats.2021.673574/full",
+    "quote": "once the binary database is built, it can be used to predict migration energies in any varying composition of the ternary alloy system.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The ANN determines the atomic-environment-dependent vacancy migration energy on-the-fly inside KMC across the full composition range fcc Ni1-xFex (x = 0-1), i.e. a continuous per-site surrogate replaces per-site NEB and any within-class lumping \u2014 directly bearing on whether a continuous surrogate obviates a discrete lumping tolerance.",
+    "source": "https://www.sciencedirect.com/science/article/abs/pii/S0925838822048484",
+    "quote": "The ANN based machine learning method is coupled with KMC to study the sluggish vacancy diffusion in an fcc Ni1-xFex (x = 0 - 1) concentrated model alloy system, in which the atomic-environment-dependent vacancy migration energy is determined by the ANN model on-the-fly.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A support vector regression model using local-chemical-environment descriptors (element type of migrating atom, neighbor orientations/distances) predicts bulk vacancy migration energies in concentrated FCC NiFeCr with RMSE < 0.1 eV (R > 0.89) and in quinary NiFeCrCoCu with RMSE < 0.07 eV (R > 0.95) \u2014 i.e., a continuous local surrogate achieves accuracy well inside the 0.15 eV lumping tolerance regime for bulk vacancy migration in exactly the Ni-Fe-Cr alloy family of interest.",
+    "source": "https://www.frontiersin.org/journals/materials/articles/10.3389/fmats.2021.673574/full",
+    "quote": "R > 0.89 and RMSE < 0.1 eV is obtained for 120 data points. ... The predictions are quite accurate with R > 0.95 and RMSE < 0.07.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   }
+  ],
+  "refuted": [
+   {
+    "claim": "The barrier distribution spans on the order of ~1 eV, and this variance originates primarily from the environment-dependent kinetically-resolved term delta-e_a = deltaEa - 1/2 deltaE (driven by local lattice distortion), not from the thermodynamic driving-force half - meaning the KRA symmetric term, not the antisymmetric driving force, dominates barrier spread in concentrated FCC alloys.",
+    "source": "https://arxiv.org/pdf/2206.02879",
+    "quote": "large fluctuations (\u223c 1 eV) of \u2206Ea in Al-Mg and Al-Mg-Zn alloys originate primarily from changes in \u2206ea = \u2206Ea \u2212 21 \u2206E due to local lattice distortion effects because of the relatively large size of Mg atoms compared with Al and Zn atoms",
+    "vote": "0-3",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A low-order parametric surrogate (the electronic descriptor chi*Sv, built from electronegativity and valence-electron number) predicts bulk vacancy formation energies and migration barriers in refractory HEAs with a mean absolute error of only 0.13-0.2 eV, R^2 > 0.75, and prediction error under 10% -- setting an accuracy benchmark for cheap parametric bulk-barrier models at essentially the same ~0.15 eV scale as the pyKMC split_tol lumping tolerance.",
+    "source": "https://www.science.org/doi/10.1126/sciadv.adr4697",
+    "quote": "The R^2 values of these linear relations are higher than 0.75, with the mean absolute error ranging from 0.13 to 0.2 eV and the prediction error of less than 10%.",
+    "vote": "1-2",
+    "validVotes": 3,
+    "erroredVotes": 0
+   }
+  ],
+  "unverified": [
+   {
+    "claim": "Out-of-distribution / novel environments are controlled by the GPR's predictive uncertainty: whenever predicted barrier uncertainty exceeds a user-defined tolerance of 0.05 eV, a full NEB calculation is triggered and added to the training set (self-evolving active learning), so the surrogate replaces expensive saddle searches only where it is confident.",
+    "source": "https://arxiv.org/pdf/2605.31144",
+    "quote": "Whenever the ML model reports an uncertainty that exceeds the tolerance of 0.05 eV, a NEB calculation is launched and the newly obtained barrier is added to the training data.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "A transition-state cluster expansion (explicit saddle-point sublattice sites on an FCC lattice, 1097 ECI, trained on 299 DFT structures plus 196 NEB activation energies) predicts vacancy-mediated hop barriers in Pt-Ni nanoparticles with a leave-one-out RMSE of 0.127 eV across bulk and surface environments.",
+    "source": "https://arxiv.org/abs/2009.12474",
+    "quote": "The root-mean-square leave-one-out cross validation (LOOCV) errors are 1.203 meV/atom for the formation energies and 0.127 eV per particle for the activation energies (Figure 2), relative to DFT calculations.",
+    "vote": "1-0",
+    "validVotes": 1,
+    "erroredVotes": 2
+   },
+   {
+    "claim": "The paper enforces detailed balance by construction using a KRA-style split of the forward barrier into a symmetric (state-exchange-invariant) kinetic term and half the antisymmetric thermodynamic energy difference derived from a single state-energy model: \u0394E^b_{A\u2192B} = \u0394E^KRA_{A,B} + (1/2)\u0394E_{A,B}. This is exactly the symmetric+antisymmetric-from-one-energy-model decomposition the research question asks about (part c).",
+    "source": "https://www.sciencedirect.com/science/article/abs/pii/S0010465525002541",
+    "quote": "\u0394E^b_{A\u2192B} = \u0394E^{KRA}_{A,B} + (1/2)\u0394E_{A,B} ... If transition rates are expressed in the form k_{A\u2192B} = Z\u0304*_{(A,B)}/Z_A where the numerator is invariant to exchange of A and B and denominator depends only on initial state, the DBC is obeyed by construction.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The surrogate predicts every individual path-dependent barrier directly (a continuous per-jump regression), replacing the parameterized cluster-expansion/Ising barrier models normally used in kMC \u2014 i.e., no within-class lumping or discrete barrier catalogue is used.",
+    "source": "https://arxiv.org/pdf/2304.02957",
+    "quote": "combined with artificial neural networks, enabling precise prediction of all path-dependent migration barriers and individual atom jumps.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The plain broken-bond barrier model violates detailed balance because forward-minus-reverse activation energies do not equal the end-state energy difference; detailed balance is restored by the KRA construction, which writes the barrier as half the end-state energy difference (antisymmetric part) plus a symmetric term in the average bond counts of initial and final states.",
+    "source": "https://arxiv.org/abs/2009.12474",
+    "quote": "One of the drawbacks of this model is that it does not satisfy detailed balance, as the difference in activation energies between the forward and reverse hops will generally not be the same as the difference in energies between the end states. We have also evaluated a broken-bond approach [24] in which detailed balance is restored by calculating a kinetically resolved activation (KRA) energy [33] as a function of the average number of bonds of each type at the initial and final states.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Barrier-model error directly distorts simulated dissolution kinetics: in KMC of Pt3Ni at 1000 K with Ni dissolution enabled, overall Ni loss tracks each model's prediction error, and low-spread surrogates (broken-bond, constant-barrier) artificially accelerate the rare low-barrier events that drive Ni segregation and dissolution \u2014 evidence that compressing the barrier distribution corrupts the dealloying-relevant tail.",
+    "source": "https://arxiv.org/abs/2009.12474",
+    "quote": "The less accurate models, such as the broken bond models and constant activation energy model, have less spread in the predicted activation energies and thus might artificially accelerate rare events that could lead Ni to segregate to the surface and dissolve, resulting in lower overall Ni compositions (Figure 5g).",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "A fully-connected neural network with 4 hidden layers taking a one-hot occupation 'neuron map' of ~112 neighboring atoms (up to the 8th nearest-neighbor shell of the vacancy) predicts path-dependent vacancy-migration barriers with high accuracy: MAE < 1.2% of the mean barrier for a concentrated (Nb33Mo33Ta33) and a dilute (Nb90Mo5Ta5) solution, and ~0.018 eV on unseen compositions.",
+    "source": "https://arxiv.org/pdf/2304.02957",
+    "quote": "With just four hidden layers and 112 neighboring atoms (up to the 8th nearest neighbor shell) of the vacancy, the neural network achieves a high level of accuracy in predicting the path-dependent diffusion barrier ... the average MAE is around 0.018 eV.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The method learns a continuous barrier surrogate using Gaussian process regression (GPR) on SOAP local-atomic-environment descriptors extended out to the fourth-nearest-neighbour distance of the jump, rather than a discrete class catalogue \u2014 directly analogous to the 'continuous surrogate' design and answering research question (b) on descriptor type/order for environment-dependent barriers.",
+    "source": "https://arxiv.org/pdf/2605.31144",
+    "quote": "Concurrently, a Gaussian process regression (GPR) ... ML model is trained with the migration barrier data. ... As input for GPR, the smooth overlap of atomic positions (SOAP) descriptor ... is used for LAE of a jump event up to the fourth-nearest neighbour (4nn) distance.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The framework is demonstrated ONLY on single-element homoepitaxial Ag on Ag{111} surface adatom diffusion (island nucleation/growth), not on concentrated FCC alloy bulk vacancy migration or dealloying \u2014 though the authors state it can in principle run for any element or alloy with a LAMMPS interatomic potential; so its predictive accuracy for concentrated Ni-Cr/Ni-Fe barriers is unproven here.",
+    "source": "https://arxiv.org/pdf/2605.31144",
+    "quote": "we simulate the sub-monolayer growth of Ag on Ag {111} ... the code can be readily run using any element or alloy for which an interatomic potential is available in the Large-scale Atomic/Molecular Massively Parallel Simulator (LAMMPS)",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   }
+  ]
+ },
+ "2-projection": {
+  "runId": "wf_dd420569-49b",
+  "args": "Mapping strongly-relaxed off-lattice KMC events onto a rigid reference lattice: projection tolerances, topological classification, and degeneracy splitting. Context: a hybrid KMC engine discovers events off-lattice (ART-family saddle searches on FCC Ni-Cr slabs; median atom displacement from ideal FCC sites ~1.44 A) and must decide which events are representable on a rigid lattice; its current geometric snap tolerance (0.9 A, derived from FCC Voronoi/nearest-neighbour fractions) rejects 316 of 439 harvested event classes, and naively widening it would collapse physically distinct environments into one class and poison the class rate averages. Research questions: (a) In kinetic ART (k-ART, El-Mellouhi/Mousseau/Lewis and Beland et al.), what EXACTLY is the mechanism that detects and splits the \"one topological class corresponds to multiple distinct relaxed geometries\" degeneracy, and what displacement/residual magnitudes does it tolerate before re-launching a fresh saddle search instead of reusing a catalogued event? (b) What tolerances do off-lattice SLKMC (Trushin/Kara/Rahman lineage), SEAKMC active volumes (Xu/Osetsky/Stoller), and EON/AKMC kinetic databases (Henkelman lineage) use when matching a stored local environment, and how does EON's seed-then-reconverge pattern decouple recognition tolerance from rate accuracy? (c) Are there any published local-frame / per-defect registration schemes that let strongly-relaxed or reconstructed environments be PROJECTED onto a lattice rather than rejected, and how is the resulting projection error propagated into barrier/rate error? (d) Is there any principled published method for setting a lattice-projection or environment-matching tolerance from a RATE-ERROR BUDGET (allowable barrier distortion in eV or rate distortion factor) rather than from lattice geometry \u2014 e.g. via coarse-grained-KMC error analysis (Katsoulakis/Plechac/Vlachos) or ML descriptor-distance-to-error calibration? (e) What fraction of events discovered by off-lattice search in FCC metal surface/near-surface systems is typically found to be non-representable on the ideal lattice, and how do hybrid on/off-lattice codes route those events back to the off-lattice engine?",
+  "confirmed": [
+   {
+    "claim": "k-ART's routing rule between catalog reuse and fresh off-lattice search is binary on topology identity: after each accepted KMC move, the topologies of all atoms in the affected local environment are recomputed; a previously unseen topology triggers a series of fresh ART nouveau saddle searches, while any known topology reuses the catalog (with the low-lying barriers then re-relaxed before the next time increment). Events are stored as displacement vectors from the reference state, and specific instances are reconstructed via symmetry operations extracted from the topological analysis.",
+    "source": "https://arxiv.org/abs/0805.2158",
+    "quote": "The topology of all atoms belonging to the local environment around the new state is constructed; if a new topology is found, a series of ART nouveau searches are launched; otherwise, we proceed to the next step. After all events are updated, the low-lying barriers are, once again, relaxed before calculating the time increment and selecting the next move.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART performs event recognition and catalog reuse via topological classification of local atomic environments using the graph-isomorphism tool NAUTY, coupled with ART nouveau open-ended saddle searches \u2014 i.e., recognition is graph-topological, not a geometric snap onto a reference lattice.",
+    "source": "https://pubs.aip.org/aip/jcp/article/147/15/152712/196715/Algorithmic-developments-of-the-kinetic-activation",
+    "quote": "the kinetic Activation-Relaxation Technique (k-ART), an off-lattice kinetic Monte-Carlo method with on-the-fly catalog building capabilities based on the topological tool NAUTY and the open-ended search method Activation-Relaxation Technique (ART nouveau)",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART decouples recognition tolerance from rate accuracy via a two-stage convergence scheme: catalogued generic events are converged only loosely (saddle-point force criterion typically 0.5 eV/A), and each reuse at a specific site is re-converged to a tight 0.1 eV/A threshold so the barrier is recomputed per realization instead of being taken from the class average.",
+    "source": "https://arxiv.org/abs/1107.2417",
+    "quote": "The initial convergence criterion for the saddle point is typically set to 0.5 eV/\u00c5. [...] Further relaxation associated with the calculation of specific events uses a 0.1 eV/\u00c5 threshold. [...] generic events with low barriers are re-converged for each realization, resulting in specific events, each linked to a particular atom.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "k-ART discretizes/classifies local atomic environments by building a graph from a central atom plus all neighbors within a cutoff radius (connected via first-neighbor distance or a Voronoi construction) and computing a unique topological tag with the NAUTY graph-automorphism package; the initial, saddle, and final positions of the cluster atoms are stored under that tag.",
+    "source": "https://onlinelibrary.wiley.com/doi/10.1155/2012/925278",
+    "quote": "This is done by first selecting a central atom and all its neighbors within a given cut-off radius. Atoms are then connected, following a predefined procedure that can be based loosely on first-neighbor distance or a Voronoi construction, forming a graph that is then analysed using the software NAUTY, a powerful package developed by McKay [75]. For our purposes, this package returns a unique tag associated with the topology and an ordered list of cluster atoms. The positions of the topology cluster atoms in the initial, saddle, and final states are stored.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "When a degenerate ('ill-defined') topology is first encountered, k-ART splits it automatically by locally adjusting the atom-atom connectivity cutoff used to build that environment's graph until the previously conflated geometries fall into different topological classes (sub-topologies), rather than by widening or tightening a global geometric tolerance.",
+    "source": "https://arxiv.org/abs/1107.2417",
+    "quote": "When an ill-defined topology corresponding to more than one geometry is encountered for the first time, k-ART automatically adjusts the atom-atom connectivity cutoff used within the cluster of atoms forming this graph, until the geometries initially associated with the same topology are now placed into two different classes.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART decouples recognition tolerance from rate accuracy via a seed-then-reconverge pattern: catalogued low-energy events (barriers <= 15 kBT for Si) are reconstructed from the stored topology and re-relaxed for the specific configuration with a 0.1 eV/A force-convergence criterion, yielding approximately 0.01 eV precision on the barrier height; the initial saddle search itself uses a looser 1.0 eV/A criterion. So the topological match is only a seed \u2014 the rate entering the KMC step is always re-converged against the actual relaxed environment including long-range elastic effects.",
+    "source": "https://arxiv.org/abs/0805.2158",
+    "quote": "all low-energy events (which we define for Si as having barriers of 15 kBT or less) are reconstructed from the topology and re-relaxed with a stricter convergence criterion of 0.1 eV/\u00c5 in order to accurately take into account the local environment and the long-range interactions, leading to a precision of about 0.01 eV on the barrier height.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "In the original 2008 k-ART formulation, the 'one topology = one geometry' degeneracy problem is handled by construction rather than by a runtime splitting mechanism: the connectivity-graph definition (cutoffs) must be chosen so that each topology maps to a unique relaxed structure under the given potential. There is no explicit geometric-residual test or degeneracy-splitting step in this paper \u2014 that requirement is a stated precondition of the classification scheme.",
+    "source": "https://arxiv.org/abs/0805.2158",
+    "quote": "It is important that the configuration be uniquely defined through this network, i.e., the connectivity graph must lead to a unique structure once relaxed with a given interatomic potential.",
+    "vote": "2-1",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART detects the 'one topological class corresponds to multiple distinct relaxed geometries' degeneracy not via a displacement or residual threshold, but by failure of event reconstruction: when a catalogued generic event is mapped onto a site whose geometry does not actually match the topology, re-convergence systematically destroys the first-order saddle point, which is used as the detection signal.",
+    "source": "https://arxiv.org/abs/1107.2417",
+    "quote": "Since k-ART relies on the delicate reconstruction of transition states for computing specific events, a failure of the relation between topology and geometry leads systematically to the disappearance of this first-order saddle point and can be easily detected.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The local-environment recognition tolerance in k-ART is purely topological, with concrete graph-construction parameters for Si: a 5.0 A sphere (~40 atoms) defines the local environment, a 2.8 A distance cutoff defines bonds, and NAUTY canonical graph labeling produces a unique topology key; an event is defined as a change in the topology of this local graph. No Cartesian displacement/residual threshold on atomic positions is used for matching.",
+    "source": "https://arxiv.org/abs/0805.2158",
+    "quote": "In the case of Si, for example, we define the local environnement around an atom by a sphere of radius 5.0 \u00c5, which includes about 40 atoms; two neighbours are bonded if their distance is less than 2.8 \u00c5. An event is defined as a change in the topology of the local graph. This classification is performed using the freely available topological software nauty",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   }
+  ],
+  "refuted": [],
+  "unverified": [
+   {
+    "claim": "In the TSASE/EON kinetic database, the local environment of a stored event is defined kinematically by the 'dc' (distance cutoff) parameter: an atom is counted as local to the process based on how far it moves during the event, not by a lattice-site criterion; the documentation page names the parameter but states no numeric default value.",
+    "source": "https://theory.cm.utexas.edu/tsase/kdb.html",
+    "quote": "'dc' : distance cutoff; distance an atom moves to be considered local to the process",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "EON's kinetic database (KDB, Henkelman lineage) decouples recognition tolerance from rate accuracy by using approximate geometric matches only as seeds for fresh saddle searches: matched-but-inexact geometries suggest saddle configurations, each suggestion is re-converged exactly, only exactly-converged saddles enter the rate table, and a failed match costs only compute time \u2014 so loose matching introduces no additional rate approximation.",
+    "source": "https://www.researchgate.net/publication/332652310_Off-Lattice_Kinetic_Monte_Carlo_Methods",
+    "quote": "In the KDB, on the other hand, the structure matching is not discretized; geometries which are close, but not exact, are used to suggest saddle point structures. When these structures are converged, the exact geometry of the saddle and the activation energy are calculated. If no saddle point is found, the loss is only the computational time required for the saddle search.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Database matching in EON is a fuzzy geometric comparison against the stored minima of each catalogued process ('closely resembling'), and a match triggers a suggested saddle to be converged \u2014 the documentation gives no numerical distance tolerance for what counts as 'closely resembling'.",
+    "source": "https://henkelmangroup.github.io/eon/kdb.html",
+    "quote": "If in the future the system passes through a state with a local configuration closely resembling either minimum of (b), the kinetic database will suggest a saddle to converge with a dimer search.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART splits milder degeneracies (same topology, different move direction, common in symmetric systems) by reconstructing geometry and flagging events whose motion is in different directions as distinct, then launching additional ART nouveau searches; catalog de-duplication compares barrier height, absolute total displacement, and the direction of motion of the most-displaced atom, adding an event only if it is 'sufficiently different' \u2014 but no explicit Angstrom or eV tolerance is stated.",
+    "source": "https://onlinelibrary.wiley.com/doi/10.1155/2012/925278",
+    "quote": "we compare the barrier height as well as the absolute total displacement and the direction of motion of the main atom (the one that moves most during an event) both between initial and final state and between initial state and the saddle point. We only add events to the catalog that are sufficiently different from previously found ones.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "EON's kinetic database decouples recognition tolerance from rate accuracy via a seed-then-reconverge pattern: a matched database entry supplies only an initial saddle configuration and dimer mode, which is then re-converged by a fresh dimer search, so the barrier/rate is recomputed in the new environment rather than the catalogued value being reused directly.",
+    "source": "https://henkelmangroup.github.io/eon/kdb.html",
+    "quote": "The dimer starts with this suggested configuration and mode, and if it is a good suggestion, converges very rapidly to the saddle.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART's topology-to-geometry mapping is explicitly acknowledged to be degenerate: the NAUTY canonical graph representation can leave ambiguities when reconstructing a catalogued event onto a specific site, and k-ART's fallback is not rejection but refinement \u2014 the badly-reconstructed configuration is converged to the nearest saddle point, which may be a different (but still physical) event than the catalogued one. This is the exact mechanism the research question (a) asks about: degeneracy is absorbed by per-use saddle reconvergence rather than by a tolerance-based split of the topological class.",
+    "source": "https://arxiv.org/abs/1409.1253",
+    "quote": "While this procedure works well for many classes of events, the canonical representation of atomic neighborhoods may leave ambiguities concerning the reconstruction of events, resulting in bad reconstruction of events. In these cases, configurations are still refined to the nearest saddle-point, which may not be related to the original event, but that still has physical meaning. The correspondance of topology to geometry is one of the main approximations of k-ART.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "In k-ART, the 'one topology, multiple geometries' degeneracy is detected when a saddle reconstructed from a reference geometry fails to converge to a first-order saddle point nearby, and it is resolved by tightening the graph edge-cutoff criterion until the distinct geometries fall into different topological classes.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/trochet19.pdf",
+    "quote": "This one-to-one correspondence between topology and geometry can fail. However, this failure can be identified readily as activated configurations reconstructed from a reference geometry will not show a first-order saddle point in their vicinity. In general this error indicates that more than one geometries is associated with the topology. To lift this degeneracy, k-ART reduced the edge cutoff criterion until these geometries are assigned to different classes.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART detects the one-topology/multiple-geometries degeneracy operationally, not by a distance metric: when a saddle reconstructed from a catalogued reference geometry fails to converge to a first-order saddle point nearby, the class is diagnosed as degenerate, and the degeneracy is lifted by REDUCING the graph edge-cutoff criterion until the distinct geometries fall into different topological classes.",
+    "source": "https://www.researchgate.net/publication/332652310_Off-Lattice_Kinetic_Monte_Carlo_Methods",
+    "quote": "This one-to-one correspondence between topology and geometry can fail. However, this failure can be identified readily as activated configurations reconstructed from a reference geometry will not show a first-order saddle point in their vicinity. In general this error indicates that more than one geometries is associated with the topology. To lift this degeneracy, k-ART reduced the edge cutoff criterion until these geometries are assigned to different classes.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "KDB environment matching is accepted via a computed match score compared against a user-chosen tolerance, and a successful match produces only a saddle-point suggestion from the stored saddle configuration rather than a directly reused barrier or rate.",
+    "source": "https://theory.cm.utexas.edu/tsase/kdb.html",
+    "quote": "If this score is less than a desired tolerance, the saddle configuration of the KDB entry is used to make a saddle point suggestion.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART's catalog-reuse policy decouples recognition from rate accuracy (the pattern question (b) attributes to EON): events are generated from scratch only for new topologies; revisited topologies have their stored events geometrically mapped onto the specific site and then refined (reconverged) before use; and fresh saddle searches for an already-known topology are re-launched on a schedule that decays as log10(n) in the number of encounters n, rather than being triggered by any displacement/residual threshold.",
+    "source": "https://arxiv.org/abs/1409.1253",
+    "quote": "Indeed, events are generated from scratch when new topologies are discovered, and are recycled and refined when these topologies are revisited. Generation of completely new events for known topologies is also done periodically, going as log10(n), where n is the number of times a topology is encountered during a KMC run. When recycling and refining, these events associated with topologies are mapped to specific atomic configurations through geometric transformations that make use of the canonical representation of graphs generated by NAUTY.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART's reconstruction acceptance test is a two-threshold check (activation-energy difference vs. reference, and absolute forces in the reconstructed state); on failure it first retries alternative graph-correspondence permutations and reference frames, and only when no reconstruction is accepted does it declare the topology-geometry correspondence non-unique, modify the edge cutoff, and split the topology \u2014 after which accepted reconstructions are still re-converged with ARTn rather than used as-is.",
+    "source": "https://www.researchgate.net/publication/332652310_Off-Lattice_Kinetic_Monte_Carlo_Methods",
+    "quote": "If the activation energy difference between the reconstructed and the reference state and the absolute forces in the reconstructed state are below given thresholds, the reconstruction is considered successful ARTn is applied to converge to the nearby saddle. If not, then the possibility that many correspondences between the reference and current graphs exist is considered and a number of permutations in the correspondence labeling are attempted, based on various reconstructed reference frames. 5. When no attempted reconstruction is accepted, k-ART concludes that the correspondence between topology and geometry for this environment is not unique. The cutoff for defining edges between atoms is then modified, and the topology is split.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "EON's kinetic database (KDB) deliberately decouples recognition tolerance from rate accuracy: matching is not discretized, close-but-inexact geometry matches are used only to seed saddle searches, and a mechanism enters the rate table only after the suggested saddle is fully re-converged, so the database introduces no additional approximation to the rates (a failed match costs only the search time).",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/trochet19.pdf",
+    "quote": "Only if an exact saddle can be found is the mechanism entered into the rate table. In this way, there is no additional approximation for off-lattice simulations using the KDB. ... In the KDB, on the other hand, the structure matching is not discretized; geometries which are close, but not exact, are used to suggest saddle point structures. When these structures are converged, the exact geometry of the saddle and the activation energy are calculated. If no saddle point is found, the loss is only the computational time required for the saddle search.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "SEAKMC does not match stored local environments at all: it constrains saddle searches to spherical active volumes of 2.7 lattice parameters radius (mono-vacancy, 50-vacancy Fe) to 4.0-4.5 lattice parameters (SIA dumbbell, interstitial loops), and instead of a recognition tolerance it discards and resamples \u2014 the per-defect event catalog is flushed whenever an event is executed, so no stored-environment matching tolerance exists to tune. In the 50-vacancy system the active volume reduced force calculations from 1950 to 165 atoms, making SEAKMC ~35x cheaper than k-ART (70 vs 2500 cpu-hours).",
+    "source": "https://arxiv.org/abs/1409.1253",
+    "quote": "SEAKMC will deliberately sample an incomplete catalog of events for each defect at each KMC step, correcting for this by flushing this catalog when an event is executed and resampling a new uncorrelated catalog. [...] the SEAKMC took roughly 70 cpu-hours to reach -7760 eV, while the k-ART runs took 2500. This is mostly due to the use of the Active Volume, which permits force calculations across a much smaller number of atoms (165 vs 1950).",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "When one topological class corresponds to fundamentally different relaxed geometries, k-ART detects this AUTOMATICALLY because the degeneracy produces a saddle-point reconstruction that cannot be converged; the algorithm then automatically increases the first-neighbor cutoff used to build the topology until the distinct geometries separate into unique topologies. The authors state this is rare and usually signals an inappropriately short cutoff radius.",
+    "source": "https://onlinelibrary.wiley.com/doi/10.1155/2012/925278",
+    "quote": "In some cases, a topology is associated with fundamentally different geometries. Here, this failure is identified automatically, since it leads to incorrect saddle-point reconstruction that cannot be converged. When this occurs, the algorithm automatically modifies the first-neighbor cutoff used for constructing the topology until the multiple geometries are separated into unique topologies. In most systems, this is extremely rare, and it is generally a symptom of an inappropriately short topology cutoff radius.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Concrete magnitudes for k-ART's local-environment classification and event filtering in this study: the topology-analysis region is a sphere of radius 5.6 Angstroms (which in the 50-vacancy Fe system inflates 50 defects into ~250 distinct topologies, most centered on atoms near the sphere's edge far from the defect); saddles are converged to 0.0285 eV/Angstrom (0.01 eV per lattice parameter); and for the interstitial-loop runs an RMSD displacement threshold of 2.1 Angstroms was imposed on events \u2014 dropping it to 1.0 Angstrom re-admits flickering motions creating super-basins of several hundred states. These are the displacement/residual magnitudes question (a) asks for, and they show the thresholds were tuned to kinetics (flicker suppression), not to lattice geometry.",
+    "source": "https://arxiv.org/abs/1409.1253",
+    "quote": "the NAUTY-based topology analysis identifies, on average, 250 different topologies in the system, which must all be explored by k-ART. Simple geometrical considerations imply that most topologies represent atoms that sit far from the defects, near the limit of the region where atoms are included in the topology-analysis, i.e. a sphere with a radius of 5.6 \u00c5. [...] all events with an RMSD smaller than 2.1 \u00c5 are ignored. If events with lower displacements, e.g. 1.0 \u00c5, are included in k-ART, flickering motions are created, leading to super-basins with several hundred states before a transformation can be executed.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART's event-reconstruction acceptance test uses thresholds on the activation-energy difference between reconstructed and reference states and on the absolute forces in the reconstructed state; if these fail, alternative graph-correspondence permutations are tried, and only when no reconstruction is accepted is the topology split by modifying the edge-definition cutoff \u2014 accepted reconstructions are then re-converged with ARTn rather than reused verbatim.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/trochet19.pdf",
+    "quote": "The energy and forces are evaluated on the reconstructed activated state. If the activation energy difference between the reconstructed and the reference state and the absolute forces in the reconstructed state are below given thresholds, the reconstruction is considered successful ARTn is applied to converge to the nearby saddle. If not, then the possibility that many correspondences between the reference and current graphs exist is considered and a number of permutations in the correspondence labeling are attempted, based on various reconstructed reference frames. ... When no attempted reconstruction is accepted, k-ART concludes that the correspondence between topology and geometry for this environment is not unique. The cutoff for defining edges between atoms is then modified, and the topology is split.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   }
+  ]
+ },
+ "3-bookkeeping": {
+  "runId": "wf_5434bff2-efc",
+  "args": "Scalable event bookkeeping and provably-correct incremental process-list updates for on-lattice KMC at 1e4-1e6 sites with thousands of process types. Context: a generated-C lattice KMC engine currently keeps a dense n_procs x n_sites availability table (~340 MB per replica at 4392 processes x 9680 sites, ~35 GB at the 1e6-site target) and does a full per-step rescan; the planned redesign is grouped BKL selection (per-class pools + Fenwick tree) plus an incremental \"dirty-ball\" repair whose sufficiency (every site whose pattern-match can flip lies within a fixed geometric radius of the fired event) is asserted, not proven. Research questions: (a) What data structures do production lattice-KMC codes \u2014 SPPARKS, KMCLib, Zacros, kmos, EON \u2014 actually use for per-site process enrolment and event selection at large N, and how do sparse enrolment + finite-interaction-radius local updates keep the total-rate refresh O(1) in N? (b) Does composition-rejection selection (Slepoy/Thompson/Plimpton SSA-CR, factor-of-two rate binning with in-group rejection) fully solve exact O(log(rmax/rmin)) selection when many CONTINUOUS distinct rates coexist (e.g. a regression-generated fallback rate per site), making rate-quantized micro-groups unnecessary? (c) What is the formal correctness construct for incremental propensity updates \u2014 the Gibson-Bruck dependency graph and its successors \u2014 and has anyone extended a provably-sufficient invalidation neighbourhood to SPATIAL pattern-matching KMC where \"what can flip a match\" is a geometric question (interaction radius vs context radius), verified independently of re-running the matcher? (d) How do domain-decomposed and asynchronous parallel KMC algorithms (synchronous sublattice Shim-Amar, synchronous billion-atom Martinez-Marian-Kalos, first-passage KMC Opplestrup-Bulatov) behave in the DENSE-active regime (near-equiatomic alloys, porous late-stage dealloying morphologies where a large fraction of sites is active every step), and what are their quantified accuracy costs there? (e) Published memory/time benchmarks: at what site and process counts do dense availability tables actually become the binding constraint vs sparse per-site lists, and is building an incremental-repair path worth its correctness risk before benchmarking an optimized full rescan?",
+  "confirmed": [
+   {
+    "claim": "The algorithm's event-selection cost is constant-time \u2014 independent of the number of reaction channels \u2014 which is the core claim underpinning composition-rejection (SSA-CR) selection at large process counts.",
+    "source": "https://pubs.aip.org/aip/jcp/article-abstract/128/20/205101/1003611/A-constant-time-kinetic-Monte-Carlo-algorithm-for",
+    "quote": "a constant-time algorithm, whose cost is independent of the number of reactions",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "For 'weakly coupled' reaction networks \u2014 those with a fixed constant upper bound D on the number of propensities that must be updated after each reaction step \u2014 the algorithm achieves O(1) complexity independent of the number of reaction channels M. This is the chemical-kinetics analogue of the on-lattice claim that a finite interaction radius (bounded dependency degree) keeps the per-step propensity refresh O(1) in N.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4545075/",
+    "quote": "there is a fixed constant upper bound _D_ to the number of propensities that must be updated after each reaction step... this class of networks leads to constant complexity SSAs.",
+    "vote": "2-1",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Composition-rejection (SSA-CR) and rejection-based SSA (RSSA) occupy complementary regimes: SSA-CR wins only when reaction-search cost is expensive, whereas RSSA is preferred when propensity-update cost dominates \u2014 which the authors state is the usual practical case. This undercuts the assumption that composition-rejection's fast search alone determines efficiency; the update/refresh path is the more common binding constraint.",
+    "source": "https://link.springer.com/article/10.1007/s11538-018-0462-y",
+    "quote": "for reaction networks where the search cost is expensive then SSA-CR is more efficient, and for reaction networks where the update cost is dominant, often the case in practice, then RSSA should be the choice.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "SPPARKS performs incremental (local) rate-catalog updates rather than a full rescan: after an event fires, only the propensities of altered sites are recomputed and passed to the solver, which updates its internal selection data structure in place.",
+    "source": "https://iopscience.iop.org/article/10.1088/1361-651X/accc4b",
+    "quote": "Once an event is selected, the MC application performs the event...altered site propensities are calculated and passed to the solver, which updates its internal data structure",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "PSSA-CR is an exact formulation of the SSA that combines partial-propensity methods with the Slepoy/Thompson/Plimpton composition-rejection SSA, i.e. composition-rejection can be composed with propensity-factorization while preserving exactness rather than requiring rate quantization.",
+    "source": "https://pubmed.ncbi.nlm.nih.gov/20113014/",
+    "quote": "We present the partial-propensity stochastic simulation algorithm with composition-rejection sampling (PSSA-CR). It is an exact formulation of the stochastic simulation algorithm (SSA) for well-stirred systems of coupled chemical reactions.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "SPPARKS formalizes the invalidation neighborhood after an event via an explicit finite-interaction-radius parameter h_energy, defined as the maximum distance of neighbor sites whose propensities must be recomputed after an event fires (e.g. h_energy=1 for the Potts model, h_energy=2 or 3 for the diffusion model).",
+    "source": "https://iopscience.iop.org/article/10.1088/1361-651X/accc4b",
+    "quote": "h_energy: the maximum distance at which neighbor sites values affect the propensity calculated for a central site...equivalent to the maximum distance of neighbor sites whose propensities need to be recomputed after an event occurs",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "O(1) overall complexity additionally requires the total propensity sum to be bounded above and below independently of M; the constant-complexity result is therefore conditional, not automatic \u2014 it holds for weakly coupled networks, not arbitrarily dense-active ones.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4545075/",
+    "quote": "if the propensity sum is bounded above and below independent of _M_, the overall complexity of the algorithm is _O_(1) for weakly coupled networks.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "For weakly coupled reaction networks the per-step computational cost of PSSA-CR is bounded by a constant (independent of the number of species/reactions), and for strongly coupled networks it grows at most linearly in the number of chemical species.",
+    "source": "https://pubmed.ncbi.nlm.nih.gov/20113014/",
+    "quote": "The computational cost of this new formulation is bounded by a constant for weakly coupled reaction networks, and it increases at most linearly with the number of chemical species for strongly coupled reaction networks.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The canonical event-selection method presented in this practical guide is the BKL algorithm ('n-fold way'), which selects a process by building a cumulative stack of rate-constant segments summing to k_tot and drawing a random number scaled by k_tot \u2014 i.e. a linear cumulative-sum search, with no composition-rejection, rate binning, or tree-based selection discussed.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6465329/",
+    "quote": "One of the most commonly used such KMC algorithm, initially developed by Bortz et al. (1975) for Ising spin systems, is known as the BKL algorithm (after the authors) or the \"n-fold way\". ... Imagine a stack of segments of height proportional to the rate constants k_ij of the possible processes, which correspondingly sums up to a total height of k_tot. We can choose a process to execute out of this stack by drawing a random number \u03c11 and multiplying it by k_tot.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "After a fired event KMCLib re-matches only the constant number of sites within the interaction vicinity of the event, not all sites, making the per-step matching cost O(1) in system size N \u2014 a concrete production instance of the finite-interaction-radius 'dirty-ball' local-update invariant pyKMC wants to prove sufficient.",
+    "source": "https://www.semanticscholar.org/paper/KMCLib:-A-general-framework-for-lattice-kinetic-Leetmaa-Skorodumova/3bbf9ed2d25d6f012bd86645a6de2073646d6e8d",
+    "quote": "After a process has been performed, however, there is no need to re-match the processes at all sites. Only sites that are in the vicinity of the site where the process was performed are affected. ... The matching is thus constant O(1) with respect to the size of the simulation.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "SPPARKS provides three interchangeable KMC solvers with event-selection cost O(N), O(log N), and O(1) in the number of sites N, implemented respectively as a linear scan of the propensity list, a binary tree with N propensities at its leaves, and a composition/rejection data structure.",
+    "source": "https://iopscience.iop.org/article/10.1088/1361-651X/accc4b",
+    "quote": "three solvers for the KMC algorithm...computational cost to choose the next site from N sites is O(N), O(log N), and O(1) respectively ... by scanning a list of N propensities (O(N) effort), by walking a binary tree with the N propensities at its leaves (O(log N) effort), or via a more complex composition/rejection data structure",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "kmcos never rescans the whole system for available processes at runtime \u2014 only at initialization \u2014 and after an event fires the proclist updates the avail_sites enrolment array solely in the local neighborhood of the fired site, which is the mechanism that keeps the per-step cost independent of system size.",
+    "source": "https://kmcos.readthedocs.io/en/latest/topic_guides/kmcos_speed.html",
+    "quote": "the solver never scans the entire system for available processes except at program initialization ... the proclist module...updates the avail_sites array only in the local neighborhood of the site, where the process is executed.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Gibson & Bruck give a formal, geometry-free construct \u2014 the dependency graph \u2014 that determines exactly which reaction propensities must be recomputed after a reaction fires: a directed edge runs from reaction vi to vj iff the substances vi changes intersect the substances vj's propensity depends on, so only edge-connected propensities are updated.",
+    "source": "https://pubs.acs.org/doi/abs/10.1021/jp993732q",
+    "quote": "Definition 4. (Dependency Graph.) Let a set of reactions R be given. Let G(V, E) be a directed graph with vertex set V = R and with a directed edge from vi to vj if and only if Affects(vi) \u2229 DependsOn(a_vj) \u2260 \u2205... In other words, a dependency graph is a data structure that tells precisely which a_i s to change when a given reaction is executed. Using the dependency graph allows one to recalculate only the minimum number of a_i s in Step 5 of the Next Reaction Method.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "kmcos empirically shows CPU time per kMC step is nearly constant (O(1)) up to roughly 10^5 sites, with the constant-time behavior holding until system RAM is exceeded \u2014 a concrete scaling benchmark on the site/process-count question.",
+    "source": "https://kmcos.readthedocs.io/en/latest/topic_guides/kmcos_speed.html",
+    "quote": "O(1) until the RAM of your system is exceeded ... CPU time spent per kMC step as nearly constant for up nearly 10^5 sites",
+    "vote": "2-1",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Standard prior complexity analyses of these rejection-based selection algorithms omit important factors, so the commonly cited search-cost bounds (e.g. O(log(rmax/rmin)) for composition-rejection) do not by themselves characterize real runtime; the omitted factor is chiefly the propensity-update cost after a firing.",
+    "source": "https://link.springer.com/article/10.1007/s11538-018-0462-y",
+    "quote": "We highlight important factors that are omitted in previous analysis of these algorithms.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The optimistic distributed algorithm incurs large rollback re-simulation overhead: on average about 14.7 KMC time units must be re-simulated for every KMC time unit of global-virtual-time advancement, with the ratio ranging from 5.8 to 69.2.",
+    "source": "https://royalsocietypublishing.org/rsta/article/381/2250/20220235/112404/Exact-distributed-kinetic-Monte-Carlo-simulations",
+    "quote": "the ratio in discussion ranged between 5.8 and 69.2, and on average about 14.7 KMC time units had to be re-simulated for every KMC time unit of GVT advancement",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The proposed composition-and-rejection (CR) node-based sampler has an average-case cost of O(log log N) operations per update for general networks \u2014 i.e. selecting the next event is effectively near-constant in system size, directly bearing on whether CR-style selection keeps event-selection cheap at large N (research-question b).",
+    "source": "https://arxiv.org/pdf/1808.05859",
+    "quote": "we propose a node-based method combined with a composition and rejection algorithm, a sampling scheme that has an average-case complexity of \u2112[log(log N)] per update for general networks.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "Zacros's distributed on-lattice KMC uses the Time-Warp optimistic-synchronization algorithm over a domain decomposition into non-overlapping subdomains, resolving causality violations by rollback and anti-messages, and reproduces the exact stochastic dynamics with no numerical approximation.",
+    "source": "https://royalsocietypublishing.org/rsta/article/381/2250/20220235/112404/Exact-distributed-kinetic-Monte-Carlo-simulations",
+    "quote": "The key feature of this method is that it reproduces exactly the dynamics of the underlying stochastic model, without introducing numerical approximations",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "kmcos selects the firing process by binary search over an accumulated-rate array (accum. rates), whose last field holds the total rate k_tot, using a random number scaled to k_tot \u2014 i.e. a two-level BKL-style selection (process first, then site) rather than composition-rejection.",
+    "source": "https://kmcos.readthedocs.io/en/latest/topic_guides/kmcos_speed.html",
+    "quote": "we multiply it with the last field in accum. rates. Next we simply perform a binary search for the right process on accum. rates",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   }
+  ],
+  "refuted": [
+   {
+    "claim": "The common belief that BKL/CR-style selection is O(1) or O(log N) per update is false in the dense-active regime: for networks that are dense or sparse-and-heterogeneous the actual scaling is polynomial in N. This is a direct cautionary result for the dense-active (near-equiatomic / late-stage-dealloying) regime of research-question (d) and undercuts assuming O(1) total-rate refresh.",
+    "source": "https://arxiv.org/pdf/1808.05859",
+    "quote": "We show that algorithms believed to require \u2112(log N) or even \u2112(1) operations per update---where N is the number of nodes---display instead a polynomial scaling for networks that are either dense or sparse and heterogeneous.",
+    "vote": "0-3",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "KMCLib determines which processes are possible at each site by matching every process against each site's local geometry, building an explicit per-site process-availability table \u2014 the same dense enrolment structure pyKMC uses (n_procs x n_sites), realized via sorted per-site 'match-lists' where only type information must be compared.",
+    "source": "https://www.semanticscholar.org/paper/KMCLib:-A-general-framework-for-lattice-kinetic-Leetmaa-Skorodumova/3bbf9ed2d25d6f012bd86645a6de2073646d6e8d",
+    "quote": "Match all processes with the geometry at each lattice site to construct a table of the availability of each process. ... The matching of a process with a lattice site is performed by comparing the site match-list with the before process match-list. Since the lists are sorted in the same way only the type information needs to be compared.",
+    "vote": "0-3",
+    "validVotes": 3,
+    "erroredVotes": 0
+   }
+  ],
+  "unverified": [
+   {
+    "claim": "Zacros determines which processes must be re-evaluated after an event fires using a fixed graph-distance neighborhood: the set of (nonfixed) lattice vertices within l edges of the adsorbate, where l is the length of the longest path connecting a fixed query vertex to a nonfixed one \u2014 a spatial/graph invalidation bound directly analogous to the user's asserted 'dirty-ball' repair radius.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11065322/",
+    "quote": "More precisely, this 'local neighborhood' can be found by computing the length l of the longest path that connects a fixed query vertex with a nonfixed one and finding all the data vertices that exist within l edges of the corresponding 'fixed' data vertices ... one obtains the set [\u03a9] that essentially contains the (nonfixed) data vertices within l edges of the adsorbate.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Slepoy, Thompson, and Plimpton (2008) published a constant-time KMC selection algorithm for large biochemical reaction networks (the SSA-CR / composition-rejection method), asserting event-selection cost independent of the number of reactions/rates \u2014 the exact algorithm named in research question (b).",
+    "source": "https://sjplimp.github.io/kmc.html",
+    "quote": "A Constant-Time Kinetic Monte Carlo Algorithm for Simulation of Large Biochemical Reaction Networks (A. Slepoy, A. P. Thompson, S. J. Plimpton, 2008, J Chem Phys, 128, 205101)",
+    "vote": "1-0",
+    "validVotes": 1,
+    "erroredVotes": 2
+   },
+   {
+    "claim": "The sufficiency of the local-neighborhood update (that no match outside the l-edge neighborhood can change) is ASSERTED as intuitive, not formally proven \u2014 the same gap the user identifies in their planned incremental repair, and evidence that even a mature production code (Zacros) has not published an independent correctness proof for its spatial invalidation neighborhood.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11065322/",
+    "quote": "It is pointless to try to map lattice sites beyond a 'local neighborhood'",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The sufficiency of the dependency-graph invalidation set is proven, not asserted: reactions whose propensity a_i is unchanged are provably absent from the dependency graph and therefore correctly require no update, established mathematically (Theorem 1) rather than by re-running the matcher.",
+    "source": "https://pubs.acs.org/doi/abs/10.1021/jp993732q",
+    "quote": "For those i \u2260 \u00b5 whose a_i remains constant from the nth to n + 1st iteration, a_{i,n+1} = a_{i,n}, so eq 8 is equivalent to eq 7. There is no need to change these \u03c4_i s in Step 5. In fact, reactions whose a_i s do not change are not in the dependency graph, so the \u03c4_i s are not changed.",
+    "vote": "0-1",
+    "validVotes": 1,
+    "erroredVotes": 2
+   }
+  ]
+ },
+ "4-stop-criteria": {
+  "runId": "wf_59e6f5a1-501",
+  "args": "Statistically principled stop criteria, catalogue-completeness estimators, and independent validation probes for self-learning / adaptive kinetic Monte Carlo loops. Context: a two-leg hybrid loop alternates an off-lattice discovery engine (ART-family saddle searches on FCC Ni-Cr) with an on-lattice replay engine (~1e6 steps per leg); the current design switches legs on a fixed step count and declares the event catalogue converged when new-classes-per-cycle reaches 0 AND fallback-flux-fraction reaches 0 \u2014 metrics computed from the catalogue's own possibly-wrong rates over only the states its own biased trajectory visited. Research questions: (a) What is the exact form and confidence model of the Xu-Henkelman adaptive-KMC termination criterion (consecutive-empty-search confidence limit), and how has it been extended or critiqued since? (b) What does the rigorous estimator analysis of Aristoff, Chill and Simpson (Commun. Appl. Math. Comput. Sci. 2016) conclude about count-based versus rate-weighted (\"fraction of total rate found\") completeness estimators, including their mean-squared-error behaviour? (c) Which Markov-state-model validation tools \u2014 the Chapman-Kolmogorov self-consistency test, implied-timescale convergence, Bayesian MSM error bars (Prinz/Noe lineage) \u2014 transfer to validating an on-lattice KMC catalogue against a short off-lattice reference trajectory, and what trajectory length / event count / tolerance is needed for statistical power in a slow, trapped, or metastable regime? (d) Have unseen-species / missing-mass statistics (Good-Turing, Chao1, Orlitsky-Suresh-Wu optimal unseen-species prediction) ever been applied to event-catalogue or reaction-network discovery completeness, and what would importing them require? (e) Is there a principled published basis for choosing the evolve-leg length in hybrid/alternating KMC schemes (mixing time, autocorrelation, coverage saturation), rather than a fixed round number, and how do accelerated-dynamics methods (hyperdynamics, ParSplice, TAD) decide when their event picture is trustworthy enough to advance the clock?",
+  "confirmed": [
+   {
+    "claim": "k-ART judges catalogue sufficiency by topological coverage rather than by any statistical completeness estimator: an event search is launched only when a previously unseen local topology is encountered, and otherwise cached events for that topology are reused without re-searching.",
+    "source": "https://link.aps.org/doi/10.1103/PhysRevE.84.046704",
+    "quote": "the topology of all atoms belonging to the local environment around the new state is constructed; if an unknown topology is found, a series of ART nouveau searches are launched, otherwise, we proceed to the next step.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The paper's central thesis is that rate-weighted completeness estimators (fraction of total reaction rate found) are fundamentally superior to count-based ones (fraction of saddles observed), and it names the Xu-Henkelman 2008 count-based confidence criterion (ref [17]) as the inferior 'original' approach that its rate-weighted estimators improve upon.",
+    "source": "https://arxiv.org/pdf/1506.05092",
+    "quote": "They represent a significant improvement over the original AKMC stopping criterion presented in [17]. Indeed, these prior approaches attempted to estimate the fraction of the saddles observed when, in fact, it is the fraction of the observed rate that is of fundamental importance.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The rigorous confidence measure for off-lattice KMC catalogue completeness is the fraction of the total rate that has been found (a rate-weighted metric), and MD-based search naturally prioritizes the most important events because higher-rate events are discovered faster than slow events.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/trochet19.pdf",
+    "quote": "In the case of off-lattice KMC, this confidence measure is the fraction of the rate table which has been found using the MD saddle searches (Chill and Henkelman 2014). ... MD searches can selectively find those which are most important because events with a higher rate are found more rapidly than slow events with MD searches (Chill and Henkelman 2014).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The Xu-Henkelman AKMC stopping criterion sets a confidence C = 1 - 1/Nr that no important saddle is missed, where Nr is the number of consecutive/sequential saddle searches that find only relevant-but-redundant (non-unique) processes; achieving 95% confidence means running searches until 20 searches complete without finding a new unique relevant saddle. This is the exact 'consecutive-empty-search confidence limit' the research question asks for.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/xu08_114104.pdf",
+    "quote": "C = 1 - 1/Nr ... which is the main result of this section. It means that one can choose a con\ufb01dence that an important saddle will not be missed in each KMC step. For example, a choice of C = 95% is set by running saddle point searches until Nr = 20 searches complete without \ufb01nding a new, unique (and relevant) saddle point. Fewer total searches will be required for states with fewer relevant saddles than for states with many.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Aristoff, Chill & Simpson analyze the adaptive-KMC saddle-search stopping criterion of Chill & Henkelman that is based on the fraction of total reaction rate found rather than the fraction (count) of observed saddles \u2014 directly the rate-weighted vs count-based completeness distinction in the research question.",
+    "source": "https://msp.org/camcos/2016/11-2/p02.xhtml",
+    "quote": "we examine a criterion of S. T. Chill and G. Henkelman...which is based on the fraction of total reaction rate found instead of the fraction of observed saddles",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Rate-weighted completeness estimation via high-temperature basin-constrained MD saddle searches yields a well-defined estimator for the fraction of the total rate table that is still missing, because the probability of discovering an event under MD is proportional to that event's rate (assuming harmonic TST holds).",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/trochet19.pdf",
+    "quote": "The key difference between MD searches and minimum-mode following searches is that the probability of finding any event using MD is proportional to its rate. ... To the extent that harmonic TST holds, one can calculate a well-defined estimator for the fraction of the rate table that is missing, based upon the amount of MD time that is used to determine the rate table and the events that have been found (Chill and Henkelman 2014).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART (a leading self-learning off-lattice KMC method) uses NO statistically principled or confidence-based termination criterion for event searching; the number of saddle searches per local environment is a heuristic that is manually adjustable and merely increased in proportion to how often a topology recurs, with the stated goal only of finding low-barrier events.",
+    "source": "https://link.aps.org/doi/10.1103/PhysRevE.84.046704",
+    "quote": "The optimal number of searches done per topology depends on the nature of the system and can be adjusted to ensure that all low-energy barrier events, which dominate the dynamics, are found. In our current implementation, it is increased also with the number of times a given topology is seen, ensuring that the most common topologies are explored more often.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The Eyring-Kramers-rate-based estimator R-tilde can OVERESTIMATE the true fraction of rate found (i.e. is anti-conservative, over-reporting completeness) whenever the assumed rate law deviates from the true rate, whereas the newly-introduced Monte-Carlo estimator R-hat (which does not require Eyring-Kramers) instead gives a conservative estimate.",
+    "source": "https://arxiv.org/pdf/1506.05092",
+    "quote": "The test system shows that R\u0303(t) can overestimate R(t) if the Eyring-Kramers rate deviates from the true rate at \u03b2 hi , while R\u0302(t) tends to provide a conservative estimate of R(t).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The confidence model rests on an equal-probability heuristic: each search finds a new unique process with probability Pf = (Np - Nf)/Np, which integrates to Nf = Np(1 - e^{-Ns/Np}), so the ideal confidence equals the fraction of unique saddles found, C = Nf/Np = 1 - e^{-Ns/Np}. Np (unknown a priori) is eliminated via the redundant-search relation Nr*Pf = 1, yielding the operational C = 1 - 1/Nr.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/xu08_114104.pdf",
+    "quote": "For each search, the probability of \ufb01nding a new unique process is Pf = (Np - Nf)/Np = dNf/dNs ... Integrating this differential equation gives the number of unique processes found after Ns searches, Nf = Np(1 - e^{-Ns/Np}). The probability that a relevant saddle will not be missed for a state is the fraction of unique saddles found ... C = Nf/Np = (1 - e^{-Ns/Np}). ... After Nr searches, one new and unique saddle is found, so that Nr*Pf = 1",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART decides how thoroughly to search each local topology by a heuristic proportional to the logarithm of how often the topology has been observed (roughly 20-50 saddle searches per decade of observation frequency), not by any statistical confidence limit on consecutive empty searches.",
+    "source": "https://onlinelibrary.wiley.com/doi/10.1155/2012/925278",
+    "quote": "Depending on the system, we use between 20 and 50 searches for every log10 times we see a topology (e.g., 25\u201350 searches for a topology appearing once, 75\u2013150 searches for a topology seen 100 times, etc.). To ensure detailed balance, these events are stored from both the initial and final minima.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "The authors prove that the mean-squared errors of the rate-weighted (Chill-type) estimators are well-behaved and vanish as the simulation runs, with bias small relative to variance, making them consistent estimators of R(t), the true fraction of rate found; the MSE bounds (Theorem 5.3) are controlled by decaying terms max_j q_j(t)=exp(-kappa_j t) plus the MSE of the per-pathway probability approximations.",
+    "source": "https://arxiv.org/pdf/1506.05092",
+    "quote": "We examine the mathematical properties of both estimators and prove their mean square errors are well behaved, vanishing as the simulation continues to run.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The paper proves that the mean-squared errors of both the rate-weighted estimator and the alternative estimator are well behaved and vanish as the simulation continues to run, giving a rigorous convergence guarantee for the rate-fraction completeness estimator.",
+    "source": "https://msp.org/camcos/2016/11-2/p02.xhtml",
+    "quote": "We examine the mathematical properties of both estimators and prove their mean square errors are well behaved, vanishing as the simulation continues to run.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "Count-based completeness estimation (the consecutive-empty-search / minimum-mode-following approach used by ART-family methods) is only a qualitative confidence heuristic: because different saddles are found at widely varying frequencies, the resulting uncertainty in catalogue completeness is not rigorously quantifiable.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/trochet19.pdf",
+    "quote": "When using minimum-mode following searches to find saddles, the completeness of the KMC catalog can be estimated from the statistics of how often new saddles are found. For example, if an increasing number of searches are done without finding any new events, there should be a growing confidence that the rate table is complete. Importantly, however, there can be a wide range in the frequency at which different saddles are found, and this bias can lead to unquantifiable uncertainties in the completeness of the catalog (Henkelman and J\u00f3nsson 1999).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Empirically (Al adatoms ripening on Al(100), 47,310 transitions over 62 unique states), the RATE-weighted completeness ('fraction of the total rate found') converges as the ideal alpha=1 relation C = 1 - 1/Nr, whereas the COUNT-based completeness ('fraction of the number of saddles found') converges more slowly, following the alpha=0.25 relation, because the dimer method finds low-energy (high-rate) saddles far more frequently than high-energy ones. This directly supports the claim that rate-weighted completeness estimators converge faster/more favorably than count-based ones.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/xu08_114104.pdf",
+    "quote": "The fraction of the total rate follows the ideal \u03b1 = 1 con\ufb01dence from Eq. (6). The fraction of the number of saddles increases more slowly, following Eq. (14) with \u03b1 = 0.25. The reason for this is that the dimer method \ufb01nds low energy saddles with greater frequency than high energy [saddles]",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The criterion is extended to the realistic non-uniform case where some saddles are hard to find: introducing alpha (0 < alpha <= 1), the relative probability of finding the least-likely saddle versus the ideal 1/Np, the worst-case confidence becomes C = 1 - 1/(alpha*Nr), which reduces to the ideal C = 1 - 1/Nr when alpha = 1.",
+    "source": "https://theory.cm.utexas.edu/henkelman/pubs/xu08_114104.pdf",
+    "quote": "we use a parameter, \u03b1, which is the relative probability of \ufb01nding the saddle that is least likely to be found as compared to the ideal case of the previous section, 1/Np ... substituting into Eq. (12) gives a con\ufb01dence, C = 1 - 1/(\u03b1Nr). Taking \u03b1 = 1, which is the equal-probability case of the previous section, this con\ufb01dence reduces to Eq. (6).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "EON's adaptive KMC uses an explicit confidence-based stopping criterion (a scalar out of 1.0, default 0.99) to decide when enough saddle searches have been run to move on to the next state \u2014 operationalizing the Xu-Henkelman consecutive-search termination as a tunable confidence threshold.",
+    "source": "https://theory.cm.utexas.edu/eon/akmc.html",
+    "quote": "confidence: The confidence (out of 1.0) criterion for moving to the next state. (default: 0.99)",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   }
+  ],
+  "refuted": [
+   {
+    "claim": "Completeness/confidence in EON's AKMC is rate-weighted rather than a raw count of distinct processes: only processes with barriers within a thermally accessible window (default 20 kT above the lowest barrier) enter the rate table and the confidence calculation.",
+    "source": "https://theory.cm.utexas.edu/eon/akmc.html",
+    "quote": "Processes with barriers within this number of kT above the lowest barrier will be used in the rate table and for confidence calculations.",
+    "vote": "0-3",
+    "validVotes": 3,
+    "erroredVotes": 0
+   }
+  ],
+  "unverified": [
+   {
+    "claim": "The authors prove that the mean square errors of the rate-weighted estimators are well behaved and vanish as the simulation continues to run, providing a rigorous convergence guarantee for the fraction-of-total-rate stopping criterion.",
+    "source": "https://projecteuclid.org/journals/communications-in-applied-mathematics-and-computational-science/volume-11/issue-2/Analysis-of-estimators-for-Adaptive-Kinetic-Monte-Carlo/10.2140/camcos.2016.11.171.full",
+    "quote": "prove their mean square errors are well behaved, vanishing as the simulation continues to run",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The paper analyzes the Chill-Henkelman (2014) adaptive-KMC stopping criterion, which is based on the fraction of total reaction rate found rather than the fraction of observed saddles/events \u2014 i.e., a rate-weighted rather than count-based completeness estimator.",
+    "source": "https://projecteuclid.org/journals/communications-in-applied-mathematics-and-computational-science/volume-11/issue-2/Analysis-of-estimators-for-Adaptive-Kinetic-Monte-Carlo/10.2140/camcos.2016.11.171.full",
+    "quote": "we examine a criterion of S. T. Chill and G. Henkelman (J. Chem. Phys. 140 (2014), no. 21, 214110), which is based on the fraction of total reaction rate found instead of the fraction of observed saddles.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "MDSS-AKMC derives a rate-weighted catalogue-completeness estimator X(F) computed only from the set of already-found events and the MD sampling time, and uses a threshold on it as the state-exit stopping criterion: searches in each state were run 'until X(F) < 0.01, which corresponds to a 99% confidence in the total escape rate.' This is a concrete, checkable alternative to a fixed step/search count for deciding when a state's event catalogue is complete.",
+    "source": "https://pubs.aip.org/aip/jcp/article/140/21/214110/566728/Molecular-dynamics-saddle-search-adaptive-kinetic",
+    "quote": "Four independent MDSS-AKMC simulations were run with MD saddle searches performed in each state at 1200 K, until X(F) < 0.01, which corresponds to a 99% confidence in the total escape rate.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The completeness error is defined as rate-weighted, not count-based: the error measure E(F) is the probability of selecting a still-missing process in a KMC step, i.e. the fraction of total escape rate not yet found (E(F) = 1 - (1/K) sum_{ki in F} ki), which is well-defined precisely because MD discovers mechanisms with probability proportional to their rate.",
+    "source": "https://pubs.aip.org/aip/jcp/article/140/21/214110/566728/Molecular-dynamics-saddle-search-adaptive-kinetic",
+    "quote": "In a KMC simulation, the probability of picking an event is proportional to its rate. Thus, an appropriate error measure E for the rate catalogue F is the probability of picking one of the missing processes (in M) in a KMC step based upon the complete catalogue C",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The authors prove that the mean square errors of both rate-weighted completeness estimators are well behaved and vanish (converge to zero) as the simulation runs longer.",
+    "source": "https://www.semanticscholar.org/paper/Analysis-of-estimators-for-adaptive-Kinetic-Monte-Aristoff-Chill/591da061fb32a60a139c2ea584690022752ef726",
+    "quote": "We examine the mathematical properties of both estimators and prove their mean square errors are well behaved, vanishing as the simulation continues to run.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "k-ART uses a rate-weighted (fraction-of-total-rate) criterion to decide which catalogued events to fully reconstruct/refine each step: it orders events by barrier and refines only the lowest-barrier events that together make up 99.9% or 99.99% of the total rate, leaving the rest as unrefined clones \u2014 a rate-weighted rather than count-based completeness threshold.",
+    "source": "https://onlinelibrary.wiley.com/doi/10.1155/2012/925278",
+    "quote": "After each KMC step, the event list is ordered according to the barrier energy and only the lowest-energy barrier events, representing up to given threshold (we use typically 99.9 or 99.99%) of the total rate are fully reconstructed and refined. Depending on the system and the temperature, this means that only one to ten percent of all barriers in the catalog are refined specific events.",
+    "vote": "1-0",
+    "validVotes": 1,
+    "erroredVotes": 2
+   },
+   {
+    "claim": "The estimator is biased low (systematically underestimates the true catalogue error) when the found events are not characteristic of the complete set - specifically when fast processes are discovered first - and is exact only in two limits: t to infinity (all processes found) or when all high-temperature rates are equal. This is a direct statement that a completeness metric computed from a rate-biased, partial sample can be over-optimistic.",
+    "source": "https://pubs.aip.org/aip/jcp/article/140/21/214110/566728/Molecular-dynamics-saddle-search-adaptive-kinetic",
+    "quote": "At short time this leads to significant underestimation of the error because the fast process, which is found first, is not characteristic of the entire set, violating the assumption of the estimator.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The paper analyzes the Chill-Henkelman adaptive-KMC stopping criterion, which terminates saddle-point searches based on the fraction of total reaction rate found rather than the fraction of observed (distinct) saddles.",
+    "source": "https://www.semanticscholar.org/paper/Analysis-of-estimators-for-adaptive-Kinetic-Monte-Aristoff-Chill/591da061fb32a60a139c2ea584690022752ef726",
+    "quote": "Key to making Adaptive KMC effective is a stopping criterion for the saddle point search. In this work, we examine a criterion of S. T. Chill and G. Henkelman (J. Chem. Phys. 140 (2014), no. 21, 214110), which is based on the fraction of total reaction rate found instead of the fraction of observed saddles.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   }
+  ]
+ },
+ "5-identity-porous": {
+  "runId": "wf_211ee392-3c3",
+  "args": "Collision-free event identity for symmetric multi-site lattice-KMC events, and site classification for evolving nanoporous morphologies in dealloying simulations. Context: an FCC on-lattice KMC engine for Ni-Cr dealloying assigns each event a canonical class id by minimizing over a point group (D4h) about a single lexicographically-chosen anchor site; a red-team review showed this is not a true canonical form (the anchor tie-break is frame-dependent and translations between equivalent anchors are outside the minimized group), so symmetric divacancy/ring/exchange events fragment across orientations into multiple class_ids and multi-anchor events are counted k times, inflating the total rate; separately, its site labeling assumes a single-valued surface height z(x,y) that the nanoporous late-dealloying end-state violates. Research questions: (a) What guarantee does canonical graph labeling (nauty/Traces, McKay-Piperno individualization-refinement) give that a hand-rolled anchored point-group minimization lacks, and how do production self-learning KMC codes (k-ART's nauty-based topology keys) apply it to chemistry-colored local environments including automorphism detection? (b) How does graph-theoretic on-lattice KMC (Zacros, Stamatakis-Vlachos) use the automorphism-order symmetry number to correct multi-anchor over-counting so total rate and detailed balance stay exact \u2014 what is the precise weighting rule? (c) For FCC(100) slabs, what is the DFT/EAM evidence on whether in-plane vs inter-layer <110> vacancy hop barriers differ near the surface and converge in the interior \u2014 i.e. is the correct catalogue symmetry layer-dependent rather than a global choice between O_h and D4h? Include Ni-Cr-specific evidence (Goswami et al. Scripta Mater. 2021 lineage). (d) How do dealloying/nanoporosity KMC models (Erlebacher Nature 2001, J. Electrochem. Soc. 2004, and successors) classify surface vs bulk vs pore-vacuum sites on a full 3D rigid lattice when the morphology is bicontinuous and multi-valued in z \u2014 coordination-number thresholds, connected-vacuum flood fill \u2014 and what are the standard parameter choices? (e) How are interstitial/dumbbell and other non-lattice defect configurations handled mass-conservatively when mapping onto a rigid lattice (multi-site objects, off-lattice carve-outs), in k-ART, SEAKMC, and object-KMC codes?",
+  "confirmed": [
+   {
+    "claim": "Canonical topology labels alone do NOT resolve symmetry-equivalent-but-distinct events: in symmetric configurations, distinct events can share identical initial/saddle/final topologies, the same barrier, and the same absolute displacement, so k-ART additionally encodes the direction of atomic motion to discriminate them, and validates on highly symmetric Si and Fe states that this recovers all pathways. This is direct evidence bearing on automorphism/symmetry handling in question (a).",
+    "source": "https://arxiv.org/abs/1107.2417",
+    "quote": "In certain symmetric configurations, it is possible that distinct events associated with a given atom have identical topologies of initial state, saddle point, and final state, and the same barrier height and absolute displacement. To distinguish between those and fully account for the symmetries, we also include the direction of atomic motion in the description of events. Checks on a number of highly symmetric states in Si and Fe show that this classification recovers all pathways and accurately discriminates between them.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A graph canonization function C is DEFINED by two formal properties: C(G) is isomorphic to G, AND C(G^gamma)=C(G) for every relabeling gamma in S_n (order-independence / isomorphism invariance) - so all isomorphic graphs receive the SAME canonical representation regardless of input vertex ordering. This is precisely the guarantee an anchored point-group minimization with a frame-dependent tie-break lacks: a canonical form is invariant under all input permutations, not just a hand-chosen subgroup about one anchor.",
+    "source": "https://dl.acm.org/doi/fullHtml/10.1145/3356020",
+    "quote": "A canonization algorithm can be seen as a function on graphs, C : G -> G, with the following properties, [15, C1 and C2]: C(G) ~= G and C(G^gamma) = C(G), for all gamma in Sn. That is, it returns a graph isomorphic to its input, and it is invariant with respect to permutations of its input. The second property is also called isomorphism invariance",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The individualization-refinement paradigm (nauty/Traces) simultaneously computes both a canonical form and a generating set for the graph's automorphism group, so automorphism detection is a byproduct of canonical labeling rather than a separate procedure.",
+    "source": "https://arxiv.org/pdf/0804.4881",
+    "quote": "Traces computes a canonical form for a colored graph and/or a set of generators for its automorphism group.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "All state-of-the-art practical graph canonization tools (nauty, Bliss, Traces) are built on one core method - the individualization-refinement paradigm: a tree search over successively refined vertex-set partitions - and they differ ONLY in heuristics for traversing/pruning the tree and refining partitions, not in the correctness of the resulting canonical form. Heuristic choices affect performance, not the guarantee.",
+    "source": "https://dl.acm.org/doi/fullHtml/10.1145/3356020",
+    "quote": "They are all build on the same core idea of a tree search over gradually more refined partitions of the vertex set, also called the individualization-refinement paradigm. Their difference is thus essentially in the heuristics for traversing and pruning the search tree, and how partitions are being refined.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "k-ART classifies each atom's local environment by building a truncated connectivity graph (bonds only, no geometry) and analyzing it with the graph-automorphism software NAUTY (McKay), which returns a canonical topology index plus the permutation key needed to reconstruct the geometry; this index is hashed to a unique topology label. This is the concrete production example of nauty-based canonical topology keys for chemistry/environment classification cited in research question (a).",
+    "source": "https://arxiv.org/abs/1107.2417",
+    "quote": "This graph is then analyzed and classified using the freely available topological software NAUTY, developed by McKay [16]. This software package provides the topology index and all information necessary for uniquely identifying each environment, including the permutation key needed to reconstruct a specific geometry from the generic topology and a set of reference positions. The topology index from NAUTY has the form of an ordered set of three integers, which we use as input to a hash function to generate a unique topology label (hash key).",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A canonical labeling provides a formal guarantee that two graphs are isomorphic if and only if their canonical forms are identical (equal), which is exactly the true-canonical-form property that an anchored point-group minimization lacks.",
+    "source": "https://arxiv.org/pdf/0804.4881",
+    "quote": "The image of a graph G under a function C : G \u2192 G is a canonical labeling (or canonical form) of G iff (i) \u2200G \u2208 G : C(G) \u2243 G, (ii) \u2200G1,G2 \u2208 G : G1 \u2243 G2 \u21d4 C(G1) = C(G2).",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   },
+   {
+    "claim": "The individualization-refinement approach computes the graph's automorphism group as a by-product of canonization and uses it to prune the search tree: when two distinct leaves produce representationally-equal permuted graphs (alpha=pi_{tau_a}, beta=pi_{tau_b}, G^alpha = G^beta), the composition alpha*beta^{-1} is an automorphism of G, and the complete automorphism group is obtained from all such leaf pairs. This supplies exactly the automorphism-order (symmetry number) that a hand-rolled anchored minimization does not expose.",
+    "source": "https://dl.acm.org/doi/fullHtml/10.1145/3356020",
+    "quote": "One of the most successful tools is nauty [14], which not only finds a canonical representation but also computes the automorphism group, which during the canonization is used for pruning the search tree... with alpha = pi_{tau_a} and beta = pi_{tau_b} then G^alpha = G^beta. Permuting both sides with beta gives G^{alpha beta} = ... = G, meaning that alpha beta is an automorphism of G... the complete automorphism group can be computed by considering all such pairs of leaf nodes",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "Canonical labeling provides a strong guarantee that a hand-rolled anchored point-group minimization lacks: any two isomorphic labeled objects become bit-for-bit identical after canonical labeling, so a single equality test settles isomorphism (directly bears on RQ-a: the anchored D4h minimization is not a true canonical form because equivalent objects are not guaranteed to map to an identical representative).",
+    "source": "https://pallini.di.uniroma1.it/Introduction.html",
+    "quote": "Two labeled objects which are isomorphic become identical when they are canonically labeled.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The defining property (C2) is label-invariance: renaming the vertices of the input renames the output vertices identically, so the canonical output is independent of any labelling/frame choice -- the precise property violated by a frame-dependent, lexicographically-anchored tie-break, whose output changes when the input is relabelled.",
+    "source": "https://arxiv.org/pdf/1301.1493",
+    "quote": "Property (C2) is an important property that must be satisfied by many functions we define. It says that if the elements of V appearing in the inputs to the function are renamed in some manner, the elements of V appearing in the function value are renamed in the same manner. We call this label-invariance.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "The topology-key scheme is only a valid canonical identity under an explicit precondition: the connectivity graph of local neighbors must map to a unique relaxed structure under the given interatomic potential (graph identity = configuration identity).",
+    "source": "https://arxiv.org/pdf/0805.2158",
+    "quote": "It is important that the configuration be uniquely defined through this network, i.e., the connectivity graph must lead to a unique structure once relaxed with a given interatomic potential.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART resolves the multi-anchor ambiguity for multi-site events with a frame-independent physical rule \u2014 each event is anchored to the topology centered on the atom with the largest displacement, overriding whatever atom the trial search started from \u2014 rather than a lexicographic site tie-break.",
+    "source": "https://arxiv.org/pdf/0805.2158",
+    "quote": "To simplify labelling, each event is assigned to the topology centered on the atom that moved the most during the event, irrespective of the initial trial assignment.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "k-ART's local-environment identity is computed by McKay's nauty canonical-labeling program, which guarantees a unique topology key per environment and also returns the permutation key needed to map the generic (canonical) topology onto a specific local geometry \u2014 i.e., canonical labeling supplies both collision-free identity and the group/permutation data a hand-rolled anchored point-group minimization lacks.",
+    "source": "https://arxiv.org/pdf/0805.2158",
+    "quote": "This classification is performed using the freely available topological software nauty, developed by McKay, which provides the topology index and all information necessary for uniquely identifying each environment, including the permutation key needed to reconstruct a specific geometry from the generic topology and a set of reference positions.",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "A canonical form C maps every coloured graph to a unique, label-invariant representative of its isomorphism class, giving the biconditional (G,pi) isomorphic to (G',pi') if and only if C(G,pi) = C(G',pi') -- exactly the guarantee an anchored point-group minimization lacks, so truly equivalent (symmetric) events must receive identical class ids instead of fragmenting across orientations.",
+    "source": "https://arxiv.org/pdf/1301.1493",
+    "quote": "A canonical form is a function C : G x Pi -> G x Pi such that, for all G, pi and g in Sn, (C1) C(G, pi) ~= (G, pi), (C2) C(G^g, pi^g) = C(G, pi). In other words, it assigns to each coloured graph an isomorphic coloured graph that is a unique representative of its isomorphism class. It follows from the definition that (G, pi) ~= (G', pi') <=> C(G, pi) = C(G', pi').",
+    "vote": "3-0",
+    "validVotes": 3,
+    "erroredVotes": 0
+   },
+   {
+    "claim": "nauty/Traces obtain the canonical form via the individualization-refinement method (McKay-Piperno), which partitions vertices through sequential refinement steps \u2014 the specific technique the research question attributes to production canonical graph labeling.",
+    "source": "https://pallini.di.uniroma1.it/Introduction.html",
+    "quote": "The process of finding the canonical member of the isomorphism class containing a given object is called canonical labeling.",
+    "vote": "2-0",
+    "validVotes": 2,
+    "erroredVotes": 1
+   }
+  ],
+  "refuted": [],
+  "unverified": [
+   {
+    "claim": "The study computes, via first-principles DFT, migration barriers for a complete set of distinct surface and sub-surface vacancy migration paths near the FCC Ni-Cr (100) free surface \u2014 i.e., it treats near-surface hop barriers as path- and layer-resolved quantities rather than a single bulk value, which is the premise behind a layer-dependent (rather than global O_h vs D4h) catalogue symmetry.",
+    "source": "https://www.osti.gov/pages/biblio/1784621",
+    "quote": "We survey a complete set of surface and sub-surface migration paths for vacancies near the (100) free surface and calculate the corresponding migration barriers.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "The Stamatakis-Vlachos framework identifies which events can fire by solving a subgraph isomorphism problem (implemented with Ullmann's algorithm) mapping each elementary-step pattern graph onto the lattice graph, with three matching conditions: edge (neighboring) preservation, site-type equality, and existence of an entity mapping whose coverage patterns match \u2014 i.e., event identity is established by graph matching against the live configuration, not by a hand-canonicalized geometric key.",
+    "source": "https://pubs.aip.org/aip/jcp/article/134/21/214115/189436/A-graph-theoretical-kinetic-Monte-Carlo-framework",
+    "quote": "Having defined the elementary steps, the basic idea is then to solve a subgraph isomorphism problem for each elementary step defined, in order to identify the lattice processes that can take place.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Zacros's graph-theoretical cluster-expansion Hamiltonian weights each energetic figure's contribution by an explicit graph multiplicity factor GM_gamma, which the authors identify as a symmetry number, multiplied against the count of lattice instances N_CE_gamma \u2014 i.e., the precise weighting rule that keeps total energy correct for patterns with internal symmetry is E contribution = ECI_gamma x GM_gamma x N_CE_gamma.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11065322/",
+    "quote": "where ECI\u03b3 is the effective cluster interaction for figure \u03b3, GM\u03b3 is the graph multiplicity (essentially a symmetry number), and NCE\u03b3 is the number of instances of figure \u03b3 on the lattice",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "EAM (Foiles-Baskes-Daw) static calculations give a surface-vacancy in-plane jump migration barrier of 0.47 eV on Cu(100), and the earlier literature value of 0.35 eV is explicitly identified as erroneous \u2014 establishing that the top-layer in-plane vacancy hop on an FCC(100) surface has a barrier well below the ~0.7 eV bulk Cu vacancy migration scale, i.e. near-surface vacancy barriers are layer-dependent.",
+    "source": "https://arxiv.org/pdf/cond-mat/9704009",
+    "quote": "In Fig. 1, we show the mechanism by which a vacancy diffuses on the (100) surface \u2014 basically a jump. The corresponding barrier is 0.47 eV (cf. Table II), larger than the value of 0.35 eV reported in Ref. 36, which is in error.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "In dilute Ni-Cr, a vacancy migrating toward the (100) free surface has systematically lower barriers for exchange with a neighboring Cr atom than with a Ni atom, so near-surface hop rates are species-dependent (Ni-Cr-specific chemistry coloring of the event catalogue).",
+    "source": "https://www.osti.gov/pages/biblio/1784621",
+    "quote": "A vacancy migrating towards the free surface will face lower energy barriers to migrate via atomic exchange with a neighboring Cr atom rather than with a Ni atom.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Ab initio DFT-GGA gives a surface-vacancy diffusion barrier of 0.42 eV (error bar at most 20%) on Cu(100), in close agreement with the 0.47 eV EAM value and below the adatom jump barrier \u2014 providing first-principles corroboration that EAM captures the surface-layer vacancy hop barrier on FCC(100).",
+    "source": "https://arxiv.org/pdf/cond-mat/9704009",
+    "quote": "The barrier for the diffusion of vacancies was also determined ab initio using the GGA. Its value, given in Table II along with other barriers, is estimated to be 0.42 eV, with an error bar of at most 20%. Again, the agreement with the EAM result, 0.47 eV, is striking.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "In this 2011 paper the weighting rule is one lattice process per subgraph-isomorphism mapping \u2014 every distinct mapping is enumerated as a separate process with its own propensity \u2014 and the paper contains no explicit division by the pattern graph's automorphism-group order; the automorphism-based 'graph multiplicity' correction for symmetric patterns appears only in later Zacros literature, not in this founding paper.",
+    "source": "https://pubs.aip.org/aip/jcp/article/134/21/214115/189436/A-graph-theoretical-kinetic-Monte-Carlo-framework",
+    "quote": "Note that there are as many such mappings M (Eq. (15)) as lattice processes.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Zacros prevents k-fold over-counting of symmetry-equivalent embeddings of the same pattern instance by design: for nonspecific sites its detection algorithms are restricted to returning only a single valid mapping per pattern instance, rather than enumerating all equivalent mappings and correcting afterwards.",
+    "source": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11065322/",
+    "quote": "For nonspecific sites, our algorithms seek only one valid mapping to avoid unnecessary proliferation of interaction pattern instances.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Erlebacher's atomistic dealloying KMC model uses site coordination-dependent rules for both processes: surface diffusion of all alloy components and dissolution of the less-noble atoms are each governed by the local coordination number of a site.",
+    "source": "https://iopscience.iop.org/article/10.1149/1.1784820",
+    "quote": "a kinetic Monte Carlo model incorporating site coordination-dependent surface diffusion of all alloy components, and site coordination-dependent dissolution of the less-noble atoms",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "Because event patterns carry no positional data and are detected purely by graph matching, the framework does not require enumerating multiple orientations of a reaction pattern (unlike earlier lattice-KMC codes such as CARLOS) \u2014 any lattice embedding with the same neighboring structure is detected as the same elementary step, which is precisely the guarantee an anchored point-group minimization lacks.",
+    "source": "https://pubs.aip.org/aip/jcp/article/134/21/214115/189436/A-graph-theoretical-kinetic-Monte-Carlo-framework",
+    "quote": "For our purposes, no position data are required for the sites of the elementary reaction graphs. Thus, one does not need to define multiple orientations for a reaction pattern as done in previous KMC frameworks (for instance in the CARLOS code); as long as the neighboring of the entities on the lattice is similar to that of the elementary reaction pattern, the latter will be detected as a legitimate lattice process.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   },
+   {
+    "claim": "In-plane vacancy hops within the surface layer are not chemically equivalent to each other: an in-plane hop is energetically unfavorable specifically when it would place the vacancy directly above a subsurface Cr atom, meaning in-plane vs inter-layer <110> hop distinction near the surface additionally depends on sub-layer chemical environment.",
+    "source": "https://www.osti.gov/pages/biblio/1784621",
+    "quote": "When a Cr atom sits in the atomic plane just below the free surface, any in-plane vacancy hopping jump that would result in the vacancy sitting on top a subsurface Cr atom is energetically unfavorable.",
+    "vote": "0-0",
+    "validVotes": 0,
+    "erroredVotes": 3
+   }
+  ]
+ }
+}
