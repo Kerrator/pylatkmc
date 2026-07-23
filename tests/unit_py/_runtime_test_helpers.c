@@ -153,6 +153,70 @@ int pylatkmc_test_max_empty_axis_run(const Lattice *lat, int axis)
 }
 #endif
 
+/* Build a Lattice with only site_ijk + site_grid populated (from a caller-
+ * supplied list of integer runtime cells), for surrogate-channel parity tests.
+ *
+ * `cells` is [n_sites*3] integer (u,v,w) runtime cells. site_ijk is stored
+ * relative to site 0. The grid is padded by `margin` cells on every axis so
+ * that offset lookups up to `margin` never wrap onto another site. Cells with
+ * no site resolve to the stub index n_sites (lattice_site_at_ijk contract).
+ * nn1 CSR is populated from a caller list too (or left empty if nn1_off=NULL). */
+Lattice *pylatkmc_test_make_lattice_grid(int32_t n_sites,
+                                         const int32_t *cells,   /* [n_sites*3] */
+                                         int32_t margin,
+                                         const int32_t *nn1_offsets, /* or NULL */
+                                         const int32_t *nn1_indices) /* or NULL */
+{
+    if (n_sites <= 0 || !cells || margin < 1) return NULL;
+    Lattice *lat = calloc(1, sizeof *lat);
+    if (!lat) return NULL;
+    lat->n_sites = n_sites;
+
+    lat->site_ijk = malloc((size_t)n_sites * 3 * sizeof(int16_t));
+    if (!lat->site_ijk) { pylatkmc_test_free_lattice(lat); return NULL; }
+    int32_t mn[3] = {cells[0], cells[1], cells[2]};
+    int32_t mx[3] = {cells[0], cells[1], cells[2]};
+    for (int32_t s = 0; s < n_sites; ++s)
+        for (int a = 0; a < 3; ++a) {
+            int32_t v = cells[3 * s + a];
+            if (v < mn[a]) mn[a] = v;
+            if (v > mx[a]) mx[a] = v;
+        }
+    for (int32_t s = 0; s < n_sites; ++s)
+        for (int a = 0; a < 3; ++a)
+            lat->site_ijk[3 * s + a] = (int16_t)(cells[3 * s + a] - cells[a]); /* rel site 0 */
+
+    /* grid dims relative to site 0's cell (matches lattice_site_at_ijk frame) */
+    int32_t nx = (mx[0] - mn[0]) + 1 + 2 * margin;
+    int32_t ny = (mx[1] - mn[1]) + 1 + 2 * margin;
+    int32_t nz = (mx[2] - mn[2]) + 1 + 2 * margin;
+    lat->grid_nx = nx; lat->grid_ny = ny; lat->grid_nz = nz;
+    lat->site_grid = malloc((size_t)nx * ny * nz * sizeof(int32_t));
+    if (!lat->site_grid) { pylatkmc_test_free_lattice(lat); return NULL; }
+    for (size_t i = 0; i < (size_t)nx * ny * nz; ++i) lat->site_grid[i] = n_sites; /* stub */
+    for (int32_t s = 0; s < n_sites; ++s) {
+        int32_t i = lat->site_ijk[3 * s + 0];
+        int32_t j = lat->site_ijk[3 * s + 1];
+        int32_t k = lat->site_ijk[3 * s + 2];
+        int32_t wi = ((i % nx) + nx) % nx, wj = ((j % ny) + ny) % ny, wk = ((k % nz) + nz) % nz;
+        lat->site_grid[((size_t)wi * ny + wj) * nz + wk] = s;
+    }
+
+    if (nn1_offsets && nn1_indices) {
+        size_t ob = (size_t)(n_sites + 1) * sizeof(int32_t);
+        lat->nn1_offsets = malloc(ob);
+        if (!lat->nn1_offsets) { pylatkmc_test_free_lattice(lat); return NULL; }
+        memcpy(lat->nn1_offsets, nn1_offsets, ob);
+        int32_t m1 = nn1_offsets[n_sites];
+        if (m1 > 0) {
+            lat->nn1_indices = malloc((size_t)m1 * sizeof(int32_t));
+            if (!lat->nn1_indices) { pylatkmc_test_free_lattice(lat); return NULL; }
+            memcpy(lat->nn1_indices, nn1_indices, (size_t)m1 * sizeof(int32_t));
+        }
+    }
+    return lat;
+}
+
 /* Build a minimal State. Populates:
  *   - n_vac, n_vac_max
  *   - vac_list  (copied)

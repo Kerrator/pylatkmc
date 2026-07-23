@@ -34,6 +34,14 @@ typedef struct {
     uint64_t max_dissolution_events; /* extra vacancy-list capacity to budget for dissolution events
                                       * (each dissolution is +1 vacancy). 0 = default slack only. */
 
+    /* [surrogate] — Phase C surrogate rate channel (b). All inert on a v0.3 /
+     * no-model build (the channel is compiled out). */
+    int      surrogate_enable;       /* 1 = on when a model is baked (default 1) */
+    double   surrogate_k_floor_Hz;   /* 0 = auto (tier0_nu0 * exp(-ea_hi/kT)) */
+    double   surrogate_leverage_gate;/* 0 = model q75 */
+    double   surrogate_flux_threshold; /* default 0.01 */
+    uint64_t surrogate_flag_capacity; /* registry capacity; default 65536 */
+
     /* [validation] */
     char     rng_replay_path[512];   /* optional; empty if unused */
 } InputConfig;

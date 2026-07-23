@@ -47,10 +47,16 @@
 
 #include "../io/xyz_writer.h"
 #include "../io/pykmc_out.h"
+#include "../io/phasec_out.h"
 
 /* The generated proclist.h declares apply_table, rate_table, touchup_a,
- * pylatkmc_n_procs, etc. */
+ * pylatkmc_n_procs, etc. — and, on a Phase C surrogate build, defines
+ * PYLATKMC_HAS_SURROGATE + the surrogate externs. */
 #include "proclist.h"
+
+#ifdef PYLATKMC_HAS_SURROGATE
+#include "surrogate.h"
+#endif
 
 /* Min-image displacement on one axis. */
 static inline double min_image(double d, double L) {
@@ -62,61 +68,48 @@ static inline double min_image(double d, double L) {
 /* MSD heuristic counter — log on first multi-vacancy concerted event. */
 static int g_msd_warning_emitted = 0;
 
-/* Apply the selected Process at the given anchor site, updating
- * unwrapped_xyz where possible. */
-static void apply_event(KmcContext *ctx, int32_t proc, int32_t site)
+/* Update unwrapped_xyz for a single-vacancy hop v_origin → v_dest (shared by the
+ * measured and surrogate channels). See the multi-vacancy caveat below. */
+static void update_msd(const Lattice *lat, State *st, int32_t v_origin, int32_t v_dest)
 {
-    State *st = ctx->st;
-    const Lattice *lat = ctx->lat;
-
-    /* Dispatch through the generated apply_table; it builds a StateAction[]
-     * from the Process's actions and calls state_apply_actions internally. */
-    HopOutcome ho = pylatkmc_apply_table[proc](st, lat, site);
-
-    /* Count non-conservative dissolution events (an atom left the lattice). */
-    if (pylatkmc_rate_table[proc].is_electrochemical) st->n_dissolution++;
-
-    /* Single-vacancy hop heuristic: if v_origin and v_dest are both valid,
-     * the vacancy that was at v_origin moved to v_dest. Update its
-     * unwrapped_xyz slot accordingly.
-     *
-     * After state_apply_actions, the moved vacancy occupies the slot that
-     * was last appended to vac_list (which equals st->vac_idx_of[v_dest]).
-     * The OLD slot (where v_origin used to be) is now repurposed. To keep
-     * MSD coherent, we copy the old displacement to the new slot before
-     * adding the hop's delta. */
-    if (ho.v_origin >= 0 && ho.v_dest >= 0) {
-        int32_t new_idx = st->vac_idx_of[ho.v_dest];
+    if (v_origin >= 0 && v_dest >= 0) {
+        int32_t new_idx = st->vac_idx_of[v_dest];
         if (new_idx >= 0 && new_idx < st->n_vac) {
-            /* Compute Cartesian delta from v_origin to v_dest with PBC. */
-            double ox = lat->positions[3 * ho.v_origin + 0];
-            double oy = lat->positions[3 * ho.v_origin + 1];
-            double oz = lat->positions[3 * ho.v_origin + 2];
-            double tx = lat->positions[3 * ho.v_dest   + 0];
-            double ty = lat->positions[3 * ho.v_dest   + 1];
-            double tz = lat->positions[3 * ho.v_dest   + 2];
+            double ox = lat->positions[3 * v_origin + 0];
+            double oy = lat->positions[3 * v_origin + 1];
+            double oz = lat->positions[3 * v_origin + 2];
+            double tx = lat->positions[3 * v_dest   + 0];
+            double ty = lat->positions[3 * v_dest   + 1];
+            double tz = lat->positions[3 * v_dest   + 2];
             double dx = min_image(tx - ox, (double)lat->cell[0]);
             double dy = min_image(ty - oy, (double)lat->cell[1]);
             double dz = min_image(tz - oz, (double)lat->cell[2]);
-            /* Note: state_apply_actions doesn't preserve unwrapped_xyz slot
-             * identity across the swap — the new slot for v_dest may be
-             * uninitialised. For a 1-vacancy system, n_vac stays at 1, the
-             * old slot 0 is reassigned to v_dest, and the displacement
-             * accumulator continues. For multi-vacancy systems, slot
-             * identity may shuffle (swap-last) and MSD correctness
-             * requires per-vacancy IDs (deferred to v0.3). */
+            /* state_apply_actions doesn't preserve unwrapped_xyz slot identity
+             * across the swap; correct for the single-vacancy case, approximate
+             * (swap-last shuffle) for multi-vacancy — see mean_msd_A2 caveat. */
             st->unwrapped_xyz[3 * new_idx + 0] += dx;
             st->unwrapped_xyz[3 * new_idx + 1] += dy;
             st->unwrapped_xyz[3 * new_idx + 2] += dz;
         }
     } else if (!g_msd_warning_emitted) {
         fprintf(stderr,
-            "[kmc] note: process %d is not a single-vacancy hop "
+            "[kmc] note: event is not a single-vacancy hop "
             "(v_origin=%d, v_dest=%d); MSD will be approximate. "
             "(This warning fires once.)\n",
-            proc, ho.v_origin, ho.v_dest);
+            v_origin, v_dest);
         g_msd_warning_emitted = 1;
     }
+}
+
+/* Apply the selected measured Process at the given anchor site. */
+static void apply_event(KmcContext *ctx, int32_t proc, int32_t site)
+{
+    State *st = ctx->st;
+    const Lattice *lat = ctx->lat;
+
+    HopOutcome ho = pylatkmc_apply_table[proc](st, lat, site);
+    if (pylatkmc_rate_table[proc].is_electrochemical) st->n_dissolution++;
+    update_msd(lat, st, ho.v_origin, ho.v_dest);
 }
 
 int kmc_step_once(KmcContext *ctx,
@@ -143,8 +136,15 @@ int kmc_step_once(KmcContext *ctx,
     /* 4. Refresh cum_rates. */
     avail_sites_refresh_cum_rates(ctx->as);
 
-    /* 5. Total rate. */
-    double r_tot = avail_sites_r_tot(ctx->as);
+    /* 5. Total rate across both channels: measured (avail_sites) + surrogate. */
+    double pat_rtot = avail_sites_r_tot(ctx->as);
+    double surr_rtot = 0.0;
+#ifdef PYLATKMC_HAS_SURROGATE
+    if (ctx->surr)
+        surr_rtot = surrogate_rebuild(ctx->surr, ctx->lat, ctx->st, ctx->as,
+                                      ctx->temperature_K);
+#endif
+    double r_tot = pat_rtot + surr_rtot;
     if (r_tot <= 0.0) return -ENODATA;
 
     /* 6. Draw RNG. */
@@ -153,13 +153,32 @@ int kmc_step_once(KmcContext *ctx,
     double dt     = -log(r2) / r_tot;
     double target = r1 * r_tot;
 
-    /* 7. Select (proc, site). */
+    /* 7. Select across both channels; measured occupies [0, pat_rtot). */
     int32_t proc = -1, site = -1;
-    int rc = avail_sites_select(ctx->as, target, &proc, &site);
-    if (rc != 0) return rc;
-
-    /* 8. Apply. */
-    apply_event(ctx, proc, site);
+    int32_t surr_fired = -1;
+    if (target < pat_rtot || surr_rtot <= 0.0) {
+        int rc = avail_sites_select(ctx->as, target, &proc, &site);
+        if (rc != 0) return rc;
+        apply_event(ctx, proc, site);
+#ifdef PYLATKMC_HAS_SURROGATE
+        if (ctx->surr)
+            surrogate_note_measured(ctx->surr, pylatkmc_proc_v6_ea[proc],
+                                    pylatkmc_rate_table[proc].Ea_eV);
+#endif
+    }
+#ifdef PYLATKMC_HAS_SURROGATE
+    else {
+        surr_fired = surrogate_select(ctx->surr, target - pat_rtot);
+        int32_t vo = -1, vd = -1;
+        int rc = surrogate_apply(ctx->surr, ctx->st, ctx->lat, surr_fired, &vo, &vd);
+        if (rc != 0) return rc;
+        update_msd(ctx->lat, ctx->st, vo, vd);
+        site = vo;   /* report the vacancy anchor; proc stays -1 (surrogate) */
+    }
+    if (ctx->surr)
+        surrogate_account(ctx->surr, ctx->lat, surr_fired, dt, r_tot);
+#endif
+    (void)surr_fired;
 
     /* 9. Tick. */
     ctx->st->time_s += dt;
@@ -178,6 +197,7 @@ int kmc_run(KmcContext *ctx)
 
     XyzWriter       xyz = {0};
     PykmcOutWriter  out_log = {0};
+    PhasecOutWriter phasec = {0};
     int rc;
 
     if (cfg->traj_path && cfg->traj_path[0]) {
@@ -195,6 +215,15 @@ int kmc_run(KmcContext *ctx)
             return rc;
         }
     }
+
+#ifdef PYLATKMC_HAS_SURROGATE
+    if (ctx->surr && cfg->phasec_path && cfg->phasec_path[0]) {
+        rc = phasec_out_open(&phasec, cfg->phasec_path);
+        if (rc != 0)
+            fprintf(stderr, "kmc_run: phasec_out_open(%s) failed: %d\n",
+                    cfg->phasec_path, rc);
+    }
+#endif
 
     /* Emit the t=0 frame before any step. */
     if (xyz.fp) xyz_write_frame(&xyz, ctx->st);
@@ -229,10 +258,24 @@ int kmc_run(KmcContext *ctx)
                                      k_event, Ea_eV,
                                      proc_done, site_done);
             }
+#ifdef PYLATKMC_HAS_SURROGATE
+            if (phasec.fp && ctx->surr) {
+                const struct SurrCtx *s = ctx->surr;
+                double frac_inst = (s->last_k_total_inst > 0.0)
+                    ? s->last_k_flag_inst / s->last_k_total_inst : 0.0;
+                double frac_cum = (s->flux_total_cum > 0.0)
+                    ? s->flux_flag_cum / s->flux_total_cum : 0.0;
+                phasec_out_write_row(&phasec, ctx->st->step,
+                                     frac_inst, frac_cum, s->last_n_cand,
+                                     s->n_surr_fired, s->n_meas_fired,
+                                     surrogate_v6_mean(s), s->v6_absresid_max);
+            }
+#endif
         }
     }
 
     xyz_close(&xyz);
     pykmc_out_close(&out_log);
+    phasec_out_close(&phasec);
     return last_rc;
 }

@@ -23,6 +23,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pytest
 
 from pylatkmc.ingest.event_class import (
     Coloring,
@@ -98,9 +99,7 @@ def _row(**kw):
 
 def _thresholds() -> GateThresholds:
     """Permissive gate thresholds so structural (not barrier) properties drive outcomes."""
-    return GateThresholds(
-        emin_event=0.0, emax_event=5.0, backward_emin_event=0.0, rcut=5.0
-    )
+    return GateThresholds(emin_event=0.0, emax_event=5.0, backward_emin_event=0.0, rcut=5.0)
 
 
 # --------------------------------------------------------------------------- #
@@ -380,9 +379,7 @@ def _bridge_substrate():
 
 def _hollow_substrate():
     half = NN / 2
-    sub = np.array(
-        [[half, half, 0.0], [half, -half, 0.0], [-half, half, 0.0], [-half, -half, 0.0]]
-    )
+    sub = np.array([[half, half, 0.0], [half, -half, 0.0], [-half, half, 0.0], [-half, -half, 0.0]])
     sad = np.array([0.0, 0.0, math.sqrt(NN**2 - 2 * half**2)])
     return sub, sad
 
@@ -425,7 +422,12 @@ def test_classify_hysteresis_holds_boundary_kind():
     # A remote 4-atom square (side = 1NN) pins the local 1NN scale to NN; two
     # coordinating atoms sit exactly at the cutoff radius, making the count ambiguous.
     ref = np.array(
-        [[20.0, 20.0, 20.0], [20.0 + NN, 20.0, 20.0], [20.0, 20.0 + NN, 20.0], [20.0 + NN, 20.0 + NN, 20.0]]
+        [
+            [20.0, 20.0, 20.0],
+            [20.0 + NN, 20.0, 20.0],
+            [20.0, 20.0 + NN, 20.0],
+            [20.0 + NN, 20.0 + NN, 20.0],
+        ]
     )
     r = _SADDLE_COORD_FACTOR * NN
     boundary = np.array([[r, 0.0, 0.0], [-r, 0.0, 0.0]])
@@ -540,3 +542,98 @@ def test_resolve_nu0_units_hz_vs_psinv():
     assert _resolve_nu0_hz({"nu0": float("nan"), "k_prefactor": 19.4}) == 19.4e12
     # Neither present -> NaN.
     assert math.isnan(_resolve_nu0_hz({}))
+
+
+# --------------------------------------------------------------------------- #
+# FRAME_UNFIT (robust fit existence gate, memo 2026-07-22 s3.6)               #
+# --------------------------------------------------------------------------- #
+def test_fit_local_fcc_frame_unfit_too_few_bonds():
+    """A near-empty cluster (no NN bonds) raises FrameUnfitError."""
+    from pylatkmc.ingest.event_projection import FrameUnfitError
+
+    pos = np.asarray([[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [0.0, 10.0, 0.0], [0.0, 0.0, 10.0]])
+    with pytest.raises(FrameUnfitError, match="too few NN bonds"):
+        fit_local_fcc(pos, 0)
+
+
+def test_fit_local_fcc_frame_unfit_no_orthogonal_pair():
+    """A 1-D chain has a single bond axis -> no orthogonal pair -> FrameUnfitError."""
+    from pylatkmc.ingest.event_projection import FrameUnfitError
+
+    chain = np.asarray([[i * NN, 0.0, 0.0] for i in range(8)], dtype=float)
+    with pytest.raises(FrameUnfitError, match="orthogonal"):
+        fit_local_fcc(chain, 0)
+
+
+def test_frame_unfit_error_is_a_value_error():
+    """FrameUnfitError subclasses ValueError (compat with pre-fix callers)."""
+    from pylatkmc.ingest.event_projection import FrameUnfitError
+
+    assert issubclass(FrameUnfitError, ValueError)
+
+
+def test_project_event_frame_unfit_degenerate_fails_g3_before_snapping():
+    """An unfittable cluster projects to a degenerate event; G3 records FRAME_UNFIT."""
+    chain = np.asarray([[i * NN, 0.0, 0.0] for i in range(8)], dtype=float)
+    chain2 = chain.copy()
+    chain2[0] = chain[0] + np.asarray([0.0, NN, 0.0])
+    pe = project_event(
+        _row(
+            initial_positions=chain,
+            final_positions=chain2,
+            saddle_positions=chain,
+            initial_types=["Ni"] * 8,
+            move_atom_idx=0,
+        ),
+        coloring=Coloring.FULL,
+        rcut=5.0,
+        d_max=2,
+        r_ctx_min=3.0,
+    )
+    assert pe.proj_report.frame_unfit_reason is not None
+    assert pe.movers == () and pe.delta == () and pe.context == ()
+    assert math.isinf(pe.proj_report.max_residual)
+    assert pe.proj_report.diameter > 0.0  # real geometry kept for G7/audit
+    assert pe.Ea_fwd_eV == 0.6  # row provenance kept
+
+    gates = run_gates(pe, thresholds=_thresholds(), t_ref_K=500.0)
+    by_gate = {g.gate: g for g in gates}
+    g3 = by_gate["G3"]
+    assert g3.outcome == GateOutcome.FAIL
+    assert g3.detail.startswith("FRAME_UNFIT:")  # fails before any snap residual
+    assert "orthogonal" in g3.detail  # the fitter's reason string is recorded
+    assert by_gate["G4"].outcome == GateOutcome.FAIL  # no mover agreement either
+
+
+def test_frame_unfit_event_survives_catalogue_assembly():
+    """A degenerate event canonicalises and lands in the catalogue as an audit row."""
+    from pylatkmc.ingest.event_class import build_class_catalogue
+
+    chain = np.asarray([[i * NN, 0.0, 0.0] for i in range(8)], dtype=float)
+    pe = project_event(
+        _row(
+            initial_positions=chain,
+            final_positions=chain,
+            saddle_positions=chain,
+            initial_types=["Ni"] * 8,
+            move_atom_idx=0,
+        ),
+        coloring=Coloring.FULL,
+        rcut=5.0,
+        d_max=2,
+        r_ctx_min=3.0,
+    )
+    classes = build_class_catalogue(
+        [pe], t_ref_K=500.0, thresholds=_thresholds(), nu0_fallback_hz=1.0e12
+    )
+    assert len(classes) == 1
+    (cls,) = classes
+    assert cls.audit_status == "pending"  # never auto-approved
+    g3 = next(g for g in cls.gate_log if g.gate == "G3")
+    assert g3.outcome == GateOutcome.FAIL and "FRAME_UNFIT" in g3.detail
+    # The QC delta-less screen quarantines it downstream.
+    from pylatkmc.ingest.qc import apply_qc
+
+    qc = apply_qc(classes)
+    assert qc.classes[0].audit_status == "quarantined"
+    assert qc.deltaless_quarantined == 1

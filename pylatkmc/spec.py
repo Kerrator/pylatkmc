@@ -132,11 +132,18 @@ class RateData(BaseModel):
     # path). When set, codegen translates it via translator_v2/pattern_codegen
     # (species-resolved, D4h-expanded, data-driven tables) INSTEAD of the
     # family-CSV path; family_table is then ignored. Requires [ingest] extras.
+    surrogate_model: Path | None = None  # Phase C E_sym surrogate artifact (esym_model
+    # *.json). Optional; only on the v2 (event_class_table) path. When set, codegen
+    # bakes the model + per-1NN-direction feature tables into proclist.c and enables
+    # the runtime surrogate rate channel (b). When unset, the surrogate channel is
+    # compiled out. Resolved relative to the spec dir like event_class_table.
     temperature_K: float = Field(gt=0.0)
     k0_Hz: float = Field(gt=0.0)  # global prefactor; also the per-family HTST fallback
     prefactor_style: Literal["constant", "htst"] = "constant"
 
-    @field_validator("primary", "family_table", "fallback_scalar", "event_class_table")
+    @field_validator(
+        "primary", "family_table", "fallback_scalar", "event_class_table", "surrogate_model"
+    )
     @classmethod
     def _absolute_or_relative(cls, v: Path | None) -> Path | None:
         # Paths are left unresolved here; the loader is responsible for rooting

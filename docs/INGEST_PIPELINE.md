@@ -81,6 +81,27 @@ auto-freeze gated to surface movers) → `vineyard_prefactor`. Gates (Ea, single
 1–50 THz range) drop bad geometries; the bucket median is written. *(Runtime: ~20 s/event, hundreds
 of events — run in the background.)*
 
+> **`python -m pylatkmc.ingest.cli` also serves the `EventClass` Parquet pipeline** (the Phase A/C
+> identity layer, not this family-CSV runbook) with three pure subcommands (no LAMMPS):
+>
+> - **`build`** — the installed reference-table pipeline: project every row of a pyKMC
+>   `reference_table.pickle` (robust global-orientation frame fit with the identity scale pinned to
+>   `--nominal-a`/2; memo `PROJECTION_IDENTITY_REDESIGN_DECISION_2026-07-22.md` §3.1), run gates
+>   G1–G7, assemble + write the catalogue. A cluster with no fittable FCC frame is recorded as a
+>   degenerate event whose gate log carries `G3 FRAME_UNFIT` (never a silent drop); `--rcut` must be
+>   the pyKMC run's rcut (the G7 trap).
+> - **`qc`** — the quality-control screens (reciprocity, delta-less, within-class dE-spread
+>   **quarantine** per memo §3.5, human-veto overlay — sticky, orphans surfaced) re-emitting a
+>   schema-v2 Parquet (`CATALOGUE_SCHEMA_VERSION` 1 → 2, `audit_reason` recorded). With
+>   `--measured-refs` it also stamps each surviving class's ν₀ rate policy (memo §3.2–3.3):
+>   previously-measured classes → `harvested_pair` (fire raw harvested pairs); recovered classes →
+>   `pending_research` (excluded from measured procs by `translator_v2`, counted; their sites fall
+>   through to the Phase C surrogate channel + flag registry until re-search).
+> - **`graduate`** — the re-search agreement gate (memo §3.4): fold in-situ re-search barriers onto
+>   `pending_research` classes; `|Ea_re-search − Ea_harvested| ≤ --band` (0.05 eV) graduates the
+>   class (harvested pairs fire), above the band it is marked `CONTEXT_SUSPECT` and written to the
+>   review list. Exclusions lift only through this documented gate, never silently.
+
 **Fallback — canonical slabs** for zero/low-event families (e.g. `bulk_1NN_inplane`):
 
 ```bash

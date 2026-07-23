@@ -28,7 +28,8 @@ def load(path: str | Path) -> ModelSpec:
 
     # Resolve rate_data paths relative to the spec file's directory.
     rd_raw: dict[str, Any] = dict(raw.get("rate_data", {}))
-    for key in ("primary", "family_table", "fallback_scalar", "event_class_table"):
+    for key in ("primary", "family_table", "fallback_scalar", "event_class_table",
+                "surrogate_model"):
         if key in rd_raw and rd_raw[key] is not None:
             rd_raw[key] = (spec_path.parent / rd_raw[key]).resolve()
 

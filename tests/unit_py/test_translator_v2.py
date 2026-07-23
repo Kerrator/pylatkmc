@@ -285,6 +285,33 @@ def test_nonconserving_and_empty_delta_are_skipped_and_counted() -> None:
     assert len(patterns) == 1
 
 
+def test_pending_research_classes_are_skipped_and_counted() -> None:
+    """A pending_research class (memo 2026-07-22 §3.2) never emits a measured proc."""
+    from dataclasses import replace as dc_replace
+
+    from pylatkmc.translator_v2 import PENDING_RESEARCH_POLICY
+
+    classes = _catalogue([_mk_pe()])
+    pending = [dc_replace(c, nu0_pair_policy=PENDING_RESEARCH_POLICY) for c in classes]
+    patterns, report = translate_event_classes(pending)
+    assert patterns == []
+    assert report.skipped_pending_research == 1
+    assert report.n_translated == 0
+    assert "skipped pending-research:  1" in "\n".join(report.summary_lines())
+
+
+def test_policy_literals_locked_to_ingest_qc() -> None:
+    """translator_v2 mirrors the ingest.qc policy literals (no import at module load)."""
+    from pylatkmc.ingest.qc import (
+        NU0_POLICY_HARVESTED_PAIR,
+        NU0_POLICY_PENDING_RESEARCH,
+    )
+    from pylatkmc.translator_v2 import HARVESTED_PAIR_POLICY, PENDING_RESEARCH_POLICY
+
+    assert NU0_POLICY_HARVESTED_PAIR == HARVESTED_PAIR_POLICY
+    assert NU0_POLICY_PENDING_RESEARCH == PENDING_RESEARCH_POLICY
+
+
 def test_multimover_tokens_bind_by_crystal_rank() -> None:
     """Token[i] belongs to the i-th mover in CRYSTAL-frame lex order (Phase A
     ``start_rank``); the frame map must be applied AFTER that sort — runtime
@@ -344,9 +371,7 @@ def test_include_nonconserving_opt_in() -> None:
         delta=(DeltaSite((0, 0, 0), Occ.CR, Occ.EMPTY),),
         delta_atoms=-1,
     )
-    patterns, report = translate_event_classes(
-        _catalogue([vanish]), include_nonconserving=True
-    )
+    patterns, report = translate_event_classes(_catalogue([vanish]), include_nonconserving=True)
     assert report.n_translated == 1
     assert report.skipped_nonconserving == 0
     (pat,) = patterns
@@ -408,8 +433,19 @@ def test_emitted_proclist_compiles(tmp_path: Path) -> None:
     src = tmp_path / "proclist.c"
     src.write_text(_full_proclist_c(patterns))
     res = subprocess.run(
-        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
-         str(src), "-I", str(RUNTIME_CORE), "-o", str(tmp_path / "proclist.o")],
+        [
+            "cc",
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-c",
+            str(src),
+            "-I",
+            str(RUNTIME_CORE),
+            "-o",
+            str(tmp_path / "proclist.o"),
+        ],
         capture_output=True,
         text=True,
     )
@@ -553,9 +589,19 @@ def test_generate_v2_empty_catalogue_compiles(tmp_path: Path) -> None:
     if shutil.which("cc") is None:
         pytest.skip("cc not on PATH (emission asserted; compile gate skipped)")
     res = subprocess.run(
-        ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-c",
-         str(out / "proclist.c"), "-I", str(RUNTIME_CORE),
-         "-o", str(tmp_path / "proclist.o")],
+        [
+            "cc",
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-c",
+            str(out / "proclist.c"),
+            "-I",
+            str(RUNTIME_CORE),
+            "-o",
+            str(tmp_path / "proclist.o"),
+        ],
         capture_output=True,
         text=True,
     )

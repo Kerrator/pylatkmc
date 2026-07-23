@@ -32,12 +32,18 @@ every table is emitted in that fixed order with fixed formatting.
 
 from __future__ import annotations
 
-from pylatkmc.translator_v2 import LatticePattern, d4h_matrices
+from pylatkmc.translator_v2 import LatticePattern, MemberRate, d4h_matrices
 
 #: Predicate byte codes beyond the Species enum (events_base.h holds 0..3;
 #: 255 is the stub sentinel). Values are part of the generated-C contract.
 PRED_EMPTY = 250
 PRED_OCC_ANY = 251
+
+#: Per-proc channel tags (machine-readable provenance). Channel (a) measured
+#: procs are always CHANNEL_MEASURED; the runtime surrogate channel (b) is
+#: CHANNEL_SURROGATE and lives outside the proc table (never enrolled here).
+CHANNEL_MEASURED = 0
+CHANNEL_SURROGATE = 1
 
 #: Species-name → runtime enum symbol. NAME-based on purpose: the ingest
 #: ``Occ`` integers (CR=2, FE=3) disagree with the runtime ``Species``
@@ -97,9 +103,47 @@ def _vacancy_rows(pat: LatticePattern) -> tuple[int, int]:
     return (origin[0] if len(origin) == 1 else -1, dest[0] if len(dest) == 1 else -1)
 
 
+def _members(pat: LatticePattern) -> tuple[MemberRate, ...]:
+    """The pattern's rate channels; synthesize a single one from the scalar
+    ``prefactor_Hz`` / ``Ea_eV`` if ``members`` is empty (defensive: a pattern
+    built directly, not via the translator)."""
+    if pat.members:
+        return pat.members
+    return (MemberRate(pat.prefactor_Hz, pat.Ea_eV, float("nan")),)
+
+
 def n_procs_of(patterns: list[LatticePattern]) -> int:
-    """Total oriented processes = sum of orientation-transversal sizes."""
-    return sum(len(p.orientation_ops) for p in patterns)
+    """Total oriented processes = Σ (orientation count × member count).
+
+    Each ``(member, orientation)`` pair is one proc (§8-N6 raw-pairs); a
+    singleton class is 1 member × its orientations, unchanged from the
+    aggregate path.
+    """
+    return sum(len(p.orientation_ops) * len(_members(p)) for p in patterns)
+
+
+def _order(patterns: list[LatticePattern]) -> list[int]:
+    """Stable pattern order: (anchor species code, pattern name)."""
+    return sorted(range(len(patterns)), key=lambda i: (
+        _SP_CODE.get(patterns[i].anchor_species, 255),
+        patterns[i].name,
+    ))
+
+
+def _proc_list(patterns: list[LatticePattern]) -> tuple[list[int], list[tuple[int, int, int, int]]]:
+    """Deterministic (order, procs). ``procs`` entries are
+    ``(table_idx, op, member_idx, pattern_idx)`` in emission order: patterns in
+    ``_order``, then member-major, then orientation. Shared by the table, rate,
+    and provenance emitters so all three stay index-aligned.
+    """
+    order = _order(patterns)
+    procs: list[tuple[int, int, int, int]] = []
+    for table_idx, pi in enumerate(order):
+        pat = patterns[pi]
+        for m in range(len(_members(pat))):
+            for op in pat.orientation_ops:
+                procs.append((table_idx, op, m, pi))
+    return order, procs
 
 
 def emit_v2_enum(patterns: list[LatticePattern]) -> str:
@@ -146,20 +190,17 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
         )
 
     # ---- flatten rows + build the process list -------------------------
-    # Processes sorted by (anchor species code, pattern name, op index) so
-    # each anchor species' processes are one contiguous proc-id range.
-    order = sorted(range(len(patterns)), key=lambda i: (
-        _SP_CODE.get(patterns[i].anchor_species, 255),
-        patterns[i].name,
-    ))
+    # Processes sorted by (anchor species code, pattern name), then member-
+    # major, then op, so each anchor species' processes are one contiguous
+    # proc-id range (see _proc_list).
+    order, procs = _proc_list(patterns)
 
     delta_rows: list[str] = []
     ctx_rows: list[str] = []
     pattern_defs: list[str] = []
-    procs: list[tuple[int, int, str]] = []  # (pattern_table_idx, op_idx, name)
     max_delta = 0
 
-    for table_idx, pi in enumerate(order):
+    for pi in order:
         pat = patterns[pi]
         d_begin, c_begin = len(delta_rows), len(ctx_rows)
         for r in pat.delta:
@@ -176,8 +217,6 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
             f"    {{{d_begin},{len(pat.delta)},{c_begin},{len(pat.context)},"
             f"{v_origin},{v_dest},{_sp(pat.anchor_species)},0}}, /* {pat.name} */"
         )
-        for op in pat.orientation_ops:
-            procs.append((table_idx, op, pat.name))
 
     n_procs = len(procs)
 
@@ -185,7 +224,7 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     # v2_bucket_begin[sp] .. v2_bucket_begin[sp+1] is the proc-id range whose
     # anchor species code is sp. Species codes come from events_base.h.
     sp_of_proc = [
-        _SP_CODE[patterns[order[t]].anchor_species] for (t, _op, _n) in procs
+        _SP_CODE[patterns[pi].anchor_species] for (_t, _op, _m, pi) in procs
     ]
     n_sp = 4  # SP_COUNT in events_base.h
     bucket_begin = [0] * (n_sp + 1)
@@ -245,7 +284,7 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("")
     a("static const V2Proc v2_procs[N_PROCS] = {")
     out.extend(
-        _chunk_lines([f"{{{t},{op},{{0,0,0}}}}," for (t, op, _n) in procs], 8)
+        _chunk_lines([f"{{{t},{op},{{0,0,0}}}}," for (t, op, _m, _pi) in procs], 8)
     )
     a("};")
     a("")
@@ -370,10 +409,7 @@ def emit_v2_rate_table(patterns: list[LatticePattern]) -> str:
             '_Static_assert(sizeof(RateConst) == 24, '
             '"RateConst layout drift vs proclist.h");\n'
         )
-    order = sorted(range(len(patterns)), key=lambda i: (
-        _SP_CODE.get(patterns[i].anchor_species, 255),
-        patterns[i].name,
-    ))
+    _order_ignored, procs = _proc_list(patterns)
     lines = [
         "typedef struct { double prefactor_Hz; double Ea_eV; "
         "int32_t is_electrochemical; int32_t _pad; } RateConst;",
@@ -381,23 +417,92 @@ def emit_v2_rate_table(patterns: list[LatticePattern]) -> str:
         '"RateConst layout drift vs proclist.h");',
         "static const RateConst rate_table[N_PROCS] = {",
     ]
-    for pi in order:
+    for (_t, op, m, pi) in procs:
         pat = patterns[pi]
-        for op in pat.orientation_ops:
-            lines.append(
-                f"    {{ .prefactor_Hz = {pat.prefactor_Hz:.10e}, "
-                f".Ea_eV = {pat.Ea_eV:.6f}, .is_electrochemical = 0, "
-                f"._pad = 0 }}, /* {pat.name} g{op} */"
-            )
+        mr = _members(pat)[m]
+        lines.append(
+            f"    {{ .prefactor_Hz = {mr.prefactor_Hz:.10e}, "
+            f".Ea_eV = {mr.Ea_eV:.6f}, .is_electrochemical = 0, "
+            f"._pad = 0 }}, /* {pat.name} m{m} g{op} */"
+        )
     lines.append("};")
     return "\n".join(lines) + "\n"
 
 
+def _c_string(s: str) -> str:
+    """A C double-quoted string literal for an ASCII class-id hex digest."""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _fmt_f64(x: float) -> str:
+    """Full-precision C double literal (NaN → the standard NAN macro)."""
+    import math
+
+    if math.isnan(x):
+        return "NAN"
+    return f"{x:.17g}"
+
+
+def emit_v2_provenance(patterns: list[LatticePattern]) -> str:
+    """Emit machine-readable per-proc provenance (replaces comment-only).
+
+    A ``v2_class_ids[]`` string table (sorted unique class ids) plus four
+    per-proc arrays index-aligned with ``rate_table`` / ``v2_procs``:
+    ``v2_proc_class`` (index into ``v2_class_ids``), ``v2_proc_member`` (the
+    harvested member index), ``v2_proc_channel`` (CHANNEL_MEASURED), and
+    ``v2_proc_v6_ea`` (the per-class V6 surrogate barrier in eV, NaN if no
+    model baked). Guarded by ``PYLATKMC_V2_PROVENANCE`` in proclist.h.
+    """
+    _order_ignored, procs = _proc_list(patterns)
+    class_ids = sorted({p.class_id for p in patterns})
+    idx_of = {cid: i for i, cid in enumerate(class_ids)}
+
+    out: list[str] = []
+    a = out.append
+    a("#include <math.h>   /* NAN for the V6 surrogate-barrier provenance */")
+    a("/* ---- machine-readable provenance (per-proc; §8-N6 channel a) ---- */")
+    a(f"static const char *const v2_class_ids[{max(1, len(class_ids))}] = {{")
+    out.extend(_chunk_lines([f"{_c_string(c)}," for c in class_ids], 2))
+    if not class_ids:
+        a("    0")
+    a("};")
+    a(f"static const int32_t v2_n_classes = {len(class_ids)};")
+    a("")
+    proc_class = [idx_of[patterns[pi].class_id] for (_t, _op, _m, pi) in procs]
+    proc_member = [m for (_t, _op, m, _pi) in procs]
+    proc_chan = [CHANNEL_MEASURED for _ in procs]
+    proc_v6 = [_members(patterns[pi])[m].v6_ea_surrogate for (_t, _op, m, pi) in procs]
+    a(f"static const int32_t v2_proc_class[{max(1, len(procs))}] = {{")
+    out.extend(_chunk_lines([f"{v}," for v in proc_class], 16))
+    if not procs:
+        a("    0")
+    a("};")
+    a(f"static const int32_t v2_proc_member[{max(1, len(procs))}] = {{")
+    out.extend(_chunk_lines([f"{v}," for v in proc_member], 16))
+    if not procs:
+        a("    0")
+    a("};")
+    a(f"static const uint8_t v2_proc_channel[{max(1, len(procs))}] = {{")
+    out.extend(_chunk_lines([f"{v}," for v in proc_chan], 16))
+    if not procs:
+        a("    0")
+    a("};")
+    a(f"static const double v2_proc_v6_ea[{max(1, len(procs))}] = {{")
+    out.extend(_chunk_lines([f"{_fmt_f64(v)}," for v in proc_v6], 8))
+    if not procs:
+        a("    0")
+    a("};")
+    return "\n".join(out) + "\n"
+
+
 __all__ = (
+    "CHANNEL_MEASURED",
+    "CHANNEL_SURROGATE",
     "PRED_EMPTY",
     "PRED_OCC_ANY",
     "emit_pattern_tables",
     "emit_v2_enum",
+    "emit_v2_provenance",
     "emit_v2_rate_table",
     "n_procs_of",
     "pattern_reach",

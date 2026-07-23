@@ -51,6 +51,16 @@ static int set_key(InputConfig *cfg, const char *section, const char *key, const
         cfg->dissolution_prefactor_Hz = strtod(val, NULL);
     else if (strcmp(qual, "physics.max_dissolution_events") == 0)
         cfg->max_dissolution_events = strtoull(val, NULL, 10);
+    else if (strcmp(qual, "surrogate.surrogate_enable") == 0)
+        cfg->surrogate_enable = (int)strtol(val, NULL, 10);
+    else if (strcmp(qual, "surrogate.k_floor_Hz") == 0)
+        cfg->surrogate_k_floor_Hz = strtod(val, NULL);
+    else if (strcmp(qual, "surrogate.leverage_gate") == 0)
+        cfg->surrogate_leverage_gate = strtod(val, NULL);
+    else if (strcmp(qual, "surrogate.flux_threshold") == 0)
+        cfg->surrogate_flux_threshold = strtod(val, NULL);
+    else if (strcmp(qual, "surrogate.flag_registry_capacity") == 0)
+        cfg->surrogate_flag_capacity = strtoull(val, NULL, 10);
     else if (strcmp(qual, "validation.rng_replay_path") == 0)
         snprintf(cfg->rng_replay_path, sizeof cfg->rng_replay_path, "%s", val);
     else {
@@ -87,6 +97,9 @@ int input_config_load(InputConfig *out, const char *path)
     out->summary_every   = 0ULL;
     out->base_seed       = 42ULL;
     out->temperature_K   = 500.0;
+    out->surrogate_enable        = 1;      /* on when a model is baked */
+    out->surrogate_flux_threshold = 0.01;
+    out->surrogate_flag_capacity  = 65536ULL;
     snprintf(out->output_root, sizeof out->output_root, "%s", "./output");
 
     FILE *fp = fopen(path, "r");

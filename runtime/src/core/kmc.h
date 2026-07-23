@@ -21,10 +21,16 @@ typedef struct {
     const char *traj_path;
     const char *log_path;
     const char *summary_path;
+    const char *phasec_path;    /* Phase C surrogate-channel log; NULL = disabled */
 
     /* Hook for cross-validation; currently unused. */
     const char *rng_replay_path;
 } KmcRunConfig;
+
+/* Forward decl: the Phase C surrogate channel (runtime/src/core/surrogate.h).
+ * NULL on v0.3 / no-model builds — the step loop's surrogate path compiles
+ * out entirely unless the generated proclist.h defines PYLATKMC_HAS_SURROGATE. */
+struct SurrCtx;
 
 /* Per-run context. Shapes for v0.2 (pattern-DB):
  *   - lat: lattice + coord_table (built once at startup)
@@ -45,6 +51,7 @@ typedef struct {
     const KmcRunConfig *cfg;
     double            temperature_K;
     double            overpotential_phi_eV;  /* electrochemical overpotential Phi (eV); 0 = thermal */
+    struct SurrCtx   *surr;                  /* Phase C surrogate channel, or NULL */
 } KmcContext;
 
 /* One rejection-free step:

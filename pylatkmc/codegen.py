@@ -361,6 +361,68 @@ def _resolve_event_class_table(spec: ModelSpec, spec_path: Path | None) -> Path:
     return ect
 
 
+def _resolve_surrogate_model(spec: ModelSpec, spec_path: Path | None) -> Path:
+    """Resolve `spec.rate_data.surrogate_model` relative to the spec file."""
+    sm = spec.rate_data.surrogate_model
+    assert sm is not None  # caller checks
+    sm = Path(sm)
+    if not sm.is_absolute() and spec_path is not None:
+        sm = (spec_path.parent / sm).resolve()
+    return sm
+
+
+#: proclist.h extern block for the channel-(a) machine-readable provenance
+#: (v2 phase-C path only; the v0.3 template's default extra_defines="" keeps it
+#: out of committed v0.3 proclists so those stay byte-identical).
+_PROVENANCE_EXTERNS = """
+/* ---- v2 phase-C provenance (machine-readable; §8-N6 channel a) ----
+ * Per-proc arrays index-aligned with pylatkmc_rate_table: the class each proc
+ * belongs to (index into pylatkmc_class_ids), the harvested member index, the
+ * channel tag (0 = measured), and the per-class V6 surrogate barrier (eV; NaN
+ * if no surrogate model was baked). */
+#define PYLATKMC_V2_PROVENANCE 1
+extern const int32_t pylatkmc_n_classes;
+extern const char *const *const pylatkmc_class_ids;
+extern const int32_t *const pylatkmc_proc_class;
+extern const int32_t *const pylatkmc_proc_member;
+extern const uint8_t *const pylatkmc_proc_channel;
+extern const double  *const pylatkmc_proc_v6_ea;
+"""
+
+
+def _v2_public_glue(n_procs: int, phase_c: bool, has_surrogate: bool) -> str:
+    """The proclist.c public-linkage block for the v2 path.
+
+    Always exports n_procs / rate_table / apply_table; adds the provenance
+    aliases on the phase-C path and the surrogate-channel aliases when a model
+    is baked. Mirrors the externs in proclist.h."""
+    if n_procs == 0:
+        glue = (
+            "\n\nconst int32_t pylatkmc_n_procs = 0;\n"
+            "const RateConst *const pylatkmc_rate_table = NULL;\n"
+            "const ApplyFn   *const pylatkmc_apply_table = apply_table;\n"
+        )
+    else:
+        glue = (
+            "\n\n/* ---- Public linkage (mirrored in proclist.h) ---- */\n"
+            "const int32_t pylatkmc_n_procs = (int32_t)N_PROCS;\n"
+            "const RateConst *const pylatkmc_rate_table = rate_table;\n"
+            "const ApplyFn   *const pylatkmc_apply_table = apply_table;\n"
+        )
+    if phase_c:
+        glue += (
+            "const int32_t pylatkmc_n_classes = v2_n_classes;\n"
+            "const char *const *const pylatkmc_class_ids = v2_class_ids;\n"
+            "const int32_t *const pylatkmc_proc_class = v2_proc_class;\n"
+            "const int32_t *const pylatkmc_proc_member = v2_proc_member;\n"
+            "const uint8_t *const pylatkmc_proc_channel = v2_proc_channel;\n"
+            "const double  *const pylatkmc_proc_v6_ea = v2_proc_v6_ea;\n"
+        )
+    if has_surrogate:
+        glue += "const Surrogate *const pylatkmc_surrogate = &g_surrogate;\n"
+    return glue
+
+
 def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Path]:
     """The Phase B path: EventClass Parquet → pattern tables → proclist.{c,h}.
 
@@ -372,14 +434,34 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
     from pylatkmc.pattern_codegen import (
         emit_pattern_tables,
         emit_v2_enum,
+        emit_v2_provenance,
         emit_v2_rate_table,
         n_procs_of,
         pattern_reach,
     )
-    from pylatkmc.translator_v2 import translate_catalogue
+    from pylatkmc.translator_v2 import (
+        catalogue_is_phase_c,
+        load_event_class_catalogue,
+        translate_event_classes,
+    )
 
     ect = _resolve_event_class_table(spec, spec_path)
-    patterns, report = translate_catalogue(ect)
+    classes = load_event_class_catalogue(ect)
+    phase_c = catalogue_is_phase_c(classes)
+
+    # Optional Phase C surrogate model (channel b). Loaded here so its per-class
+    # V6 barrier is baked into provenance and its tables into proclist.c.
+    esym_model = None
+    surrogate_externs = ""
+    if spec.rate_data.surrogate_model is not None:
+        from pylatkmc.ingest.surrogate import load_model
+
+        model_path = _resolve_surrogate_model(spec, spec_path)
+        esym_model = load_model(model_path)
+
+    patterns, report = translate_event_classes(
+        classes, phase_c=phase_c, esym_model=esym_model
+    )
 
     # Every harvested species must be declared in the spec — a catalogue
     # species missing from spec.species would silently never occur in the
@@ -409,34 +491,46 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
         + "\n"
         + emit_pattern_tables(patterns)
     )
-    public_glue = """
+    # Channel-(a) machine-readable provenance (phase C only; byte-identical
+    # aggregate/schema-1 output otherwise).
+    if phase_c:
+        body += "\n" + emit_v2_provenance(patterns)
 
-/* ---- Public linkage (mirrored in proclist.h) ---- */
-const int32_t pylatkmc_n_procs = (int32_t)N_PROCS;
-const RateConst *const pylatkmc_rate_table = rate_table;
-const ApplyFn   *const pylatkmc_apply_table = apply_table;
-"""
-    if n_procs == 0:
-        # rate_table isn't emitted (RateConst typedef still is); the empty
-        # apply_table stub IS emitted — alias it so it isn't flagged unused.
-        public_glue = """
+    # Surrogate model tables (channel b), only when a model is baked.
+    if esym_model is not None:
+        from pylatkmc.surrogate_codegen import (
+            emit_surrogate_externs,
+            emit_surrogate_tables,
+        )
 
-const int32_t pylatkmc_n_procs = 0;
-const RateConst *const pylatkmc_rate_table = NULL;
-const ApplyFn   *const pylatkmc_apply_table = apply_table;
-"""
+        body += "\n" + emit_surrogate_tables(esym_model)
+        surrogate_externs = emit_surrogate_externs(esym_model)
+
+    public_glue = _v2_public_glue(n_procs, phase_c, esym_model is not None)
 
     # Pattern reach macros: replica.c refuses a config whose vacuum gap is
     # thinner than the reach (grid offsets wrap every axis; a too-thin gap
-    # would alias pattern rows onto the far surface instead of the stub).
+    # would alias pattern rows onto the far surface instead of the stub). When
+    # the surrogate channel is active, extend the reach to cover its feature
+    # ball too (the runtime resolves surrogate context offsets the same way).
     reach_ij, reach_k = pattern_reach(patterns)
+    if esym_model is not None:
+        from pylatkmc.surrogate_codegen import surrogate_ball_reach
+
+        s_ij, s_k = surrogate_ball_reach(esym_model)
+        reach_ij, reach_k = max(reach_ij, s_ij), max(reach_k, s_k)
     extra_defines = (
         "\n/* Max v2 pattern reach in grid cells (D4h-invariant), over all\n"
-        " * delta+context rows. The runtime rejects a configuration whose\n"
-        " * vacuum gap is thinner than this on any axis (see replica.c). */\n"
+        " * delta+context rows (and the surrogate feature ball when active).\n"
+        " * The runtime rejects a configuration whose vacuum gap is thinner\n"
+        " * than this on any axis (see replica.c). */\n"
         f"#define PYLATKMC_V2_MAX_REACH_IJ {reach_ij}\n"
         f"#define PYLATKMC_V2_MAX_REACH_K {reach_k}\n"
     )
+    if phase_c:
+        extra_defines += _PROVENANCE_EXTERNS
+    if esym_model is not None:
+        extra_defines += surrogate_externs
 
     written: list[Path] = []
     proclist_c_path = out / "proclist.c"

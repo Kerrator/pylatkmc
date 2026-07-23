@@ -16,6 +16,13 @@ typedef struct {
     uint64_t motif_counts[8];
     uint64_t direction_counts[5];
     uint64_t n_dissolution;          /* electrochemical dissolution events applied */
+    /* Phase C surrogate channel (0 on v0.3 / no-model builds). */
+    double   flagged_flux_fraction_cum;
+    double   flagged_event_fraction;
+    uint64_t n_surrogate_fired;
+    uint64_t n_measured_fired;
+    double   v6_mean_eV;
+    double   v6_max_eV;
 } ReplicaStats;
 
 typedef struct {

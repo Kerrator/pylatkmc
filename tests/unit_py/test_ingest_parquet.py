@@ -229,14 +229,24 @@ def test_tlv_encoding_byte_exact_golden() -> None:
 
 
 def test_arrow_schema_column_order(tmp_path) -> None:
-    """The arrow schema preserves the fixed contract-9 column order on write."""
+    """The arrow schema preserves the fixed column order on write (schema v2)."""
     import pyarrow.parquet as pq
 
     path = tmp_path / "cat.parquet"
     ec.write_catalogue_parquet([_rich_event()], path)
     schema = pq.read_schema(path)
     assert schema.names[:3] == ["class_id", "canonical_blob", "schema_version"]
-    assert schema.names[-1] == "gate_log"
-    # the fallback (Phase B) columns are omitted from the Parquet
-    for absent in ("phi", "model_version", "fallback_stats", "canonical_form"):
-        assert absent not in schema.names
+    # schema v2 appends the previously-omitted [C] fields + human-veto reason after
+    # gate_log; fallback_stats (JSON string) is last.
+    tail = schema.names[schema.names.index("gate_log") :]
+    assert tail == [
+        "gate_log",
+        "audit_reason",
+        "phi",
+        "model_version",
+        "dE_model_version",
+        "nu0_pair_policy",
+        "fallback_stats",
+    ]
+    # canonical_form is never a column (reconstructed from canonical_blob).
+    assert "canonical_form" not in schema.names

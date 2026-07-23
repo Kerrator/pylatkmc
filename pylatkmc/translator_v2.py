@@ -95,6 +95,25 @@ class CtxRow:
 
 
 @dataclass(frozen=True)
+class MemberRate:
+    """One rate channel of a pattern: a single (prefactor, barrier) pair.
+
+    In Phase C mode (``nu0_pair_policy == "harvested_pair"``) there is one
+    ``MemberRate`` per harvested class member (raw pair: ``prefactor_Hz =
+    nu0_f_list_hz[i]``, already Hz; ``Ea_eV = barriers_eV[i]``); the aggregate
+    (schema-1) path emits a single member (``nu0_geo × 1e12`` / ``Ea_rep``).
+    ``v6_ea_surrogate`` is the per-class V6 surrogate barrier
+    (``surrogate.surrogate_barrier``); ``nan`` when no model is baked. It is a
+    provenance/diagnostic quantity (identical for every member of a class),
+    never the executed rate.
+    """
+
+    prefactor_Hz: float
+    Ea_eV: float
+    v6_ea_surrogate: float
+
+
+@dataclass(frozen=True)
 class LatticePattern:
     """One translated EventClass: canonical-frame rows + orientation transversal.
 
@@ -103,13 +122,18 @@ class LatticePattern:
     species required at the anchor site (the O(1) screen). Orientation ``g``
     of this pattern places row ``r`` at ``D4H_OPS[g] @ r.off`` relative to the
     matched anchor site.
+
+    ``members`` carries the pattern's rate channels (§8-N6): each ``(member,
+    op)`` pair is one oriented process, so a class with ``n`` members expands
+    to ``n × len(orientation_ops)`` procs sharing this pattern's geometry.
+    ``prefactor_Hz`` / ``Ea_eV`` mirror ``members[0]`` for backward compat.
     """
 
     class_id: str
     name: str
     anchor_species: str
-    delta: tuple[DeltaRow, ...]        # runtime-frame cells (to_runtime_frame)
-    context: tuple[CtxRow, ...]        # runtime-frame cells
+    delta: tuple[DeltaRow, ...]  # runtime-frame cells (to_runtime_frame)
+    context: tuple[CtxRow, ...]  # runtime-frame cells
     orientation_ops: tuple[int, ...]
     prefactor_Hz: float
     Ea_eV: float
@@ -117,6 +141,7 @@ class LatticePattern:
     n_members: int
     depth_kind: int
     depth_param: int
+    members: tuple[MemberRate, ...] = ()
 
 
 @dataclass
@@ -126,12 +151,16 @@ class TranslationReport:
     n_classes_in: int = 0
     n_translated: int = 0
     n_oriented_patterns: int = 0
+    skipped_quarantined: int = 0
+    skipped_pending_research: int = 0
     skipped_empty_delta: int = 0
     skipped_nonconserving: int = 0
     skipped_token_mismatch: int = 0
     skipped_unsupported_pred: int = 0
     skipped_offset_overflow: int = 0
     n_negative_ea: int = 0
+    phase_c: bool = False
+    n_members_total: int = 0
     mover_pattern_counts: dict[str, int] = field(default_factory=dict)
     mover_proc_counts: dict[str, int] = field(default_factory=dict)
     orientation_histogram: dict[int, int] = field(default_factory=dict)
@@ -141,8 +170,12 @@ class TranslationReport:
         """Human-readable summary (stable ordering)."""
         out = [
             f"classes in catalogue:      {self.n_classes_in}",
+            f"rate mode:                 {'phase-C raw-pairs' if self.phase_c else 'aggregate'}",
             f"classes translated:        {self.n_translated}",
             f"oriented patterns (procs): {self.n_oriented_patterns}",
+            f"member rate channels:      {self.n_members_total}",
+            f"skipped quarantined:       {self.skipped_quarantined}",
+            f"skipped pending-research:  {self.skipped_pending_research}",
             f"skipped empty-delta:       {self.skipped_empty_delta}",
             f"skipped non-conserving:    {self.skipped_nonconserving}",
             f"skipped token-mismatch:    {self.skipped_token_mismatch}",
@@ -299,9 +332,7 @@ def _movers_in_token_order(cls: EventClass) -> list[Offset]:
     sorting the runtime offsets instead would mis-bind tokens whenever a
     multi-mover class's order flips under the frame map.
     """
-    mover_offs_crystal = sorted(
-        tuple(ds.off) for ds in cls.delta if _occ_name(ds.before) != VACANT
-    )
+    mover_offs_crystal = sorted(tuple(ds.off) for ds in cls.delta if _occ_name(ds.before) != VACANT)
     return [to_runtime_frame(off) for off in mover_offs_crystal]
 
 
@@ -345,9 +376,7 @@ def _orientation_transversal(
     transversal: list[int] = []
     for gi, mat in enumerate(mats):
         d_img = tuple(sorted((_apply(mat, r.off), r.before, r.after) for r in delta))
-        c_img = tuple(
-            sorted((_apply(mat, r.off), r.kind, r.species or "") for r in context)
-        )
+        c_img = tuple(sorted((_apply(mat, r.off), r.kind, r.species or "") for r in context))
         ranked = sorted(range(len(movers)), key=lambda i: _apply(mat, movers[i]))
         t_img = tuple(tokens[i] for i in ranked)
         key = (d_img, c_img, t_img)
@@ -374,23 +403,102 @@ def _reanchor(rows: Iterable[Any], anchor: Offset) -> list[Any]:
 # ---------------------------------------------------------------------------
 
 
+#: Phase C trigger: a stamped catalogue names this ν0 policy on every class.
+HARVESTED_PAIR_POLICY: str = "harvested_pair"
+
+#: Re-search seed policy (identity-redesign memo 2026-07-22 §3.2): a class recovered
+#: by the frame fix with NO previously-measured member. Such a class must NOT emit
+#: measured procs — its sites fall through to the Phase C surrogate channel and the
+#: flag registry ranks it for the in-situ re-search campaign. Stamped by
+#: ``pylatkmc.ingest.qc.stamp_rate_policy`` (the ingest package cannot be imported
+#: here at module load — the bare core stays importable without the [ingest]
+#: extras — so the literal is mirrored; a unit test locks the two together).
+PENDING_RESEARCH_POLICY: str = "pending_research"
+
+#: N6 staged-migration switch (memo §8-N6). Ships OFF: measured classes fire their
+#: raw harvested pairs. If ever turned ON — gated on V2's |ΔE_H − dE_pair| dropping
+#: below the measured pair-noise scale — measured classes would instead fire the
+#: DB-safe anchored form ``Ea = E_sym_measured + ½·ΔE_H`` with ``E_sym_measured =
+#: (Ea_f + Ea_b)/2``. Not wired to any behaviour yet; the generated proclist stamps
+#: its state as ``PYLATKMC_MEASURED_ANCHORED_FORM``.
+MEASURED_ANCHORED_FORM: bool = False
+
+
+def _member_rates(cls: EventClass, *, phase_c: bool, v6: float) -> tuple[MemberRate, ...]:
+    """The rate channels of a class (§8-N6).
+
+    Phase C raw-pair mode (``cls.nu0_pair_policy == "harvested_pair"``): one
+    ``MemberRate`` per harvested member — ``prefactor_Hz = nu0_f_list_hz[i]``
+    (already Hz, NOT ×1e12) and ``Ea_eV = barriers_eV[i]``. Aggregate mode:
+    the single ``nu0_geo_psinv × 1e12`` / ``Ea_rep_eV`` channel (unchanged).
+    ``v6`` (identical for every member) is the surrogate barrier for provenance.
+    """
+    use_pairs = phase_c and cls.nu0_pair_policy == HARVESTED_PAIR_POLICY
+    if use_pairs and cls.barriers_eV:
+        # nu0_f may be shorter/longer than barriers only on malformed data; the
+        # catalogue guarantees len(nu0_f_list_hz) == len(barriers_eV) per class.
+        n = len(cls.barriers_eV)
+        nu0 = list(cls.nu0_f_list_hz)
+        if len(nu0) < n:  # defensive: pad with the aggregate prefactor
+            nu0 = nu0 + [float(cls.nu0_geo_psinv) * HZ_PER_PSINV] * (n - len(nu0))
+        return tuple(
+            MemberRate(
+                prefactor_Hz=float(nu0[i]), Ea_eV=float(cls.barriers_eV[i]), v6_ea_surrogate=v6
+            )
+            for i in range(n)
+        )
+    return (
+        MemberRate(
+            prefactor_Hz=float(cls.nu0_geo_psinv) * HZ_PER_PSINV,
+            Ea_eV=float(cls.Ea_rep_eV),
+            v6_ea_surrogate=v6,
+        ),
+    )
+
+
 def translate_event_classes(
     classes: Sequence[EventClass],
     *,
     include_nonconserving: bool = False,
     max_offset: int = 127,
+    phase_c: bool = False,
+    esym_model: Any = None,
 ) -> tuple[list[LatticePattern], TranslationReport]:
     """Translate EventClass rows into LatticePatterns (+ accounting report).
 
     Deterministic: classes are processed in ``class_id`` order; every skip is
     counted in the report, never silent. ``max_offset`` guards the emitter's
     int8 offset packing (a component beyond it skips the class, counted).
+
+    ``phase_c`` selects the §8-N6 raw-pair rate bake (one proc per harvested
+    member); it is auto-detected in :func:`translate_catalogue` from the
+    ``nu0_pair_policy`` stamp. ``esym_model`` (an ``EsymModel`` or ``None``)
+    supplies the per-class V6 surrogate barrier baked into proclist provenance.
+    Quarantined classes (``audit_status == "quarantined"``) are EXCLUDED and
+    counted (``skipped_quarantined``) — never silently translated. Likewise
+    pending-re-search classes (``nu0_pair_policy == "pending_research"``, memo
+    2026-07-22 §3.2): recovered classes with no previously-measured member are
+    EXCLUDED and counted (``skipped_pending_research``) until the re-search
+    agreement gate graduates them — their sites fall through to the Phase C
+    surrogate channel + flag registry at runtime.
     """
-    report = TranslationReport(n_classes_in=len(classes))
+    report = TranslationReport(n_classes_in=len(classes), phase_c=phase_c)
     patterns: list[LatticePattern] = []
     names_seen: set[str] = set()
 
+    surrogate_barrier = None
+    if esym_model is not None:
+        from pylatkmc.ingest.surrogate import surrogate_barrier as _sb
+
+        surrogate_barrier = _sb
+
     for cls in sorted(classes, key=lambda k: k.class_id):
+        if cls.audit_status == "quarantined":
+            report.skipped_quarantined += 1
+            continue
+        if cls.nu0_pair_policy == PENDING_RESEARCH_POLICY:
+            report.skipped_pending_research += 1
+            continue
         delta = _delta_rows(cls)
         if not delta:
             report.skipped_empty_delta += 1
@@ -404,9 +512,7 @@ def translate_event_classes(
             continue
 
         movers = _movers_in_token_order(cls)
-        tokens = tuple(
-            (int(t.kind), tuple(int(c) for c in t.coord_sig)) for t in cls.saddle_token
-        )
+        tokens = tuple((int(t.kind), tuple(int(c) for c in t.coord_sig)) for t in cls.saddle_token)
         if len(tokens) != len(movers):
             report.skipped_token_mismatch += 1
             continue
@@ -426,16 +532,18 @@ def translate_event_classes(
             report.skipped_offset_overflow += 1
             continue
 
-        prefactor_hz = float(cls.nu0_geo_psinv) * HZ_PER_PSINV
-        ea_ev = float(cls.Ea_rep_eV)
-        if ea_ev < 0.0:
+        v6 = float("nan")
+        if surrogate_barrier is not None:
+            v6 = float(surrogate_barrier(esym_model, cls))
+        members = _member_rates(cls, phase_c=phase_c, v6=v6)
+        prefactor_hz = members[0].prefactor_Hz
+        ea_ev = members[0].Ea_eV
+        if any(m.Ea_eV < 0.0 for m in members):
             report.n_negative_ea += 1
 
         name = f"v2_{cls.class_id[:12]}"
         if name in names_seen:
-            raise ValueError(
-                f"pattern name collision on {name!r}; widen the class_id prefix"
-            )
+            raise ValueError(f"pattern name collision on {name!r}; widen the class_id prefix")
         names_seen.add(name)
 
         mover_species = tuple(sorted(r.before for r in delta if r.before != VACANT))
@@ -452,41 +560,67 @@ def translate_event_classes(
             n_members=len(cls.barriers_eV),
             depth_kind=int(cls.depth_sig.kind),
             depth_param=int(cls.depth_sig.param),
+            members=members,
         )
         patterns.append(pat)
 
         report.n_translated += 1
         n_orient = len(orientation_ops)
-        report.n_oriented_patterns += n_orient
-        report.orientation_histogram[n_orient] = (
-            report.orientation_histogram.get(n_orient, 0) + 1
-        )
+        n_proc = n_orient * len(members)
+        report.n_oriented_patterns += n_proc
+        report.n_members_total += len(members)
+        report.orientation_histogram[n_orient] = report.orientation_histogram.get(n_orient, 0) + 1
         for sp in sorted(set(mover_species)):
             report.mover_pattern_counts[sp] = report.mover_pattern_counts.get(sp, 0) + 1
-            report.mover_proc_counts[sp] = report.mover_proc_counts.get(sp, 0) + n_orient
+            report.mover_proc_counts[sp] = report.mover_proc_counts.get(sp, 0) + n_proc
 
     return patterns, report
+
+
+def catalogue_is_phase_c(classes: Sequence[EventClass]) -> bool:
+    """True iff any class is stamped with the Phase C raw-pair ν0 policy.
+
+    The stamp (``nu0_pair_policy == "harvested_pair"``) is written by the
+    surrogate-fit / ingest-QC leg; an unstamped (schema-1) catalogue keeps the
+    aggregate rate path unchanged.
+    """
+    return any(c.nu0_pair_policy == HARVESTED_PAIR_POLICY for c in classes)
 
 
 def translate_catalogue(
     path: str | Path,
     *,
     include_nonconserving: bool = False,
+    esym_model: Any = None,
 ) -> tuple[list[LatticePattern], TranslationReport]:
-    """Load an EventClass Parquet catalogue and translate it (convenience)."""
+    """Load an EventClass Parquet catalogue and translate it (convenience).
+
+    Phase C mode is auto-detected from the catalogue's ``nu0_pair_policy``
+    stamp; ``esym_model`` (optional) supplies the V6 surrogate barrier baked
+    into provenance.
+    """
     classes = load_event_class_catalogue(path)
-    return translate_event_classes(classes, include_nonconserving=include_nonconserving)
+    return translate_event_classes(
+        classes,
+        include_nonconserving=include_nonconserving,
+        phase_c=catalogue_is_phase_c(classes),
+        esym_model=esym_model,
+    )
 
 
 __all__ = (
     "CtxRow",
     "DeltaRow",
+    "HARVESTED_PAIR_POLICY",
     "HZ_PER_PSINV",
     "LatticePattern",
+    "MemberRate",
     "TranslationReport",
     "VACANT",
+    "catalogue_is_phase_c",
     "d4h_matrices",
     "load_event_class_catalogue",
+    "to_runtime_frame",
     "translate_catalogue",
     "translate_event_classes",
 )

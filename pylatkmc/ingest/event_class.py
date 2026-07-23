@@ -33,11 +33,12 @@ is **ps^-1**. Output rate columns are ps^-1 via ``/ HZ_PER_PSINV`` (= 1e12);
 
 from __future__ import annotations
 
+import json
 import math
 import struct
 import warnings
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
@@ -63,8 +64,15 @@ A_NOMINAL: float = 3.52
 H: float = A_NOMINAL / 2.0
 """Half-lattice spacing h = a/2 (Angstrom)."""
 
-CATALOGUE_SCHEMA_VERSION: int = 1
-"""Bump to invalidate the whole Parquet schema deliberately."""
+CATALOGUE_SCHEMA_VERSION: int = 2
+"""Bump to invalidate the whole Parquet schema deliberately.
+
+v1 -> v2 (2026-07-22, Phase C ingest-QC leg): the formerly-omitted [C] Phase C
+rate-model fields (``phi``, ``model_version``, ``dE_model_version``,
+``nu0_pair_policy``, ``fallback_stats``) plus the human-veto ``audit_reason`` are
+now persisted in the Parquet schema. ``read_catalogue_parquet`` still reads a v1
+file (the new columns are absent -> field defaults).
+"""
 
 PRIOR_EA_STD_FLOOR_EV: float = 0.02
 """Shrinkage floor for Ea_std (eV); never 0 -> never 'maximally trustworthy'."""
@@ -222,12 +230,18 @@ class EventProjReport:
     module-load DAG: ``event_class`` imports nothing intra-package, while
     ``event_projection`` (which builds ``ProjectedEvent``) and ``projection`` both
     import ``event_class``. The gates read its attributes directly.
+
+    ``frame_unfit_reason`` is non-``None`` when the robust frame fit found no FCC
+    frame for the cluster (memo 2026-07-22 s3.6): the event carries no lattice
+    representation (empty delta/context/movers, infinite residuals) and gate G3
+    FAILs it as ``FRAME_UNFIT`` before any snap-residual is evaluated.
     """
 
     max_residual: float
     mover_max_residual: float
     diameter: float
     mover_agreement: bool
+    frame_unfit_reason: str | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -313,9 +327,13 @@ class GateThresholds:
 class EventClass:
     """The persisted catalogue record, keyed by ``class_id`` (contract 2.5).
 
-    Phase A populates every ``[A]`` field; the ``[F]`` fallback fields
-    (``phi``, ``model_version``, ``fallback_stats``) stay at their empty defaults
-    and are omitted from the Parquet schema. Treat as write-once during assembly.
+    Phase A populates every ``[A]`` field. The ``[C]`` Phase C rate-model fields
+    (``phi``, ``model_version``, ``dE_model_version``, ``nu0_pair_policy``,
+    ``fallback_stats``) and the human-veto ``audit_reason`` stay at their empty
+    defaults until Phase C, but are **persisted** in the (schema-v2) Parquet schema
+    so an ingest-QC re-emission can stamp them. Treat as write-once during
+    assembly; the ingest-QC pass (``pylatkmc.ingest.qc``) is the only other writer,
+    and it only sets ``audit_status``/``audit_reason``/``schema_version``.
     """
 
     # --- identity ---
@@ -347,9 +365,11 @@ class EventClass:
     n_eff: float
     Ea_mean_eV: float
     Ea_median_eV: float
-    # --- fallback (Phase B) ---
+    # --- Phase C rate-model fields [C] (empty until Phase C populates them) ---
     phi: tuple[float, ...] = ()
     model_version: str | None = None
+    dE_model_version: str | None = None
+    nu0_pair_policy: str | None = None
     # --- pairing ---
     backward_class: str | None = None
     self_reverse: bool = False
@@ -362,6 +382,7 @@ class EventClass:
     first_seen_cycle: int = 0
     gate_log: tuple[GateResult, ...] = ()
     audit_status: Literal["approved", "pending", "rejected", "quarantined"] = "pending"
+    audit_reason: str = ""
     fallback_stats: tuple[Any, ...] = ()
     schema_version: int = CATALOGUE_SCHEMA_VERSION
 
@@ -674,8 +695,20 @@ def gate_g3_snap_residual(pe: ProjectedEvent, snap_tol: float = 0.9) -> GateResu
 
     The off-lattice saddle is exempt. FAIL keeps intrinsically off-lattice events
     out of the catalogue.
+
+    A frame-unfit event (no orthogonal-axis FCC frame exists; memo 2026-07-22 s3.6)
+    FAILs here **before** any snap residual is evaluated -- the ``FRAME_UNFIT``
+    detail carries the fitter's reason so the audit trail records why the event has
+    no lattice representation.
     """
     rep = pe.proj_report
+    if rep.frame_unfit_reason is not None:
+        return GateResult(
+            "G3",
+            GateOutcome.FAIL,
+            f"FRAME_UNFIT: {rep.frame_unfit_reason}",
+            None,
+        )
     if rep.max_residual >= snap_tol:
         return GateResult(
             "G3",
@@ -691,7 +724,10 @@ def gate_g3_snap_residual(pe: ProjectedEvent, snap_tol: float = 0.9) -> GateResu
             rep.mover_max_residual,
         )
     return GateResult(
-        "G3", GateOutcome.PASS, f"max_residual={rep.max_residual:.3f} < {snap_tol}", rep.max_residual
+        "G3",
+        GateOutcome.PASS,
+        f"max_residual={rep.max_residual:.3f} < {snap_tol}",
+        rep.max_residual,
     )
 
 
@@ -1277,6 +1313,15 @@ def catalogue_arrow_schema() -> pa.Schema:
             ("first_seen_cycle", pa.int32()),
             ("audit_status", pa.string()),
             ("gate_log", gate_type),
+            # --- schema v2: previously-omitted [C] fields + human-veto reason ---
+            ("audit_reason", pa.string()),
+            ("phi", pa.list_(pa.float64())),
+            ("model_version", pa.string()),
+            ("dE_model_version", pa.string()),
+            ("nu0_pair_policy", pa.string()),
+            # fallback_stats is a heterogeneous tuple (leverage, hull_flag,
+            # model_version, tier) — serialized as a JSON string column.
+            ("fallback_stats", pa.string()),
         ]
     )
 
@@ -1296,6 +1341,26 @@ def _pred_from_str(text: str) -> OccPredicate:
         codes = frozenset(Occ(int(c)) for c in body.split(",") if c != "")
         return OccPredicate(kind="SPECIES", species=codes)
     return OccPredicate(kind=text)  # type: ignore[arg-type]
+
+
+def _fallback_stats_to_json(fs: tuple[Any, ...]) -> str | None:
+    """Serialize the [C] ``fallback_stats`` tuple as a JSON string column.
+
+    Contract shape is ``(leverage, hull_flag, model_version, tier)`` — a
+    heterogeneous flat tuple, so a JSON string is the schema-stable carrier. An
+    empty tuple (the Phase A/B default) stores ``None`` and round-trips back to
+    ``()``.
+    """
+    if not fs:
+        return None
+    return json.dumps(list(fs))
+
+
+def _fallback_stats_from_json(text: str | None) -> tuple[Any, ...]:
+    """Inverse of :func:`_fallback_stats_to_json` (``None``/empty -> ``()``)."""
+    if not text:
+        return ()
+    return tuple(json.loads(text))
 
 
 def _event_to_row(ec: EventClass) -> dict[str, Any]:
@@ -1371,11 +1436,28 @@ def _event_to_row(ec: EventClass) -> dict[str, Any]:
             }
             for g in ec.gate_log
         ],
+        # --- schema v2: previously-omitted [C] fields + human-veto reason ---
+        "audit_reason": ec.audit_reason,
+        "phi": [float(x) for x in ec.phi],
+        "model_version": ec.model_version,
+        "dE_model_version": ec.dE_model_version,
+        "nu0_pair_policy": ec.nu0_pair_policy,
+        "fallback_stats": _fallback_stats_to_json(ec.fallback_stats),
     }
 
 
-def write_catalogue_parquet(classes: Sequence[EventClass], path: str | Path) -> None:
-    """Write ``EventClass`` rows to Parquet, sorted by ``class_id`` (contract 9)."""
+def write_catalogue_parquet(
+    classes: Sequence[EventClass],
+    path: str | Path,
+    *,
+    metadata: Mapping[bytes, bytes] | None = None,
+) -> None:
+    """Write ``EventClass`` rows to Parquet, sorted by ``class_id`` (contract 9).
+
+    ``metadata`` (optional) is attached as file-level (arrow schema) key/value
+    metadata — e.g. the ingest-QC conditions stamp under
+    ``b"pylatkmc.qc.conditions"``. It never affects the column data.
+    """
     import pyarrow as pa
     import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
@@ -1383,9 +1465,10 @@ def write_catalogue_parquet(classes: Sequence[EventClass], path: str | Path) -> 
     ordered = sorted(classes, key=lambda ec: ec.class_id)
     rows = [_event_to_row(ec) for ec in ordered]
     columns = {
-        field.name: pa.array([row[field.name] for row in rows], type=field.type)
-        for field in schema
+        field.name: pa.array([row[field.name] for row in rows], type=field.type) for field in schema
     }
+    if metadata is not None:
+        schema = schema.with_metadata(dict(metadata))
     table = pa.Table.from_pydict(columns, schema=schema)
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -1405,7 +1488,9 @@ def _row_to_event(row: dict[str, Any]) -> EventClass:
         for d in row["delta"]
     )
     context = tuple(
-        StencilSite((int(c["dx"]), int(c["dy"]), int(c["dz"])), _pred_from_store_code(int(c["pred"])))
+        StencilSite(
+            (int(c["dx"]), int(c["dy"]), int(c["dz"])), _pred_from_store_code(int(c["pred"]))
+        )
         for c in row["context"]
     )
     saddle_token = tuple(
@@ -1463,6 +1548,13 @@ def _row_to_event(row: dict[str, Any]) -> EventClass:
         first_seen_cycle=int(row["first_seen_cycle"]),
         gate_log=gate_log,
         audit_status=row["audit_status"],
+        # schema-v2 columns; absent in a v1 parquet -> field defaults (back-compat).
+        audit_reason=row.get("audit_reason") or "",
+        phi=tuple(float(x) for x in (row.get("phi") or ())),
+        model_version=row.get("model_version"),
+        dE_model_version=row.get("dE_model_version"),
+        nu0_pair_policy=row.get("nu0_pair_policy"),
+        fallback_stats=_fallback_stats_from_json(row.get("fallback_stats")),
         schema_version=int(row["schema_version"]),
     )
 

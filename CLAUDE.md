@@ -38,7 +38,14 @@ prefactors); **the core never imports it**. Install via `pip install -e ".[inges
 `pylatkmc-gen` has **exactly four** subcommands (`pylatkmc/cli.py`): `build` (the only writer →
 `<spec_dir>/generated/proclist.{c,h}`), `info`, `processes` (read-only; `--family-csv` optional),
 `clean`. There is **no** `rate`/`provenance` subcommand. The ingest pipeline is a **separate** CLI:
-`python -m pylatkmc.ingest.cli recover …` (one subcommand).
+`python -m pylatkmc.ingest.cli` with **four** subcommands — `recover` (per-bucket Vineyard ν₀ from
+trajectories, needs LAMMPS) and three pure ones over an `EventClass` Parquet catalogue: `build`
+(reference table → catalogue via the robust pinned-h frame fit; frame-unfit rows recorded as
+`G3 FRAME_UNFIT`, never dropped), `qc` (QC screens → schema-v2 QC'd Parquet; dE-spread now
+QUARANTINES per the 2026-07-22 memo §3.5; `--measured-refs` stamps `nu0_pair_policy` =
+`harvested_pair`/`pending_research` — the latter is skip-counted by `translator_v2`, never emitted
+as measured procs), and `graduate` (re-search agreement gate, ±0.05 eV → pending class converts to
+measured; disagreements go to the review list as `CONTEXT_SUSPECT`).
 
 ## Models
 
@@ -109,6 +116,26 @@ and the deleted `.agents/AGENT.md` claim rates are baked-per-T and that a T-mism
   2026-07-18 production NiCr catalogue: 439 classes → 275 translated / 4392 oriented procs.
   An all-skipped (empty) catalogue emits a compilable stub proclist — the empty rate-table
   branch still carries the `RateConst` typedef the NULL public glue references (both paths).
+- **Phase C is an ADDITIVE, gated third layer on the v2 path** (`pylatkmc/surrogate_codegen.py`
+  + `runtime/src/core/surrogate.{c,h}`; approved in `onlattice_design/PHASEC_RATE_MODEL_DECISION.md`).
+  Triggered only when the catalogue is stamped (`nu0_pair_policy=="harvested_pair"`):
+  (a) **measured classes fire raw harvested pairs** — one RateConst per member (`nu0_f_list_hz[i]`,
+  already Hz — do **not** ×1e12; `barriers_eV[i]`), so `n × orientation_count` procs per class
+  (singletons are 1:1); **quarantined classes are excluded and counted** (`skipped_quarantined`);
+  and a **machine-readable provenance** block (`v2_class_ids` + per-proc `v2_proc_{class,member,
+  channel,v6_ea}`) replaces the comment-only provenance. (b) an optional `[rate_data].surrogate_model`
+  (an `esym_model.json`) bakes the E_sym model + per-1NN-direction feature tables and enables a
+  **runtime surrogate rate channel** for generic 1NN vacancy hops not covered by a measured proc.
+  Guard rails: the whole channel + `phasec.out` + provenance consumption sit behind
+  `#ifdef PYLATKMC_HAS_SURROGATE` (defined only when a model is baked) so v0.3 / schema-1 output
+  stays **byte-identical** (verified on `ni_example`); the `Surrogate`/`SurrDir`/`SurrSite` struct
+  layout in `surrogate.h` is in **lockstep** with what `emit_surrogate_tables` bakes into proclist.c
+  (proclist.c `#include`s `surrogate.h`, so no duplicate typedef — but never edit one without the
+  other); the surrogate feature reductions are an **exact port** of `pylatkmc/ingest/surrogate.py`'s
+  map-level functions (the C-vs-Python `test_surrogate_parity` locks them to ≤1e-10; a drift there is
+  the silent-wrong-rate trap). The KRA barrier `Ea_hat = E_sym + ½·ΔE_H` is **DB-exact by
+  construction** (two-origin symmetric E_sym + midpoint-mask ΔΦ). `measured_anchored_form` (N6
+  staged switch) ships **OFF** — flag only, no behaviour.
 - **Dissolution under-budgeting silently caps events.** The vac list is fixed-size
   (`n_vac_initial + max(max_dissolution_events, 4)`); past the cap, `state_apply_actions` returns
   `-EINVAL` and no-ops, but the discarded return + unconditional `n_dissolution++` + advancing
@@ -144,8 +171,16 @@ ruff check pylatkmc/ tests/ tools/ && mypy pylatkmc/     # ruff = hard gate; myp
   switching models. `REQUIRE_GENERATED=ON` (default) hard-fails if `generated/` has no `.c`.
 - Outputs: `<output_root>/replica_NNNN/` (`trajkmc.xyz`, `pykmc.out`, `summary.json`) + rank-0
   `aggregate_summary.json`. `pykmc.out` columns (space-delimited, 9):
-  `step time_s dt_s n_vac k_tot k_event Ea_eV proc_id site` — **no** motif/direction column.
-  Full INI key list: `set_key` in `runtime/src/io/config_reader.c`.
+  `step time_s dt_s n_vac k_tot k_event Ea_eV proc_id site` — **no** motif/direction column
+  (a surrogate-channel fire logs `proc_id = -1` here; its detail is in `phasec.out`).
+  A **Phase C surrogate model** additionally emits `phasec.out`
+  (`step k_flag_frac_inst k_flag_frac_cum n_surr_inst n_surr_fired n_meas_fired v6_absresid_mean
+  v6_absresid_max`) + `flag_registry.csv` (the priority re-search list, sorted by
+  `carried_flux·max(n_fired,1)`), and extra `summary.json`/`aggregate_summary.json` fields
+  (`flagged_flux_fraction_cum`, `n_surrogate_fired`, `n_measured_fired`, `v6_*`, model versions).
+  Full INI key list: `set_key` in `runtime/src/io/config_reader.c` (incl. the inert-safe
+  `[surrogate]` block: `surrogate_enable`, `k_floor_Hz`, `leverage_gate`, `flux_threshold`,
+  `flag_registry_capacity`).
 - Build the `.kmcinit` referenced by `paths.initconfig_path` with `tools/build_initial_config.py`
   or `tools/xyz_to_kmcinit.py` — don't hand-roll the binary format (the `initconfig.h` docstring's
   field order is stale; `initconfig.c` is authoritative).

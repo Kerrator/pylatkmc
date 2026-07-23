@@ -19,8 +19,14 @@
 #include "../io/xyz_writer.h"
 #include "../io/pykmc_out.h"
 
-/* The generated proclist.h provides pylatkmc_n_procs and pylatkmc_rate_table. */
+/* The generated proclist.h provides pylatkmc_n_procs and pylatkmc_rate_table —
+ * and, on a Phase C surrogate build, PYLATKMC_HAS_SURROGATE + the surrogate
+ * externs. */
 #include "proclist.h"
+
+#ifdef PYLATKMC_HAS_SURROGATE
+#include "surrogate.h"
+#endif
 
 /* FCC bulk 1NN coordination. Sites with fewer 1NN are static-active in
  * the active_filter (surface, edge, corner). Hardcoded for FCC; if/when
@@ -49,6 +55,46 @@ int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nran
     return 0;
 }
 
+#ifdef PYLATKMC_HAS_SURROGATE
+/* flag_registry.csv: priority re-search list, sorted by carried_flux*max(n_fired,1)
+ * descending (deterministic ties → registry index). */
+static int flag_cmp(const void *pa, const void *pb)
+{
+    const SurrFlag *a = *(const SurrFlag *const *)pa;
+    const SurrFlag *b = *(const SurrFlag *const *)pb;
+    double ka = a->carried_flux * (double)(a->n_fired > 0 ? a->n_fired : 1);
+    double kb = b->carried_flux * (double)(b->n_fired > 0 ? b->n_fired : 1);
+    if (ka < kb) return 1;
+    if (ka > kb) return -1;
+    if (a->site_a != b->site_a) return a->site_a < b->site_a ? -1 : 1;
+    if (a->site_b != b->site_b) return a->site_b < b->site_b ? -1 : 1;
+    return a->dir_idx < b->dir_idx ? -1 : (a->dir_idx > b->dir_idx);
+}
+
+static void write_flag_registry(const char *path, const SurrCtx *surr)
+{
+    FILE *fp = fopen(path, "w");
+    if (!fp) return;
+    fputs("site_a,site_b,dir_idx,ru,rv,rw,sp_a,sp_b,n_enrolled_steps,n_fired,"
+          "carried_flux,first_step,last_ea_hat,last_leverage,trigger_mask\n", fp);
+    const SurrFlag **order = malloc((size_t)surr->n_flags * sizeof *order);
+    if (!order) { fclose(fp); return; }
+    for (int32_t i = 0; i < surr->n_flags; ++i) order[i] = &surr->flags[i];
+    qsort(order, (size_t)surr->n_flags, sizeof *order, flag_cmp);
+    for (int32_t i = 0; i < surr->n_flags; ++i) {
+        const SurrFlag *f = order[i];
+        fprintf(fp, "%d,%d,%d,%d,%d,%d,%u,%u,%llu,%llu,%.9e,%llu,%.6f,%.6e,%u\n",
+                f->site_a, f->site_b, f->dir_idx, f->ru, f->rv, f->rw,
+                f->sp_a, f->sp_b, (unsigned long long)f->n_enrolled_steps,
+                (unsigned long long)f->n_fired, f->carried_flux,
+                (unsigned long long)f->first_step, f->last_ea_hat,
+                f->last_leverage, f->trigger_or);
+    }
+    free(order);
+    fclose(fp);
+}
+#endif
+
 static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
                                     const Lattice *lat, const State *st,
                                     double T_K, const InputConfig *cfg)
@@ -68,13 +114,32 @@ static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
             "  \"mean_msd_A2\": %.6e,\n"
             "  \"n_dissolution\": %llu,\n"
             "  \"run_rc\": %d,\n"
-            "  \"n_procs\": %d\n"
-            "}\n",
+            "  \"n_procs\": %d",
             rep->rank, lat->n_sites, st->n_vac, T_K,
             (unsigned long long)cfg->base_seed,
             (unsigned long long)s->n_steps, s->total_time_s,
             s->mean_msd_A2, (unsigned long long)s->n_dissolution,
             s->run_rc, (int)pylatkmc_n_procs);
+#ifdef PYLATKMC_HAS_SURROGATE
+    fprintf(fp,
+            ",\n"
+            "  \"flagged_flux_fraction_cum\": %.6e,\n"
+            "  \"flagged_event_fraction\": %.6e,\n"
+            "  \"n_surrogate_fired\": %llu,\n"
+            "  \"n_measured_fired\": %llu,\n"
+            "  \"v6_mean_eV\": %.6e,\n"
+            "  \"v6_max_eV\": %.6e,\n"
+            "  \"surrogate_model_version\": \"%s\",\n"
+            "  \"dE_model_version\": \"%s\",\n"
+            "  \"nu0_pair_policy\": \"%s\"",
+            s->flagged_flux_fraction_cum, s->flagged_event_fraction,
+            (unsigned long long)s->n_surrogate_fired,
+            (unsigned long long)s->n_measured_fired,
+            s->v6_mean_eV, s->v6_max_eV,
+            pylatkmc_surrogate_model_version, pylatkmc_dE_model_version,
+            pylatkmc_nu0_pair_policy);
+#endif
+    fputs("\n}\n", fp);
     fclose(fp);
 }
 
@@ -186,10 +251,27 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
 
     rng_seed(&rng, cfg->base_seed, (uint32_t)rep->rank);
 
-    char traj_path[600], log_path[600], summary_path[600];
+    char traj_path[600], log_path[600], summary_path[600], phasec_path[600];
     snprintf(traj_path,    sizeof traj_path,    "%s/trajkmc.xyz",  rep->out_dir);
     snprintf(log_path,     sizeof log_path,     "%s/pykmc.out",    rep->out_dir);
     snprintf(summary_path, sizeof summary_path, "%s/summary.json", rep->out_dir);
+    snprintf(phasec_path,  sizeof phasec_path,  "%s/phasec.out",   rep->out_dir);
+
+    /* Phase C surrogate channel (b). NULL on v0.3 / no-model builds. */
+    struct SurrCtx *surr = NULL;
+#ifdef PYLATKMC_HAS_SURROGATE
+    SurrCtx surr_ctx;
+    rc = surrogate_ctx_init(&surr_ctx, pylatkmc_surrogate, lat.n_sites,
+                            cfg->surrogate_enable, cfg->surrogate_k_floor_Hz,
+                            cfg->surrogate_leverage_gate, cfg->surrogate_flux_threshold,
+                            (int32_t)cfg->surrogate_flag_capacity, cfg->temperature_K);
+    if (rc != 0) {
+        fprintf(stderr, "[rank %d] surrogate_ctx_init failed: %d\n", rep->rank, rc);
+        active_filter_free(af); avail_sites_free(as); state_free(&st); lattice_free(&lat);
+        return rc;
+    }
+    surr = &surr_ctx;
+#endif
 
     KmcRunConfig run_cfg = {
         .max_steps     = cfg->max_steps,
@@ -200,12 +282,14 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         .traj_path     = traj_path,
         .log_path      = log_path,
         .summary_path  = summary_path,
+        .phasec_path   = phasec_path,
         .rng_replay_path = (cfg->rng_replay_path[0] ? cfg->rng_replay_path : NULL),
     };
     KmcContext ctx = {
         .lat = &lat, .st = &st, .as = as, .af = af, .rng = &rng,
         .cfg = &run_cfg, .temperature_K = cfg->temperature_K,
         .overpotential_phi_eV = cfg->overpotential_phi_eV,
+        .surr = surr,
     };
 
     printf("[rank %d] run: %d sites, %d vacancies, T=%.1f K, max_steps=%llu, n_procs=%d\n",
@@ -230,8 +314,28 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     /* motif_counts / direction_counts are zeroed (cube-era fields, kept for
      * MPI-ABI compatibility but no longer populated in v0.2). */
 
+#ifdef PYLATKMC_HAS_SURROGATE
+    if (surr) {
+        uint64_t nfired = surr->n_surr_fired + surr->n_meas_fired;
+        rep->stats.flagged_flux_fraction_cum =
+            (surr->flux_total_cum > 0.0) ? surr->flux_flag_cum / surr->flux_total_cum : 0.0;
+        rep->stats.flagged_event_fraction =
+            nfired ? (double)surr->n_surr_fired / (double)nfired : 0.0;
+        rep->stats.n_surrogate_fired = surr->n_surr_fired;
+        rep->stats.n_measured_fired  = surr->n_meas_fired;
+        rep->stats.v6_mean_eV = surrogate_v6_mean(surr);
+        rep->stats.v6_max_eV  = surr->v6_absresid_max;
+        char reg_path[600];
+        snprintf(reg_path, sizeof reg_path, "%s/flag_registry.csv", rep->out_dir);
+        write_flag_registry(reg_path, surr);
+    }
+#endif
+
     write_per_rank_summary(summary_path, rep, &lat, &st, cfg->temperature_K, cfg);
 
+#ifdef PYLATKMC_HAS_SURROGATE
+    if (surr) surrogate_ctx_free(surr);
+#endif
     active_filter_free(af);
     avail_sites_free(as);
     state_free(&st);
@@ -276,30 +380,36 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
     double *times = malloc((size_t)N * sizeof *times);
     double *msds  = malloc((size_t)N * sizeof *msds);
     double *steps = malloc((size_t)N * sizeof *steps);
+    double *flagfrac = malloc((size_t)N * sizeof *flagfrac);
     if (!times || !msds || !steps) {
-        free(times); free(msds); free(steps); free(gathered);
+        free(times); free(msds); free(steps); free(gathered); free(flagfrac);
         return -ENOMEM;
     }
     int n_success = 0, n_failed = 0;
     unsigned long long total_dissolution = 0;
+    unsigned long long total_surr_fired = 0, total_meas_fired = 0;
     for (int i = 0; i < N; ++i) {
         times[i] = gathered[i].total_time_s;
         msds[i]  = gathered[i].mean_msd_A2;
         steps[i] = (double)gathered[i].n_steps;
+        if (flagfrac) flagfrac[i] = gathered[i].flagged_flux_fraction_cum;
         total_dissolution += (unsigned long long)gathered[i].n_dissolution;
+        total_surr_fired  += (unsigned long long)gathered[i].n_surrogate_fired;
+        total_meas_fired  += (unsigned long long)gathered[i].n_measured_fired;
         if (gathered[i].run_rc == 0) n_success++;
         else                          n_failed++;
     }
-    double t_mean, t_std, m_mean, m_std, s_mean, s_std;
+    double t_mean, t_std, m_mean, m_std, s_mean, s_std, f_mean = 0.0, f_std = 0.0;
     mean_std(times, N, &t_mean, &t_std);
     mean_std(msds,  N, &m_mean, &m_std);
     mean_std(steps, N, &s_mean, &s_std);
+    if (flagfrac) mean_std(flagfrac, N, &f_mean, &f_std);
 
     char agg_path[600];
     snprintf(agg_path, sizeof agg_path, "%s/aggregate_summary.json", cfg->output_root);
     FILE *fp = fopen(agg_path, "w");
     if (!fp) {
-        free(times); free(msds); free(steps); free(gathered);
+        free(times); free(msds); free(steps); free(gathered); free(flagfrac);
         return -errno;
     }
     fprintf(fp,
@@ -316,12 +426,17 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
             "  \"total_time_s_std\":  %.9e,\n"
             "  \"mean_msd_A2_mean\":  %.6e,\n"
             "  \"mean_msd_A2_std\":   %.6e,\n"
-            "  \"total_dissolution\": %llu,\n",
+            "  \"total_dissolution\": %llu,\n"
+            "  \"flagged_flux_fraction_cum_mean\": %.6e,\n"
+            "  \"flagged_flux_fraction_cum_std\":  %.6e,\n"
+            "  \"total_surrogate_fired\": %llu,\n"
+            "  \"total_measured_fired\": %llu,\n",
             N, n_success, n_failed,
             (unsigned long long)cfg->base_seed, cfg->temperature_K,
             (int)pylatkmc_n_procs,
             s_mean, s_std, t_mean, t_std, m_mean, m_std,
-            total_dissolution);
+            total_dissolution, f_mean, f_std,
+            total_surr_fired, total_meas_fired);
 
     fputs("  \"replicas\": [\n", fp);
     for (int i = 0; i < N; ++i) {
@@ -341,6 +456,6 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
     printf("[rank 0] wrote %s  (n=%d, %d ok / %d failed)\n",
            agg_path, N, n_success, n_failed);
 
-    free(times); free(msds); free(steps); free(gathered);
+    free(times); free(msds); free(steps); free(gathered); free(flagfrac);
     return 0;
 }

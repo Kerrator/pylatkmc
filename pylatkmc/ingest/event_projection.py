@@ -14,9 +14,19 @@ Pipeline (section 3, in order):
    mover within ``~rcut`` of an in-plane face has its ``-x/-y`` neighbours wrapped to the
    far box side, and ``fit_local_fcc`` infers a *phantom* in-plane surface -- routing a
    bulk hop into the surface regime.
-2. **Own local FCC fit.** A Procrustes fit of the seed's nearest-neighbour bond
-   directions onto the ideal ``<110>`` star gives the local rotation ``R`` and the half
-   spacing ``h`` -- independent of ``projection.LatticeFrame``.
+2. **Robust global-orientation local FCC fit** (decision memo
+   ``PROJECTION_IDENTITY_REDESIGN_DECISION_2026-07-22.md`` section 3.1). The rotation
+   ``R`` comes from **all** NN bond directions in the cluster -- greedy axis clustering,
+   best orthogonal axis pair, one Kabsch polish over the star inliers, then
+   canonicalization to the nearest of the 24 proper octahedral-equivalent orientations --
+   never from the seed's first shell alone (the retired seed-1NN ICP misconverged exactly
+   on flux-carrying events, whose seed sits at a surface/vacancy with an incomplete
+   shell). The identity scale ``h`` is **pinned** to the model lattice constant
+   (``nominal_a / 2``), not estimated per event, so context-sphere membership at the
+   ``r_ctx`` boundary -- and therefore ``class_id`` -- cannot flip on thermal-scale
+   noise. A cluster with no orthogonal ``<110>`` axis pair raises
+   :class:`FrameUnfitError`, surfaced by gate G3 as ``FRAME_UNFIT`` (fail before
+   snapping).
 3. **TRUE site-change detection (section 3.2).** Movers are the atoms whose *snapped
    site* changes between the initial and final snapshots -- ground truth, never
    ``move_atom_idx`` alone -- so a concerted event that ``move_atom_idx`` names only one
@@ -39,6 +49,7 @@ the ``ProjectedEvent`` this module returns). ``start_rank`` on each saddle token
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -71,13 +82,31 @@ from pylatkmc.ingest.lattice import (
 # --------------------------------------------------------------------------- #
 _SQRT2 = math.sqrt(2.0)
 
-#: Neighbours within this factor of the shortest bond count as the 1NN shell for the
-#: local frame fit. 2NN sits at ``sqrt(2) x 1NN`` (~1.414), so 1.25 is a clean gap.
-_NN_SHELL_FACTOR = 1.25
+#: Nominal (model) lattice constant in Angstrom. The identity scale ``h`` is pinned to
+#: ``nominal_a / 2`` (decision memo 2026-07-22, section 3.1 amendment) -- a per-event
+#: estimated ``h`` makes context-sphere boundary membership, and hence ``class_id``,
+#: flip on thermal-scale noise. Thread the run's value through the ingest entry points
+#: (``project_event(..., nominal_a=...)``); this default is the production Ni/NiCr/NiFe
+#: FCC constant.
+DEFAULT_NOMINAL_A = 3.52
 
-#: ICP refinement rounds for the Procrustes bond-direction fit (converges in ~2 for
-#: near-axis-aligned clusters; a handful is cheap and covers mild misorientation).
-_FIT_ICP_ROUNDS = 6
+#: Pairs closer than this factor times ``nominal_a`` count as NN bonds for the frame
+#: fit -- midway between the 1NN spacing (``a/sqrt(2) ~ 0.71 a``) and 2NN (``a``), so
+#: thermal distortion on either shell cannot cross it (0.85 * 3.52 = 2.99 A here).
+_BOND_CUT_FACTOR = 0.85
+
+#: Greedy axis-clustering cone half-angle (deg) for folding bond directions into
+#: candidate ``<110>`` axes. Implementation constant, not policy (memo section 3.6).
+_AXIS_CONE_DEG = 10.0
+
+#: Acceptable deviation from 90 deg (deg) for the orthogonal in-plane axis pair.
+_ORTHO_TOL_DEG = 6.0
+
+#: A bond counts as a ``<110>``-star inlier below this angular deviation (deg).
+_INLIER_DEG = 6.0
+
+#: A major axis must carry at least ``max(5, this fraction of all bonds)`` members.
+_MIN_AXIS_FRAC = 0.03
 
 #: Coordinating cutoff for the saddle token, as a fraction of the local 1NN spacing.
 #: An atom "coordinates" the transition state when it sits within ~one bond length
@@ -111,7 +140,9 @@ class LocalFrame:
     Cartesian; the inverse ``off ~ round_even(R.T @ (x - origin) / h)`` snaps a
     Cartesian atom to its site. ``origin`` is the seed (mover) position, so the seed
     snaps to ``(0, 0, 0)`` by construction -- this is ``anchor0`` and every delta /
-    context / mover offset is expressed relative to it.
+    context / mover offset is expressed relative to it. ``h`` is the **pinned**
+    identity scale ``nominal_a / 2`` (memo 2026-07-22 s3.1), never a per-event
+    estimate.
     """
 
     origin: tuple[float, float, float]
@@ -176,10 +207,13 @@ def min_image_unwrap(positions: np.ndarray, about: int, cell: np.ndarray | None)
 
 
 # --------------------------------------------------------------------------- #
-# 5. fit_local_fcc                                                            #
+# 5. fit_local_fcc — robust global-orientation fit (memo 2026-07-22 s3.1)     #
 # --------------------------------------------------------------------------- #
 _NN12_UNIT = np.asarray(NN12_OFFSETS, dtype=float) / _SQRT2  # 12 ideal <110> unit dirs
-_NN12_FLOAT = np.asarray(NN12_OFFSETS, dtype=float)
+
+
+class FrameUnfitError(ValueError):
+    """No orthogonal-axis FCC frame exists for this cluster (FRAME_UNFIT gate)."""
 
 
 def _kabsch(ideal_scaled: np.ndarray, obs: np.ndarray) -> np.ndarray:
@@ -191,49 +225,160 @@ def _kabsch(ideal_scaled: np.ndarray, obs: np.ndarray) -> np.ndarray:
     return np.asarray(u_mat @ dmat @ vt, dtype=float)
 
 
-def fit_local_fcc(P0: np.ndarray, seed_idx: int) -> LocalFrame:
-    """Fit the event's local FCC frame from the seed's 1NN bond directions (contract 3.1).
+def _proper_octahedral_group() -> list[np.ndarray]:
+    """The 24 proper signed-permutation rotations, deterministically ordered."""
+    mats = []
+    for perm in itertools.permutations(range(3)):
+        p = np.zeros((3, 3))
+        for r, c in enumerate(perm):
+            p[r, c] = 1.0
+        for signs in itertools.product((1.0, -1.0), repeat=3):
+            m = np.diag(signs) @ p
+            if np.linalg.det(m) > 0.5:
+                mats.append(m)
+    mats.sort(key=lambda m: tuple(m.reshape(-1)))
+    return mats
 
-    Procrustes (iterated closest-point) of the seed's nearest-neighbour bond directions
-    onto the ideal ``<110>`` star gives the local rotation ``R``; ``h`` is the mean bond
-    length divided by ``sqrt(2)`` (the 1NN spacing is ``a / sqrt(2) = h * sqrt(2)``). The
-    ``origin`` is the seed position, so ``snap(seed) == (0, 0, 0)``.
+
+_O_GROUP = _proper_octahedral_group()
+
+
+def _bond_set(P: np.ndarray, bond_cut: float) -> np.ndarray:
+    """All NN bond unit vectors of the cluster, in deterministic ``i < j`` pair order."""
+    n = P.shape[0]
+    iu = np.triu_indices(n, 1)
+    vecs = P[iu[1]] - P[iu[0]]
+    lens = np.linalg.norm(vecs, axis=1)
+    mask = (lens > 1e-6) & (lens < bond_cut)
+    return np.asarray(vecs[mask] / lens[mask, None], dtype=float)
+
+
+def _cluster_axes(bonds: np.ndarray) -> list[np.ndarray]:
+    """Greedy axis clustering of ``+/-``-folded bond directions (deterministic).
+
+    Bonds are folded into a half-space, then greedily grouped into cones of
+    ``_AXIS_CONE_DEG`` about the first remaining member (input order is the ``i < j``
+    pair order, so the grouping is data-deterministic). Axes are returned largest
+    group first (lex tie-break on the mean direction), keeping only major axes that
+    carry ``max(5, _MIN_AXIS_FRAC * n_bonds)`` members.
+    """
+    folded = np.where(bonds[:, [2]] < 0.0, -bonds, bonds)
+    cone = math.cos(math.radians(_AXIS_CONE_DEG))
+    rem = folded
+    axes: list[tuple[int, np.ndarray]] = []
+    while len(rem):
+        a0 = rem[0]
+        cos = np.abs(rem @ a0)
+        grp = rem[cos > cone]
+        sgn = np.sign(grp @ a0)
+        mean = (grp * sgn[:, None]).mean(axis=0)
+        mean /= np.linalg.norm(mean)
+        axes.append((len(grp), mean))
+        rem = rem[cos <= cone]
+    axes.sort(key=lambda t: (-t[0], tuple(t[1])))
+    n_min = max(5, int(_MIN_AXIS_FRAC * len(bonds)))
+    return [a for c, a in axes if c >= n_min]
+
+
+def _star_deviation(bonds: np.ndarray, rmat: np.ndarray) -> np.ndarray:
+    """Per-bond angular deviation (deg) from the nearest ``<110>`` of frame ``rmat``."""
+    cos = np.abs(bonds @ (rmat @ _NN12_UNIT.T))
+    return np.asarray(np.degrees(np.arccos(np.clip(cos.max(axis=1), -1.0, 1.0))), dtype=float)
+
+
+def fit_local_fcc(
+    P0: np.ndarray, seed_idx: int, *, nominal_a: float = DEFAULT_NOMINAL_A
+) -> LocalFrame:
+    """Fit the event's local FCC frame from ALL cluster bonds (memo 2026-07-22 s3.1).
+
+    Robust global-orientation fit: (1) collect every NN bond direction in the cluster
+    (``< _BOND_CUT_FACTOR * nominal_a``); (2) greedy-cluster them into candidate axes
+    (``_AXIS_CONE_DEG`` cones, deterministic pair order); (3) build a frame from the
+    best orthogonal axis pair (score = bonds within ``_INLIER_DEG`` of the implied
+    ``<110>`` star, both orderings tried); (4) one Kabsch polish over the inlier
+    bonds; (5) canonicalize among the 24 proper octahedral-equivalent
+    reparametrizations ``R @ g`` to the one nearest the lab identity (deterministic
+    lex tie-break) so previously-correct frames -- and hence G3-PASS ``class_id``\\ s
+    -- are preserved.
+
+    The retired seed-1NN ICP misconverged exactly on flux-carrying events (surface /
+    vacancy seeds have ~7 distorted first-shell bonds, not 12 clean ones); the
+    all-bond fit uses the whole crystal's redundancy and cannot be trapped by an
+    incomplete seed shell. There is deliberately **no fallback** to a seed-local fit.
+
+    The identity scale ``h`` is **pinned** to ``nominal_a / 2`` (never estimated from
+    the observed bond lengths), so the context stencil and the EMPTY/OUTSIDE radius
+    test are fixed integer criteria and ``class_id`` cannot flip on thermal-scale
+    noise at the ``r_ctx`` boundary. Cost: <= 0.04 A radial pseudo-strain residual at
+    8.5 A for ~0.5% thermal expansion -- negligible against the 0.9 A snap gate.
+
+    Raises :class:`FrameUnfitError` when the cluster has fewer than 6 NN bonds or no
+    orthogonal axis pair (surfaced by gate G3 as ``FRAME_UNFIT``, before snapping).
+
+    Determinism: no ``hash()``/set iteration; axis clustering iterates bonds in pair
+    order (``i < j`` over input row order); all reductions are argmax/sort over
+    computed floats with fixed tie-breaks.
     """
     P = np.asarray(P0, dtype=float)
-    seed = P[seed_idx]
-    d = P - seed
-    dist = np.linalg.norm(d, axis=1)
-    order = np.argsort(dist, kind="stable")
-    nz = [int(i) for i in order if dist[i] > 1e-6]
-    if len(nz) < 3:
-        raise ValueError(f"cluster too small to fit a local frame ({len(nz)} neighbours)")
-    d_min = float(dist[nz[0]])
-    nn_idx = [i for i in nz if dist[i] <= _NN_SHELL_FACTOR * d_min]
-    bonds = d[nn_idx]  # (M, 3)
-    blen = dist[nn_idx]  # (M,)
-    h_fit = float(np.mean(blen)) / _SQRT2
+    bonds = _bond_set(P, _BOND_CUT_FACTOR * nominal_a)
+    if len(bonds) < 6:
+        raise FrameUnfitError(f"too few NN bonds ({len(bonds)}) for a robust frame")
+    h = nominal_a / 2.0
 
-    bond_units = bonds / blen[:, None]
-    rmat = np.eye(3)
-    for _ in range(_FIT_ICP_ROUNDS):
-        predicted = (rmat @ _NN12_UNIT.T).T  # (12, 3) obs-frame ideal unit dirs
-        cos = bond_units @ predicted.T  # (M, 12)
-        best = np.argmax(cos, axis=1)  # nearest ideal dir per bond
-        matched = _NN12_FLOAT[best]  # (M, 3) integer offsets
-        rmat_new = _kabsch(h_fit * matched, bonds)
-        if np.allclose(rmat_new, rmat, atol=1e-12):
-            rmat = rmat_new
-            break
-        rmat = rmat_new
+    majors = _cluster_axes(bonds)
+    best_score = -1
+    best_r: np.ndarray | None = None
+    for x in range(len(majors)):
+        for y in range(x + 1, len(majors)):
+            ang = math.degrees(math.acos(min(1.0, abs(float(majors[x] @ majors[y])))))
+            if abs(ang - 90.0) > _ORTHO_TOL_DEG:
+                continue
+            for ex_raw, ey_raw in ((majors[x], majors[y]), (majors[y], majors[x])):
+                ex = ex_raw
+                ey = ey_raw - float(ey_raw @ ex) * ex
+                ey /= np.linalg.norm(ey)
+                ez = np.cross(ex, ey)
+                c1 = (ex + ey) / math.sqrt(2.0)
+                c2 = (ex - ey) / math.sqrt(2.0)
+                rmat = np.column_stack([c1, c2, ez])
+                score = int((_star_deviation(bonds, rmat) < _INLIER_DEG).sum())
+                if score > best_score:
+                    best_score = score
+                    best_r = rmat
+    if best_r is None:
+        raise FrameUnfitError("no orthogonal axis pair found (FRAME_UNFIT)")
 
+    # Kabsch polish over inlier bonds.
+    pred = best_r @ _NN12_UNIT.T
+    cosm = bonds @ pred
+    j = np.abs(cosm).argmax(axis=1)
+    sgn = np.sign(cosm[np.arange(len(bonds)), j])
+    dev = np.degrees(np.arccos(np.clip(np.abs(cosm).max(axis=1), -1.0, 1.0)))
+    w = (dev < _INLIER_DEG).astype(float)
+    if w.sum() >= 3:
+        best_r = _kabsch((_NN12_UNIT[j] * sgn[:, None]) * w[:, None], bonds * w[:, None])
+
+    # O-canonicalization: nearest-to-lab-identity proper representative.
+    best_key: tuple[float, tuple[float, ...]] | None = None
+    best_can = best_r
+    for g in _O_GROUP:
+        cand = best_r @ g
+        angle = math.degrees(math.acos(np.clip((np.trace(cand) - 1.0) / 2.0, -1.0, 1.0)))
+        key = (round(angle, 9), tuple(np.round(cand.reshape(-1), 9)))
+        if best_key is None or key < best_key:
+            best_key = key
+            best_can = cand
+    rmat_c = best_can
+
+    seed = P[int(seed_idx)]
     r_tuple = (
-        (float(rmat[0, 0]), float(rmat[0, 1]), float(rmat[0, 2])),
-        (float(rmat[1, 0]), float(rmat[1, 1]), float(rmat[1, 2])),
-        (float(rmat[2, 0]), float(rmat[2, 1]), float(rmat[2, 2])),
+        (float(rmat_c[0, 0]), float(rmat_c[0, 1]), float(rmat_c[0, 2])),
+        (float(rmat_c[1, 0]), float(rmat_c[1, 1]), float(rmat_c[1, 2])),
+        (float(rmat_c[2, 0]), float(rmat_c[2, 1]), float(rmat_c[2, 2])),
     )
     return LocalFrame(
         origin=(float(seed[0]), float(seed[1]), float(seed[2])),
-        h=h_fit,
+        h=h,
         R=r_tuple,
         seed_idx=int(seed_idx),
     )
@@ -365,9 +510,7 @@ def classify_saddle_site(
     return SaddleKind.OTHER
 
 
-def _hollow_subkind(
-    psad: np.ndarray, sub: np.ndarray, dist: np.ndarray, r_nn: float
-) -> SaddleKind:
+def _hollow_subkind(psad: np.ndarray, sub: np.ndarray, dist: np.ndarray, r_nn: float) -> SaddleKind:
     """FCC vs HCP for a 3-fold hollow: HCP has a substrate atom directly beneath."""
     coord = sub[dist < _SADDLE_COORD_FACTOR * r_nn + _SADDLE_COORD_BAND * r_nn]
     if coord.shape[0] < 3:
@@ -561,17 +704,24 @@ def project_event(
     rcut: float,
     d_max: int,
     r_ctx_min: float,
+    nominal_a: float = DEFAULT_NOMINAL_A,
 ) -> ProjectedEvent:
     """Project one pyKMC reference row onto the FCC frame (contract 5, ``FINAL_DESIGN`` 3).
 
     Runs the full section-3 pipeline: min-image-unwrap all of
     ``initial/final/saddle_positions`` about ``move_atom_idx`` -> fit the event's own
-    local FCC frame -> detect the true movers (site change is ground truth) -> build
+    local FCC frame (robust global-orientation fit, identity scale pinned to
+    ``nominal_a / 2``) -> detect the true movers (site change is ground truth) -> build
     ``delta`` / ``delta_atoms`` and the ``r_ctx``-decorated context (``EMPTY`` included,
     uncovered sites ``OUTSIDE`` + ``truncated``) -> one categorical saddle token per mover
     -> the operational depth signature. ``anchor0`` is ``(0, 0, 0)`` (the seed's snapped
     site); every offset is relative to it. ``start_rank`` on each token is left 0 (filled
     later by ``canonical``).
+
+    A cluster the robust fitter cannot frame (:class:`FrameUnfitError`) is returned as
+    a **degenerate** event -- empty delta/context/movers, infinite snap residuals, and
+    ``proj_report.frame_unfit_reason`` set -- so the failure is recorded in the gate
+    log (G3 ``FRAME_UNFIT``, before snapping) instead of aborting the ingest run.
     """
     P0_raw = np.asarray(_get(row, "initial_positions"), dtype=float)
     P2_raw = np.asarray(_get(row, "final_positions"), dtype=float)
@@ -584,13 +734,24 @@ def project_event(
     P0 = min_image_unwrap(P0_raw, move_atom_idx, cell)
     P2 = min_image_unwrap(P2_raw, move_atom_idx, cell)
     Psad = (
-        min_image_unwrap(Psad_raw, move_atom_idx, cell)
-        if Psad_raw.size == P0.size
-        else P0.copy()
+        min_image_unwrap(Psad_raw, move_atom_idx, cell) if Psad_raw.size == P0.size else P0.copy()
     )
 
-    # 2. Fit the event's own local FCC frame.
-    frame = fit_local_fcc(P0, move_atom_idx)
+    # 2. Fit the event's own local FCC frame (h pinned to nominal_a / 2).
+    try:
+        frame = fit_local_fcc(P0, move_atom_idx, nominal_a=nominal_a)
+    except FrameUnfitError as exc:
+        return _frame_unfit_event(
+            row,
+            P0,
+            str(exc),
+            coloring=coloring,
+            rcut=rcut,
+            d_max=d_max,
+            r_ctx_min=r_ctx_min,
+            nominal_a=nominal_a,
+            move_atom_idx=move_atom_idx,
+        )
 
     # 3. True site-change set (ground truth), plus per-atom snapped sites.
     s0 = [_snap(frame, P0[p]) for p in range(n)]
@@ -616,12 +777,15 @@ def project_event(
         1 for ds in delta if ds.before != Occ.EMPTY
     )
 
-    # 4b. Full r_ctx-decorated context about the moved-site centroid.
+    # 4b. Full r_ctx-decorated context about the moved-site centroid. frame.h is the
+    # PINNED identity scale (nominal_a / 2), so the context sphere r_ctx / h and the
+    # EMPTY/OUTSIDE radius test below are fixed integer criteria, R-independent and
+    # immune to thermal-scale noise at the r_ctx boundary (memo 2026-07-22 s3.1).
     moved_sites = [ds.off for ds in delta] or list(mover_starts) or [(0, 0, 0)]
     centroid = np.mean(np.asarray(moved_sites, dtype=float), axis=0)
     ctr = round_to_even_parity(centroid)
-    a_fit = 2.0 * frame.h
-    r_ctx = max(a_fit, rcut, r_ctx_min, (d_max + 1) * frame.h)
+    a_pinned = 2.0 * frame.h
+    r_ctx = max(a_pinned, rcut, r_ctx_min, (d_max + 1) * frame.h)
     origin = _origin(frame)
     truncated = False
     context: list[StencilSite] = []
@@ -660,6 +824,66 @@ def project_event(
         coloring=coloring,
         r_ctx_used=float(r_ctx),
         truncated=truncated,
+        Ea_fwd_eV=ea_fwd,
+        nu0_fwd_hz=_resolve_nu0_hz(row),
+        k_row=k_row,
+        id_saddle=str(_get(row, "id_saddle", "")),
+        id_final=str(_get(row, "id_final", "")),
+        event_id=str(_get(row, "event_id", "")),
+        idx_ref=idx_ref,
+        idx_backward=int(_get(row, "idx_backward", -1)),
+        move_atom_idx=move_atom_idx,
+        source_row=int(_get(row, "source_row", idx_ref)),
+        proj_report=proj_report,
+    )
+
+
+def _frame_unfit_event(
+    row: Mapping[str, Any],
+    P0: np.ndarray,
+    reason: str,
+    *,
+    coloring: Coloring,
+    rcut: float,
+    d_max: int,
+    r_ctx_min: float,
+    nominal_a: float,
+    move_atom_idx: int,
+) -> ProjectedEvent:
+    """Degenerate ``ProjectedEvent`` for a cluster with no fittable FCC frame (s3.6).
+
+    Carries no lattice representation (empty delta/context/movers/tokens) but keeps
+    the full row provenance and the real cluster diameter, with infinite snap
+    residuals and ``frame_unfit_reason`` set -- so G3 records ``FRAME_UNFIT`` (before
+    snapping), G4 records the mover mismatch, and the QC delta-less screen
+    quarantines the class. Frame-unfit events canonicalise into one audit-bucket
+    class (they are indistinguishable *on-lattice* precisely because they have no
+    lattice representation); ``source_rows`` / ``source_idx_refs`` keep each event
+    recoverable for re-harvest.
+    """
+    h = nominal_a / 2.0
+    r_ctx = max(nominal_a, rcut, r_ctx_min, (d_max + 1) * h)
+    ea_fwd = float(_get(row, "energy_barrier", float("nan")))
+    k_row = float(_get(row, "k", float("nan")))
+    idx_ref = int(_get(row, "idx_ref", 0))
+    proj_report = EventProjReport(
+        max_residual=float("inf"),
+        mover_max_residual=float("inf"),
+        diameter=_cluster_diameter(P0),
+        mover_agreement=False,
+        frame_unfit_reason=reason,
+    )
+    return ProjectedEvent(
+        anchor0=(0, 0, 0),
+        delta=(),
+        delta_atoms=0,
+        context=(),
+        movers=(),
+        saddle_tokens=(),
+        depth_sig=DepthSig(DepthKind.BULK_OR_DEEPER, -1),
+        coloring=coloring,
+        r_ctx_used=float(r_ctx),
+        truncated=True,
         Ea_fwd_eV=ea_fwd,
         nu0_fwd_hz=_resolve_nu0_hz(row),
         k_row=k_row,
@@ -736,6 +960,14 @@ def _saddle_coord_sig(
     return tuple(sorted(coords))
 
 
+def _cluster_diameter(P0: np.ndarray) -> float:
+    """Max pairwise distance of the (unwrapped) cluster; 0.0 below two atoms."""
+    if P0.shape[0] >= 2:
+        diffs = P0[:, None, :] - P0[None, :, :]
+        return float(np.max(np.linalg.norm(diffs, axis=2)))
+    return 0.0
+
+
 def _build_report(
     P0: np.ndarray,
     s0: Sequence[Offset],
@@ -754,11 +986,7 @@ def _build_report(
     mover_atoms = [p for p in range(n) if s0[p] != s2[p]]
     mover_max = float(np.max(residuals[mover_atoms])) if mover_atoms else 0.0
 
-    if n >= 2:
-        diffs = P0[:, None, :] - P0[None, :, :]
-        diameter = float(np.max(np.linalg.norm(diffs, axis=2)))
-    else:
-        diameter = 0.0
+    diameter = _cluster_diameter(P0)
 
     seed_start = s0[move_atom_idx] if move_atom_idx < n else None
     mover_agreement = seed_start in set(mover_starts)
