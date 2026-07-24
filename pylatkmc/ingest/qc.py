@@ -369,30 +369,42 @@ class StampReport:
 def stamp_rate_policy(
     classes: Sequence[EventClass],
     *,
-    measured_idx_refs: frozenset[int] | set[int],
+    measured_idx_refs: frozenset[int] | set[int] = frozenset(),
+    measured_class_ids: frozenset[str] | set[str] = frozenset(),
     pending_note: str = "",
 ) -> StampReport:
     """Stamp each class's ν0 rate policy after the QC screens (memo §3.2–3.3).
 
-    A non-quarantined, representable (G3 PASS) class is **measured** iff at least
-    one member ``idx_ref`` is in ``measured_idx_refs`` — the events already
-    validated as G3-PASS under the previous catalogue (for the one-time 2026-07-22
-    migration this set is derived from the recorded old→new projection map; a
-    future harvest carries forward the previous stamped catalogue's measured
-    membership). Measured classes get ``nu0_pair_policy = "harvested_pair"`` and
-    fire their raw harvested pairs.
+    A non-quarantined, representable class is **measured** iff it carries a
+    previously-measured member — resolved by **either** carry-forward key:
 
-    A representable class with **no** measured member was *recovered* by the frame
-    fix: it gets ``"pending_research"`` — the v2 translator excludes it (counted),
-    its sites fall through to the Phase C surrogate channel, and the flag registry
-    ranks it (by carried flux) for the in-situ pARTn re-search campaign. It
-    converts to measured only through :func:`graduate_classes`.
+    * ``measured_class_ids`` (content-based, portable across runs): the class's own
+      ``class_id`` is in the set. This is the cross-run carry-forward the original
+      docstring anticipated ("a future harvest carries forward the previous stamped
+      catalogue's measured membership"); it is used by the cross-run merge, where the
+      run-local ``idx_ref`` key does **not** survive. Membership is authoritative
+      evidence of representability (the reference catalogue already validated the
+      class as G3-PASS + measured), so a class in this set is stamped measured even if
+      a later run's snap noise would fail its aggregated G3.
+    * ``measured_idx_refs`` (run-local): a member ``idx_ref`` is in the set. This is
+      the one-time 2026-07-22 migration key (derived from the recorded old→new
+      projection map); it keeps the historical G3-PASS precondition.
 
-    Quarantined classes and non-representable (G3 FAIL) classes are left
-    unstamped. Pure re-emission: new instances, inputs untouched, deterministic
-    ``class_id`` order.
+    Measured classes get ``nu0_pair_policy = "harvested_pair"`` and fire their raw
+    harvested pairs.
+
+    A representable (G3 PASS) class with **no** measured member was *recovered*: it
+    gets ``"pending_research"`` — the v2 translator excludes it (counted), its sites
+    fall through to the Phase C surrogate channel, and the flag registry ranks it (by
+    carried flux) for the in-situ pARTn re-search campaign. It converts to measured
+    only through :func:`graduate_classes`.
+
+    Quarantined classes and non-representable (G3 FAIL, not in ``measured_class_ids``)
+    classes are left unstamped. Pure re-emission: new instances, inputs untouched,
+    deterministic ``class_id`` order.
     """
     measured = frozenset(int(r) for r in measured_idx_refs)
+    measured_cids = frozenset(measured_class_ids)
     out: list[EventClass] = []
     n_meas = n_pend = n_unrep = n_quar = 0
     for c in sorted(classes, key=lambda k: k.class_id):
@@ -400,11 +412,12 @@ def stamp_rate_policy(
             n_quar += 1
             out.append(replace(c))
             continue
-        if not _class_g3_pass(c):
+        measured_by_class = c.class_id in measured_cids
+        if not _class_g3_pass(c) and not measured_by_class:
             n_unrep += 1
             out.append(replace(c))
             continue
-        if any(int(r) in measured for r in c.source_idx_refs):
+        if measured_by_class or any(int(r) in measured for r in c.source_idx_refs):
             n_meas += 1
             out.append(replace(c, nu0_pair_policy=NU0_POLICY_HARVESTED_PAIR))
             continue

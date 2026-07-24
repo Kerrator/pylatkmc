@@ -1,4 +1,4 @@
-"""CLI for the pylatkmc ingest bridge: ``recover``, ``build``, ``qc``, ``graduate``.
+"""CLI for the pylatkmc ingest bridge: ``recover``, ``build``, ``qc``, ``graduate``, ``merge``.
 
 ``recover`` — trajectory-recovery HTST: per-family Vineyard ν₀ from real events::
 
@@ -49,6 +49,23 @@ context-suspect and written to the review list::
         --out catalogue_graduated.parquet \
         --review graduation_review.csv \
         --band 0.05
+
+``merge`` — class-level union of many per-run QC'd catalogues into one catalogue,
+keyed on the content-based ``class_id`` (portable across runs). Never concatenate raw
+reference tables (``idx_ref`` is run-local); merge unions **built + QC'd** per-run
+catalogues, re-runs the QC screens on the merged member lists (statuses are re-decided,
+not unioned), applies the class_id-keyed veto overlay, and stamps the measured ν0
+policy from a reference catalogue's ``harvested_pair`` class_id set::
+
+    python -m pylatkmc.ingest.cli merge \
+        --in NiCr_T300_1vac=T300_1vac_qc.parquet \
+        --in NiCr_T500_10vac=T500_10vac_qc.parquet \
+        --out sweep_catalogue.parquet \
+        --tol 1e-6 --spread-tol 0.1 \
+        --overlay vetoes_migrated.toml \
+        --measured-catalogue catalogue_v3_graduated.parquet \
+        --measured-catalogue catalogue_v3_qc_veto_stamped.parquet \
+        --conditions "NiCr sweep 29 runs"
 """
 
 from __future__ import annotations
@@ -179,6 +196,52 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     g.add_argument(
         "--review", default=None, help="context-suspect review-list CSV (default: alongside --out)"
+    )
+
+    m = sub.add_parser(
+        "merge",
+        help="class-level union of per-run QC'd catalogues (+ overlay + class_id stamp)",
+    )
+    m.add_argument(
+        "--in",
+        dest="inputs",
+        action="append",
+        default=[],
+        metavar="RUN_TAG=PATH",
+        help="a per-run QC'd Parquet catalogue tagged with its run id "
+        "(repeatable; RUN_TAG=/path/to/qc.parquet). NEVER concatenate raw reference "
+        "tables — idx_ref is run-local; merge unions built+QC'd catalogues on class_id",
+    )
+    m.add_argument(
+        "--manifest",
+        default=None,
+        help="alternative to repeated --in: a CSV with columns run_tag,parquet",
+    )
+    m.add_argument("--out", dest="out_path", required=True, help="merged EventClass Parquet")
+    m.add_argument("--tol", type=float, default=1e-6, help="reciprocity |dE_f+dE_b| tol (eV)")
+    m.add_argument(
+        "--spread-tol", type=float, default=0.1, help="within-class dE_pair spread quarantine (eV)"
+    )
+    m.add_argument("--overlay", default=None, help="class_id-keyed human-veto overlay (TOML/JSON)")
+    m.add_argument(
+        "--measured-catalogue",
+        dest="measured_catalogues",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="stamped/graduated reference catalogue Parquet; the measured class_id set "
+        "is its nu0_pair_policy=='harvested_pair' classes. Repeatable: the FIRST "
+        "readable path is used (graduated first, stamped as fallback)",
+    )
+    m.add_argument(
+        "--pending-note",
+        default="",
+        help="extra provenance appended to each pending_research audit_reason",
+    )
+    m.add_argument(
+        "--conditions",
+        default="",
+        help="free-text upstream conditions stamp for the output file metadata",
     )
     return p
 
@@ -387,6 +450,104 @@ def _run_graduate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_merge_inputs(args: argparse.Namespace) -> list[tuple[str, str]]:
+    """Resolve ``(run_tag, parquet_path)`` pairs from ``--in`` and/or ``--manifest``."""
+    pairs: list[tuple[str, str]] = []
+    for spec in args.inputs:
+        if "=" not in spec:
+            raise ValueError(f"--in expects RUN_TAG=PATH, got {spec!r}")
+        tag, path = spec.split("=", 1)
+        tag, path = tag.strip(), path.strip()
+        if not tag or not path:
+            raise ValueError(f"--in expects a non-empty RUN_TAG=PATH, got {spec!r}")
+        pairs.append((tag, path))
+    if args.manifest:
+        with open(args.manifest, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            names = reader.fieldnames or []
+            if "run_tag" not in names or "parquet" not in names:
+                raise ValueError(
+                    f"--manifest {args.manifest}: need columns 'run_tag' and 'parquet', got {names}"
+                )
+            for row in reader:
+                tag = (row.get("run_tag") or "").strip()
+                path = (row.get("parquet") or "").strip()
+                if tag and path:
+                    pairs.append((tag, path))
+    if not pairs:
+        raise ValueError("merge needs at least one input (--in RUN_TAG=PATH or --manifest CSV)")
+    return pairs
+
+
+def _resolve_measured_class_ids(paths: list[str]) -> tuple[frozenset[str], str | None]:
+    """Measured (``harvested_pair``) class_ids from the first readable reference catalogue."""
+    from .event_class import read_catalogue_parquet
+    from .merge import measured_class_ids_from_catalogue
+
+    for path in paths:
+        if not Path(path).exists():
+            continue
+        classes = read_catalogue_parquet(path)
+        return measured_class_ids_from_catalogue(classes), path
+    return frozenset(), None
+
+
+def _run_merge(args: argparse.Namespace) -> int:
+    from .event_class import read_catalogue_parquet, write_catalogue_parquet
+    from .merge import merge_qcd_catalogues
+    from .qc import load_overlay
+
+    pairs = _read_merge_inputs(args)
+    overlay = load_overlay(args.overlay) if args.overlay else None
+    measured, measured_src = _resolve_measured_class_ids(args.measured_catalogues)
+
+    per_run: list[tuple[str, list]] = []
+    for tag, path in sorted(pairs):
+        per_run.append((tag, read_catalogue_parquet(path)))
+        print(f"  loaded {tag}: {len(per_run[-1][1])} classes  <- {path}")
+
+    report = merge_qcd_catalogues(
+        per_run,
+        tol=args.tol,
+        spread_tol=args.spread_tol,
+        overlay=overlay,
+        measured_class_ids=measured,
+        pending_note=args.pending_note,
+    )
+
+    stamp_note = ""
+    if report.stamp is not None:
+        stamp_note = (
+            f" | stamp(class_id): measured={report.stamp.n_measured} "
+            f"pending={report.stamp.n_pending_research} "
+            f"nonrepresentable={report.stamp.n_unstamped_nonrepresentable} "
+            f"measured_src={Path(measured_src).name if measured_src else 'none'}"
+        )
+    stamp = (
+        f"{args.conditions.strip()} | MERGE: runs={report.n_runs} "
+        f"instances={report.n_input_class_instances} classes={report.n_merged_classes} "
+        f"tol={args.tol:g} spread_tol={args.spread_tol:g} overlay={args.overlay or 'none'} "
+        f"quarantined={report.qc.total_quarantined} "
+        f"status_conflicts={report.status_conflict_count} "
+        f"nonconserving_surviving={report.nonconserving_surviving}"
+        f"{stamp_note} "
+        f"| schema_version=2 date={datetime.date.today().isoformat()}"
+    ).strip(" |")
+    write_catalogue_parquet(
+        report.classes,
+        args.out_path,
+        metadata={b"pylatkmc.merge.conditions": stamp.encode("utf-8")},
+    )
+
+    print(report.summary())
+    print(report.qc.summary())
+    if report.stamp is not None:
+        print(report.stamp.summary())
+    print(f"  wrote {args.out_path}")
+    print(f"  metadata[pylatkmc.merge.conditions] = {stamp}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.cmd == "recover":
@@ -397,6 +558,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_qc(args)
     if args.cmd == "graduate":
         return _run_graduate(args)
+    if args.cmd == "merge":
+        return _run_merge(args)
     return 2
 
 
