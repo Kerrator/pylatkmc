@@ -59,8 +59,14 @@ from pylatkmc.ingest.lattice import D4H, NN12_OFFSETS, Offset, SymOp, apply_op
 # --------------------------------------------------------------------------- #
 # 0.4 Constants                                                               #
 # --------------------------------------------------------------------------- #
-CANON_SCHEMA_VERSION: int = 1
-"""Serialization version prefix. Bumping it changes every ``class_id``."""
+CANON_SCHEMA_VERSION: int = 2
+"""Serialization version prefix. Bumping it changes every ``class_id``.
+
+v1 -> v2 (2026-07-29, over-snapping memo §8.1): the §6 bystander mask changes
+canonical content for ~1/5 of classes, so every ``class_id`` changes loudly —
+the version prefix exists precisely to make cross-policy merges impossible
+(an unbumped merge would silently double-count masked classes under two ids).
+"""
 
 _INT_TAG = b"\x01"
 """TLV tag for an integer leaf (contract 7.3)."""

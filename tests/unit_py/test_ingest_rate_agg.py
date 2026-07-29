@@ -266,9 +266,22 @@ def test_g2_pair_spread_independent_mean_ratio_fires() -> None:
 
 
 def test_g3_snap_residual_fires() -> None:
-    """G3 FAILs when a cluster atom (or a mover) snaps beyond snap_tol."""
-    assert ec.gate_g3_snap_residual(_mk_pe(proj_report=EventProjReport(1.0, 0.2, 4.0, True))).outcome == GateOutcome.FAIL
-    assert ec.gate_g3_snap_residual(_mk_pe(proj_report=EventProjReport(0.3, 0.95, 4.0, True))).outcome == GateOutcome.FAIL
+    """G3 is mover-keyed (memo 2026-07-29 §4): only mover residuals FAIL.
+
+    Regression for the pre-2026-07-29 dead mover branch (§11-i): an event failing
+    *only* on mover residual must FAIL with a MOVER_OFFLATTICE detail — the old
+    gate tested max_residual first, so its mover branch was unreachable (movers
+    are a subset of atoms). A bystander-only high residual now PASSes (the §6
+    mask, not the gate, handles it).
+    """
+    # mover off-lattice -> FAIL, and the detail names the mover criterion.
+    res = ec.gate_g3_snap_residual(_mk_pe(proj_report=EventProjReport(0.95, 0.95, 4.0, True)))
+    assert res.outcome == GateOutcome.FAIL
+    assert "MOVER_OFFLATTICE" in res.detail
+    # bystander-only high residual (movers tight) -> PASS under the mover-keyed gate.
+    res = ec.gate_g3_snap_residual(_mk_pe(proj_report=EventProjReport(1.0, 0.2, 4.0, True)))
+    assert res.outcome == GateOutcome.PASS
+    assert "max_residual=1.000" in res.detail  # both residuals recorded for audit
     assert ec.gate_g3_snap_residual(_mk_pe()).outcome == GateOutcome.PASS
 
 

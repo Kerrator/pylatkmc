@@ -5,17 +5,20 @@ numbers the prototype validated on the production NiCr ``verify_fix_T500_1vac``
 corpus, re-measured through the INSTALLED pipeline:
 
 * **PASS bijection** (§6.2): the 124 previously-G3-PASS events stay PASS and their
-  123 old classes map 1:1 onto 123 new classes — zero splits, zero joins, 63
-  bit-identical ids (the rest relabel via the pinned-h amendment).
+  123 old classes map 1:1 onto 123 new classes — zero splits, zero joins.
 * **Bucket-(ii) recovery** (§6.1): all 41 triage-bucket-(ii) events project
   G3-PASS, single-mover, atom-conserving.
 * **Determinism**: two subprocess runs under different ``PYTHONHASHSEED`` produce
   identical ``class_id``\\ s (contract Phase A hard gate).
 
-The expected values live in ``data/frame_fix_expected.csv`` (written from the
-2026-07-22 validation, where the installed pipeline reproduced the prototype
-445/445). The suite is pinned to that corpus: it skips unless the resolved
-reference table's positional ``idx_ref`` sequence matches the fixture.
+The expected values live in ``data/frame_fix_expected.csv``. First written from
+the 2026-07-22 validation (where the installed pipeline reproduced the prototype
+445/445, with 63 ids bit-identical to the pre-fix era); **regenerated 2026-07-29**
+under the over-snapping policy (mover-keyed G3 @ 0.5 Å, §6 bystander mask,
+``CANON_SCHEMA_VERSION`` 2): the PASS bijection and bucket-(ii) recovery are
+unchanged, and the CANON version prefix relabels every id (bit-identical count is
+0 by construction). The suite is pinned to that corpus: it skips unless the
+resolved reference table's positional ``idx_ref`` sequence matches the fixture.
 """
 
 from __future__ import annotations
@@ -45,7 +48,7 @@ _PRODUCTION_REFTABLE = Path(
 _RCUT = 8.5
 _D_MAX = 3
 _R_CTX_MIN = 3.6
-_SNAP_TOL = 0.9
+_MOVER_SNAP_TOL = 0.5  # memo 2026-07-29 §4 (the retired max-keyed gate used 0.9)
 
 
 def _load_corpus() -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -86,7 +89,7 @@ def _project(df: pd.DataFrame, row: int) -> object:
 
 
 def _g3(pe: object) -> str:
-    res = ec.gate_g3_snap_residual(pe, _SNAP_TOL)
+    res = ec.gate_g3_snap_residual(pe, _MOVER_SNAP_TOL)
     return {0: "PASS", 1: "FAIL", 2: "WARN", 3: "NA"}[int(res.outcome)]
 
 
@@ -114,7 +117,9 @@ def test_pass_bijection_regression(corpus: tuple[pd.DataFrame, pd.DataFrame]) ->
     assert p["impl_id"].nunique() == 123
     assert int((fwd > 1).sum()) == 0, "old class split under the new identity"
     assert int((back > 1).sum()) == 0, "old classes joined under the new identity"
-    assert int((p["class_id_old"] == p["impl_id"]).sum()) == 63
+    # CANON v2 (2026-07-29) prefixes every id: none stay bit-identical to the
+    # pre-frame-fix era (was 63 under CANON v1).
+    assert int((p["class_id_old"] == p["impl_id"]).sum()) == 0
 
 
 def test_bucket_ii_recovery(corpus: tuple[pd.DataFrame, pd.DataFrame]) -> None:

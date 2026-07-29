@@ -86,10 +86,13 @@ of events — run in the background.)*
 >
 > - **`build`** — the installed reference-table pipeline: project every row of a pyKMC
 >   `reference_table.pickle` (robust global-orientation frame fit with the identity scale pinned to
->   `--nominal-a`/2; memo `PROJECTION_IDENTITY_REDESIGN_DECISION_2026-07-22.md` §3.1), run gates
->   G1–G7, assemble + write the catalogue. A cluster with no fittable FCC frame is recorded as a
->   degenerate event whose gate log carries `G3 FRAME_UNFIT` (never a silent drop); `--rcut` must be
->   the pyKMC run's rcut (the G7 trap).
+>   `--nominal-a`/2; memo `PROJECTION_IDENTITY_REDESIGN_DECISION_2026-07-22.md` §3.1), enforce the
+>   mover-keyed G3 (over-snapping memo 2026-07-29 §4–§5: a row with `FRAME_UNFIT` or a mover snap
+>   residual ≥ `--mover-snap-tol` is dropped **before joining a class** into the sidecar ledger
+>   `<out>_discarded.parquet` — counted, never silent; conservation
+>   `n_rows = n_projected + n_raised + n_discarded`), mask static bystanders ≥
+>   `--bystander-mask-tol` to `WILDCARD` (§6), run gates G1–G7, assemble + write the catalogue.
+>   `--rcut` must be the pyKMC run's rcut (the G7 trap).
 > - **`qc`** — the quality-control screens (reciprocity, delta-less, within-class dE-spread
 >   **quarantine** per memo §3.5, human-veto overlay — sticky, orphans surfaced) re-emitting a
 >   schema-v2 Parquet (`CATALOGUE_SCHEMA_VERSION` 1 → 2, `audit_reason` recorded). With

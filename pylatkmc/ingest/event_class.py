@@ -64,7 +64,7 @@ A_NOMINAL: float = 3.52
 H: float = A_NOMINAL / 2.0
 """Half-lattice spacing h = a/2 (Angstrom)."""
 
-CATALOGUE_SCHEMA_VERSION: int = 2
+CATALOGUE_SCHEMA_VERSION: int = 3
 """Bump to invalidate the whole Parquet schema deliberately.
 
 v1 -> v2 (2026-07-22, Phase C ingest-QC leg): the formerly-omitted [C] Phase C
@@ -72,6 +72,11 @@ rate-model fields (``phi``, ``model_version``, ``dE_model_version``,
 ``nu0_pair_policy``, ``fallback_stats``) plus the human-veto ``audit_reason`` are
 now persisted in the Parquet schema. ``read_catalogue_parquet`` still reads a v1
 file (the new columns are absent -> field defaults).
+
+v2 -> v3 (2026-07-29, over-snapping memo §11): per-member snap residuals
+(``mover_max_residual_list`` / ``max_residual_list``, Å, aligned with
+``barriers_eV``) are persisted so §2-style mover-vs-bystander audits never need a
+re-projection. Same read-compat rule: absent columns -> field defaults.
 """
 
 PRIOR_EA_STD_FLOOR_EV: float = 0.02
@@ -310,7 +315,20 @@ class GateResult:
 
 @dataclass(frozen=True)
 class GateThresholds:
-    """Thresholds for the ingest gates (contract 8)."""
+    """Thresholds for the ingest gates (contract 8).
+
+    ``mover_snap_tol`` keys the mover-keyed G3 (memo 2026-07-29 §4): an event is
+    truly off-lattice iff any *mover's* snap residual reaches it (or the frame is
+    unfit). ``bystander_mask_tol`` keys the §6 context masking: a *static*
+    bystander whose residual reaches it has its context row demoted to
+    ``WILDCARD`` before canonicalisation. The two share the 0.5 Å default (one
+    measured valley, two named uses).
+
+    ``snap_tol`` is RETIRED as a gate input (memo 2026-07-29 §4): no gate reads
+    it any more. It is kept one release for CLI compatibility and as a historical
+    conditions-stamp parameter — old catalogues stay interpretable via their
+    stamps (memo §7).
+    """
 
     emin_event: float
     emax_event: float
@@ -318,6 +336,8 @@ class GateThresholds:
     snap_tol: float = 0.9
     db_tol: float = 0.05
     rcut: float = 5.0
+    mover_snap_tol: float = 0.5
+    bystander_mask_tol: float = 0.5
 
 
 # --------------------------------------------------------------------------- #
@@ -365,6 +385,10 @@ class EventClass:
     n_eff: float
     Ea_mean_eV: float
     Ea_median_eV: float
+    # --- per-member snap residuals (Å, aligned with barriers_eV; schema v3,
+    #     memo 2026-07-29 §11 — §2-style audits without re-projection) ---
+    mover_max_residual_list: tuple[float, ...] = ()
+    max_residual_list: tuple[float, ...] = ()
     # --- Phase C rate-model fields [C] (empty until Phase C populates them) ---
     phi: tuple[float, ...] = ()
     model_version: str | None = None
@@ -690,11 +714,20 @@ def gate_g2_pair_spread(
     )
 
 
-def gate_g3_snap_residual(pe: ProjectedEvent, snap_tol: float = 0.9) -> GateResult:
-    """G3: every cluster atom snaps ``< snap_tol``; movers strictly ``< snap_tol``.
+def gate_g3_snap_residual(pe: ProjectedEvent, mover_snap_tol: float = 0.5) -> GateResult:
+    """G3: mover-keyed off-lattice gate (memo 2026-07-29 §4).
 
-    The off-lattice saddle is exempt. FAIL keeps intrinsically off-lattice events
-    out of the catalogue.
+    ``FAIL iff frame_unfit OR mover_max_residual >= mover_snap_tol``. An event is
+    truly off-lattice only when an atom that *changes site* cannot be trusted on
+    the lattice; a static bystander's relaxation (surface sag) no longer FAILs —
+    its context row is masked to ``WILDCARD`` instead (§6, in ``project_event``).
+    FAIL is enforced as a build-time drop into the discard ledger (§5,
+    ``reftable``), so a FAILing event never joins a class; the aggregated
+    class-level G3 must therefore always PASS — a class-level FAIL is a pipeline
+    bug, not data.
+
+    Both residuals are recorded in the detail (audit): ``mover_max_residual``
+    decides, ``max_residual`` contextualises.
 
     A frame-unfit event (no orthogonal-axis FCC frame exists; memo 2026-07-22 s3.6)
     FAILs here **before** any snap residual is evaluated -- the ``FRAME_UNFIT``
@@ -709,25 +742,20 @@ def gate_g3_snap_residual(pe: ProjectedEvent, snap_tol: float = 0.9) -> GateResu
             f"FRAME_UNFIT: {rep.frame_unfit_reason}",
             None,
         )
-    if rep.max_residual >= snap_tol:
+    if rep.mover_max_residual >= mover_snap_tol:
         return GateResult(
             "G3",
             GateOutcome.FAIL,
-            f"UNMAPPABLE: max_residual={rep.max_residual:.3f} >= snap_tol={snap_tol}",
-            rep.max_residual,
-        )
-    if rep.mover_max_residual >= snap_tol:
-        return GateResult(
-            "G3",
-            GateOutcome.FAIL,
-            f"UNMAPPABLE: mover_max_residual={rep.mover_max_residual:.3f} >= snap_tol={snap_tol}",
+            f"MOVER_OFFLATTICE: mover_max_residual={rep.mover_max_residual:.3f} >= "
+            f"mover_snap_tol={mover_snap_tol} (max_residual={rep.max_residual:.3f})",
             rep.mover_max_residual,
         )
     return GateResult(
         "G3",
         GateOutcome.PASS,
-        f"max_residual={rep.max_residual:.3f} < {snap_tol}",
-        rep.max_residual,
+        f"mover_max_residual={rep.mover_max_residual:.3f} < {mover_snap_tol} "
+        f"(max_residual={rep.max_residual:.3f})",
+        rep.mover_max_residual,
     )
 
 
@@ -850,7 +878,7 @@ def run_gates(
             pe, thresholds.emin_event, thresholds.emax_event, thresholds.backward_emin_event
         ),
         gate_g2_detailed_balance(pe, linked_bwd, t_ref_K, thresholds.db_tol),
-        gate_g3_snap_residual(pe, thresholds.snap_tol),
+        gate_g3_snap_residual(pe, thresholds.mover_snap_tol),
         gate_g4_round_trip(pe),
         gate_g5_conservation(pe),
         gate_g6_context_completeness(pe),
@@ -1013,6 +1041,8 @@ def build_class_catalogue(
 
         barriers = tuple(m.Ea_fwd_eV for m in members)
         nu0_f = tuple(m.nu0_fwd_hz for m in members)
+        mover_resid = tuple(m.proj_report.mover_max_residual for m in members)
+        max_resid = tuple(m.proj_report.max_residual for m in members)
 
         # backward linking
         nu0_b_vals: list[float] = []
@@ -1079,6 +1109,8 @@ def build_class_catalogue(
                 nu0_f_list_hz=nu0_f,
                 nu0_b_list_hz=tuple(nu0_b_vals),
                 dE_pair_list_eV=tuple(dE_pairs),
+                mover_max_residual_list=mover_resid,
+                max_residual_list=max_resid,
                 k_rate_mean_psinv=agg.k_rate_mean_psinv,
                 Ea_rep_eV=agg.Ea_rep_eV,
                 nu0_geo_psinv=agg.nu0_geo_psinv,
@@ -1322,6 +1354,10 @@ def catalogue_arrow_schema() -> pa.Schema:
             # fallback_stats is a heterogeneous tuple (leverage, hull_flag,
             # model_version, tier) — serialized as a JSON string column.
             ("fallback_stats", pa.string()),
+            # --- schema v3: per-member snap residuals (Å, aligned with barriers_eV;
+            # memo 2026-07-29 §11) ---
+            ("mover_max_residual_list", pa.list_(pa.float64())),
+            ("max_residual_list", pa.list_(pa.float64())),
         ]
     )
 
@@ -1443,6 +1479,9 @@ def _event_to_row(ec: EventClass) -> dict[str, Any]:
         "dE_model_version": ec.dE_model_version,
         "nu0_pair_policy": ec.nu0_pair_policy,
         "fallback_stats": _fallback_stats_to_json(ec.fallback_stats),
+        # --- schema v3: per-member snap residuals ---
+        "mover_max_residual_list": [float(x) for x in ec.mover_max_residual_list],
+        "max_residual_list": [float(x) for x in ec.max_residual_list],
     }
 
 
@@ -1555,6 +1594,9 @@ def _row_to_event(row: dict[str, Any]) -> EventClass:
         dE_model_version=row.get("dE_model_version"),
         nu0_pair_policy=row.get("nu0_pair_policy"),
         fallback_stats=_fallback_stats_from_json(row.get("fallback_stats")),
+        # schema-v3 columns; absent in a v1/v2 parquet -> field defaults (back-compat).
+        mover_max_residual_list=tuple(float(x) for x in (row.get("mover_max_residual_list") or ())),
+        max_residual_list=tuple(float(x) for x in (row.get("max_residual_list") or ())),
         schema_version=int(row["schema_version"]),
     )
 

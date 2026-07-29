@@ -605,8 +605,15 @@ def test_project_event_frame_unfit_degenerate_fails_g3_before_snapping():
     assert by_gate["G4"].outcome == GateOutcome.FAIL  # no mover agreement either
 
 
-def test_frame_unfit_event_survives_catalogue_assembly():
-    """A degenerate event canonicalises and lands in the catalogue as an audit row."""
+def test_frame_unfit_event_survives_direct_catalogue_assembly():
+    """A degenerate event fed DIRECTLY to assembly canonicalises without crashing.
+
+    Since memo 2026-07-29 §5 the installed driver (``reftable``) diverts
+    FRAME_UNFIT rows to the discard ledger before assembly (see
+    ``test_ingest_oversnap``); this test covers the belt-and-suspenders path — a
+    caller bypassing the driver still gets a coherent, quarantinable audit row,
+    never a crash or a silent drop.
+    """
     from pylatkmc.ingest.event_class import build_class_catalogue
 
     chain = np.asarray([[i * NN, 0.0, 0.0] for i in range(8)], dtype=float)

@@ -384,8 +384,11 @@ def stamp_rate_policy(
       catalogue's measured membership"); it is used by the cross-run merge, where the
       run-local ``idx_ref`` key does **not** survive. Membership is authoritative
       evidence of representability (the reference catalogue already validated the
-      class as G3-PASS + measured), so a class in this set is stamped measured even if
-      a later run's snap noise would fail its aggregated G3.
+      class as G3-PASS + measured). Historical note: this key used to *bypass* an
+      aggregated G3 FAIL (a later run's snap noise could fail a measured class);
+      since the 2026-07-29 build-time discard, G3-failing events never reach
+      stamping, so on post-2026-07-29 catalogues the bypass has no object — it is
+      kept only for reading pre-migration (CANON v1) catalogues.
     * ``measured_idx_refs`` (run-local): a member ``idx_ref`` is in the set. This is
       the one-time 2026-07-22 migration key (derived from the recorded old→new
       projection map); it keeps the historical G3-PASS precondition.

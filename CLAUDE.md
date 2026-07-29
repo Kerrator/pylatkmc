@@ -38,14 +38,17 @@ prefactors); **the core never imports it**. Install via `pip install -e ".[inges
 `pylatkmc-gen` has **exactly four** subcommands (`pylatkmc/cli.py`): `build` (the only writer →
 `<spec_dir>/generated/proclist.{c,h}`), `info`, `processes` (read-only; `--family-csv` optional),
 `clean`. There is **no** `rate`/`provenance` subcommand. The ingest pipeline is a **separate** CLI:
-`python -m pylatkmc.ingest.cli` with **four** subcommands — `recover` (per-bucket Vineyard ν₀ from
-trajectories, needs LAMMPS) and three pure ones over an `EventClass` Parquet catalogue: `build`
-(reference table → catalogue via the robust pinned-h frame fit; frame-unfit rows recorded as
-`G3 FRAME_UNFIT`, never dropped), `qc` (QC screens → schema-v2 QC'd Parquet; dE-spread now
+`python -m pylatkmc.ingest.cli` with **five** subcommands — `recover` (per-bucket Vineyard ν₀ from
+trajectories, needs LAMMPS) and four pure ones over an `EventClass` Parquet catalogue: `build`
+(reference table → catalogue via the robust pinned-h frame fit; mover-keyed G3 per the 2026-07-29
+over-snapping memo — `FRAME_UNFIT` / `MOVER_OFFLATTICE` rows are dropped at build into the sidecar
+ledger `<out>_discarded.parquet`, counted, never silent; ≥0.5 Å static bystanders are masked to
+`WILDCARD` in the context), `qc` (QC screens → schema-v2 QC'd Parquet; dE-spread now
 QUARANTINES per the 2026-07-22 memo §3.5; `--measured-refs` stamps `nu0_pair_policy` =
 `harvested_pair`/`pending_research` — the latter is skip-counted by `translator_v2`, never emitted
-as measured procs), and `graduate` (re-search agreement gate, ±0.05 eV → pending class converts to
-measured; disagreements go to the review list as `CONTEXT_SUSPECT`).
+as measured procs), `graduate` (re-search agreement gate, ±0.05 eV → pending class converts to
+measured; disagreements go to the review list as `CONTEXT_SUSPECT`), and `merge` (class-level union
+of per-run QC'd catalogues on `class_id`; re-runs QC on merged member lists).
 
 ## Models
 

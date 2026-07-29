@@ -14,8 +14,12 @@
         --per-bucket 5
 
 ``build`` — the installed reference-table pipeline (robust frame fit, pinned
-identity scale; memo 2026-07-22): project every row of a pyKMC
-``reference_table.pickle``, run the gates, assemble the ``EventClass`` catalogue::
+identity scale; memo 2026-07-22 + over-snapping memo 2026-07-29): project every
+row of a pyKMC ``reference_table.pickle``, enforce the mover-keyed G3 as a
+build-time drop (``FRAME_UNFIT`` / ``MOVER_OFFLATTICE`` rows go to the sidecar
+ledger ``<out>_discarded.parquet``, never into a class), mask ≥0.5 Å static
+bystanders to ``WILDCARD``, run the gates, assemble the ``EventClass``
+catalogue::
 
     python -m pylatkmc.ingest.cli build \
         --reftable .../reference_table.pickle \
@@ -118,7 +122,29 @@ def _build_parser() -> argparse.ArgumentParser:
         help="species coloring (default full)",
     )
     b.add_argument("--t-ref", type=float, default=500.0, help="reference temperature K")
-    b.add_argument("--snap-tol", type=float, default=0.9, help="G3 snap tolerance (Å)")
+    b.add_argument(
+        "--mover-snap-tol",
+        type=float,
+        default=0.5,
+        help="G3 mover-keyed off-lattice threshold (Å; memo 2026-07-29 §4) — a row "
+        "whose mover snap residual reaches it is dropped to the discard ledger",
+    )
+    b.add_argument(
+        "--bystander-mask-tol",
+        type=float,
+        default=0.5,
+        help="static-bystander context mask threshold (Å; memo 2026-07-29 §6) — a "
+        "non-mover whose snap residual reaches it has its context row demoted "
+        "to WILDCARD before canonicalisation",
+    )
+    b.add_argument(
+        "--snap-tol",
+        type=float,
+        default=None,
+        help="RETIRED (memo 2026-07-29 §4): no gate reads it. Accepted one release "
+        "for script compatibility; recorded in the conditions stamp only — use "
+        "--mover-snap-tol / --bystander-mask-tol instead",
+    )
     b.add_argument("--d-max", type=int, default=3, help="depth-signature cap (layers)")
     b.add_argument("--r-ctx-min", type=float, default=3.6, help="minimum context radius (Å)")
     b.add_argument(
@@ -284,15 +310,27 @@ def _run_recover(args: argparse.Namespace) -> int:
 
 def _run_build(args: argparse.Namespace) -> int:
     from .event_class import Coloring, GateThresholds, write_catalogue_parquet
-    from .reftable import ReftableBuildReport, build_catalogue_from_reference_table
+    from .reftable import (
+        ReftableBuildReport,
+        build_catalogue_from_reference_table,
+        discard_ledger_path,
+        write_discard_ledger_parquet,
+    )
 
+    if args.snap_tol is not None:
+        print(
+            "WARNING: --snap-tol is retired (memo 2026-07-29 §4) and has no gate "
+            "role; use --mover-snap-tol / --bystander-mask-tol",
+            file=sys.stderr,
+        )
     thresholds = GateThresholds(
         emin_event=args.emin,
         emax_event=args.emax,
         backward_emin_event=args.backward_emin,
-        snap_tol=args.snap_tol,
         db_tol=args.db_tol,
         rcut=args.rcut,
+        mover_snap_tol=args.mover_snap_tol,
+        bystander_mask_tol=args.bystander_mask_tol,
     )
     rep = ReftableBuildReport()
     classes = build_catalogue_from_reference_table(
@@ -309,14 +347,17 @@ def _run_build(args: argparse.Namespace) -> int:
     )
 
     stamp = (
-        f"{args.conditions.strip()} | build: rcut={args.rcut:g} snap_tol={args.snap_tol:g} "
+        f"{args.conditions.strip()} | build: rcut={args.rcut:g} "
+        f"mover_snap_tol={args.mover_snap_tol:g} "
+        f"bystander_mask_tol={args.bystander_mask_tol:g} "
         f"d_max={args.d_max} r_ctx_min={args.r_ctx_min:g} T_ref={args.t_ref:g} "
         f"coloring={args.coloring} nominal_a={args.nominal_a:g} "
         f"emin={args.emin:g} emax={args.emax:g} "
         f"| rows={rep.n_rows} projected={rep.n_projected} "
-        f"frame_unfit={rep.n_frame_unfit} failures={len(rep.failures)} "
+        f"discarded={rep.n_discarded} (mover_offlattice={rep.n_mover_offlattice} "
+        f"frame_unfit={rep.n_frame_unfit}) failures={len(rep.failures)} "
         f"classes={rep.catalogue.n_classes} "
-        f"| robust-frame-fit pinned-h (memo 2026-07-22) "
+        f"| mover-keyed G3 + discard ledger + bystander mask (memo 2026-07-29) "
         f"date={datetime.date.today().isoformat()}"
     ).strip(" |")
     write_catalogue_parquet(
@@ -324,10 +365,27 @@ def _run_build(args: argparse.Namespace) -> int:
         args.out,
         metadata={b"pylatkmc.build.conditions": stamp.encode("utf-8")},
     )
+    ledger_path = discard_ledger_path(args.out)
+    write_discard_ledger_parquet(
+        rep.discarded,
+        ledger_path,
+        metadata={b"pylatkmc.build.conditions": stamp.encode("utf-8")},
+    )
 
+    n_raised = len(rep.failures)
     print(
-        f"projected {rep.n_projected}/{rep.n_rows} rows "
-        f"({rep.n_frame_unfit} FRAME_UNFIT, {len(rep.failures)} failures)"
+        f"projected {rep.n_projected}/{rep.n_rows} rows; discarded {rep.n_discarded} "
+        f"({rep.n_mover_offlattice} MOVER_OFFLATTICE, {rep.n_frame_unfit} FRAME_UNFIT); "
+        f"{n_raised} failures"
+    )
+    print(
+        f"  conservation: rows={rep.n_rows} = projected={rep.n_projected} "
+        f"+ raised={n_raised} + discarded={rep.n_discarded}"
+        + (
+            ""
+            if rep.n_rows == rep.n_projected + n_raised + rep.n_discarded
+            else "  ** VIOLATED — pipeline bug **"
+        )
     )
     for i, msg in rep.failures:
         print(f"    row {i}: {msg}")
@@ -338,6 +396,7 @@ def _run_build(args: argparse.Namespace) -> int:
     if rep.catalogue.rcut_mismatch_suspected:
         print(f"WARNING: {rep.catalogue.rcut_mismatch_message}")
     print(f"  wrote {args.out}")
+    print(f"  discard ledger -> {ledger_path} ({rep.n_discarded} rows)")
     print(f"  metadata[pylatkmc.build.conditions] = {stamp}")
     return 1 if rep.failures else 0
 

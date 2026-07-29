@@ -24,6 +24,7 @@ import pytest
 
 from pylatkmc.ingest import surrogate as S
 from pylatkmc.ingest.event_class import (
+    CATALOGUE_SCHEMA_VERSION,
     Coloring,
     DeltaSite,
     DepthKind,
@@ -376,7 +377,7 @@ def test_stamp_catalogue_parquet_round_trip(tmp_path: Path) -> None:
     assert rc.fallback_stats[1] is True or rc.fallback_stats[1] is False
     assert rc.fallback_stats[2] == "E_sym_v1_ridge_sym2b3b"
     assert rc.fallback_stats[3] == "measured_raw_pair"
-    assert rc.schema_version == 2
+    assert rc.schema_version == CATALOGUE_SCHEMA_VERSION
     assert back[cls_q.class_id].fallback_stats[3] == "quarantined"
 
 

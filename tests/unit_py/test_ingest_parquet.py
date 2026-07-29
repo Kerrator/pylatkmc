@@ -237,7 +237,8 @@ def test_arrow_schema_column_order(tmp_path) -> None:
     schema = pq.read_schema(path)
     assert schema.names[:3] == ["class_id", "canonical_blob", "schema_version"]
     # schema v2 appends the previously-omitted [C] fields + human-veto reason after
-    # gate_log; fallback_stats (JSON string) is last.
+    # gate_log; schema v3 appends the per-member snap residual lists last
+    # (over-snapping memo 2026-07-29 §11).
     tail = schema.names[schema.names.index("gate_log") :]
     assert tail == [
         "gate_log",
@@ -247,6 +248,8 @@ def test_arrow_schema_column_order(tmp_path) -> None:
         "dE_model_version",
         "nu0_pair_policy",
         "fallback_stats",
+        "mover_max_residual_list",
+        "max_residual_list",
     ]
     # canonical_form is never a column (reconstructed from canonical_blob).
     assert "canonical_form" not in schema.names

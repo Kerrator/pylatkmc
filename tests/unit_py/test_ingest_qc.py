@@ -247,10 +247,11 @@ def test_preexisting_quarantine_is_never_downgraded() -> None:
 
 
 def test_schema_version_bumped_on_all_output() -> None:
-    """Every re-emitted class carries schema_version == 2, quarantined or not."""
+    """Every re-emitted class carries the current schema_version, quarantined or not."""
     rep = apply_qc([_mk("a"), _mk("d", delta=())])
     assert {c.schema_version for c in rep.classes} == {ec.CATALOGUE_SCHEMA_VERSION}
-    assert ec.CATALOGUE_SCHEMA_VERSION == 2
+    # v3 = per-member snap residual columns (over-snapping memo 2026-07-29 §11).
+    assert ec.CATALOGUE_SCHEMA_VERSION == 3
 
 
 def test_apply_qc_does_not_mutate_inputs() -> None:
@@ -327,7 +328,7 @@ def test_schema_v2_round_trip_new_fields(tmp_path) -> None:
     assert back.model_version == src.model_version
     assert back.dE_model_version == src.dE_model_version
     assert back.nu0_pair_policy == src.nu0_pair_policy
-    assert back.schema_version == 2
+    assert back.schema_version == ec.CATALOGUE_SCHEMA_VERSION
 
 
 def test_write_with_metadata(tmp_path) -> None:

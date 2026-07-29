@@ -174,17 +174,35 @@ def _merge_one_class(
     """
     primary = instances[0][1]
 
-    # --- aligned (Ea, nu0_f, nu0_b) member triples, concatenated then re-sorted ----
-    triples: list[tuple[float, float, float]] = []
+    # --- aligned (Ea, nu0_f, nu0_b, residuals) member rows, concatenated then
+    # re-sorted. The v3 per-member residual columns ride along, aligned by member;
+    # a pre-v3 instance contributes NaN residuals (read-compat).
+    triples: list[tuple[float, float, float, float, float]] = []
     for _tag, ec in instances:
         n = len(ec.barriers_eV)
         nu0_b = ec.nu0_b_list_hz if len(ec.nu0_b_list_hz) == n else (float("nan"),) * n
+        m_res = (
+            ec.mover_max_residual_list
+            if len(ec.mover_max_residual_list) == n
+            else (float("nan"),) * n
+        )
+        x_res = ec.max_residual_list if len(ec.max_residual_list) == n else (float("nan"),) * n
         for i in range(n):
-            triples.append((float(ec.barriers_eV[i]), float(ec.nu0_f_list_hz[i]), float(nu0_b[i])))
-    triples.sort(key=lambda t: (t[0], _sortable(t[1]), _sortable(t[2])))
+            triples.append(
+                (
+                    float(ec.barriers_eV[i]),
+                    float(ec.nu0_f_list_hz[i]),
+                    float(nu0_b[i]),
+                    float(m_res[i]),
+                    float(x_res[i]),
+                )
+            )
+    triples.sort(key=lambda t: tuple(_sortable(x) for x in t))
     barriers = tuple(t[0] for t in triples)
     nu0_f = tuple(t[1] for t in triples)
     nu0_b = tuple(t[2] for t in triples)
+    mover_resid = tuple(t[3] for t in triples)
+    max_resid = tuple(t[4] for t in triples)
 
     # --- linked-member dE_pair list (standalone subset), concatenated + sorted -----
     dE_pairs = sorted(
@@ -228,6 +246,8 @@ def _merge_one_class(
         nu0_f_list_hz=nu0_f,
         nu0_b_list_hz=nu0_b,
         dE_pair_list_eV=tuple(dE_pairs),
+        mover_max_residual_list=mover_resid,
+        max_residual_list=max_resid,
         k_rate_mean_psinv=agg.k_rate_mean_psinv,
         Ea_rep_eV=agg.Ea_rep_eV,
         nu0_geo_psinv=agg.nu0_geo_psinv,

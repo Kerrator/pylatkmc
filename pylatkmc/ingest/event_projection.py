@@ -705,23 +705,35 @@ def project_event(
     d_max: int,
     r_ctx_min: float,
     nominal_a: float = DEFAULT_NOMINAL_A,
+    bystander_mask_tol: float = 0.5,
 ) -> ProjectedEvent:
     """Project one pyKMC reference row onto the FCC frame (contract 5, ``FINAL_DESIGN`` 3).
 
-    Runs the full section-3 pipeline: min-image-unwrap all of
-    ``initial/final/saddle_positions`` about ``move_atom_idx`` -> fit the event's own
-    local FCC frame (robust global-orientation fit, identity scale pinned to
+    Runs the full section-3 pipeline in the memo-2026-07-29 §11 order: min-image-unwrap
+    all of ``initial/final/saddle_positions`` about ``move_atom_idx`` -> fit the event's
+    own local FCC frame (robust global-orientation fit, identity scale pinned to
     ``nominal_a / 2``) -> detect the true movers (site change is ground truth) -> build
     ``delta`` / ``delta_atoms`` and the ``r_ctx``-decorated context (``EMPTY`` included,
-    uncovered sites ``OUTSIDE`` + ``truncated``) -> one categorical saddle token per mover
-    -> the operational depth signature. ``anchor0`` is ``(0, 0, 0)`` (the seed's snapped
-    site); every offset is relative to it. ``start_rank`` on each token is left 0 (filled
-    later by ``canonical``).
+    uncovered sites ``OUTSIDE`` + ``truncated``) -> **mask static bystanders** (§6:
+    a non-mover atom whose snap residual is ``>= bystander_mask_tol`` has its context
+    row demoted to ``WILDCARD`` -- the site assignment is a coin flip and the identity
+    must not encode it; delta sites and ``EMPTY``/``OUTSIDE`` rows are never masked)
+    -> one categorical saddle token per mover -> the operational depth signature
+    (computed from the *masked* context, so it makes no claim the context cannot
+    support). ``anchor0`` is ``(0, 0, 0)`` (the seed's snapped site); every offset is
+    relative to it. ``start_rank`` on each token is left 0 (filled later by
+    ``canonical``).
+
+    Movers are never masked: a mover whose residual is off-lattice is *gated* (G3
+    MOVER_OFFLATTICE -> the build-time discard ledger, §4/§5). A snap-flicker phantom
+    mover (start/end sites differ from residual flicker alone) registers as a mover
+    via :func:`detect_movers` and is therefore gated, not masked.
 
     A cluster the robust fitter cannot frame (:class:`FrameUnfitError`) is returned as
     a **degenerate** event -- empty delta/context/movers, infinite snap residuals, and
-    ``proj_report.frame_unfit_reason`` set -- so the failure is recorded in the gate
-    log (G3 ``FRAME_UNFIT``, before snapping) instead of aborting the ingest run.
+    ``proj_report.frame_unfit_reason`` set -- so the failure is recorded in the build
+    discard ledger (reason ``FRAME_UNFIT``, memo 2026-07-29 §5) instead of aborting
+    the ingest run.
     """
     P0_raw = np.asarray(_get(row, "initial_positions"), dtype=float)
     P2_raw = np.asarray(_get(row, "final_positions"), dtype=float)
@@ -753,10 +765,16 @@ def project_event(
             move_atom_idx=move_atom_idx,
         )
 
-    # 3. True site-change set (ground truth), plus per-atom snapped sites.
+    # 3. True site-change set (ground truth), plus per-atom snapped sites and
+    # per-atom snap residuals (needed *before* context assembly: the §6 bystander
+    # mask and the G3 mover gate both key on them — memo 2026-07-29 §11 order).
     s0 = [_snap(frame, P0[p]) for p in range(n)]
     s2 = [_snap(frame, P2[p]) for p in range(n)]
     mover_starts, _empties = detect_movers(P0, P2, frame)
+    residuals = np.asarray(
+        [float(np.linalg.norm(P0[p] - _site_cart(frame, s0[p]))) for p in range(n)],
+        dtype=float,
+    )
 
     species = _species_list(_get(row, "initial_types"), n, coloring)
     occ0: dict[Offset, Occ] = {}
@@ -799,16 +817,41 @@ def project_event(
             truncated = True
         context.append(StencilSite(off=s, pred=pred))
 
+    # 4c. Mask static bystanders (memo 2026-07-29 §6): a non-mover atom whose snap
+    # residual is >= bystander_mask_tol makes its site assignment a coin flip, so
+    # the context row is demoted to WILDCARD *before* depth_sig / canonicalisation.
+    # Never delta sites (they pin before-states exactly; movers are gated, not
+    # masked) and never EMPTY/OUTSIDE rows (only occupied-site claims can be
+    # unreliable) — enforced structurally: only occupied-site rows key off an atom.
+    delta_sites = {ds.off for ds in delta}
+    masked_sites: set[Offset] = set()
+    for p in range(n):
+        if s0[p] != s2[p]:  # mover — gated by G3, never masked
+            continue
+        if residuals[p] >= bystander_mask_tol and s0[p] not in delta_sites:
+            masked_sites.add(s0[p])
+    if masked_sites:
+        context = [
+            StencilSite(off=cs.off, pred=OccPredicate(kind="WILDCARD"))
+            if cs.off in masked_sites and cs.pred.kind in ("SPECIES", "OCC_ANY")
+            else cs
+            for cs in context
+        ]
+
     # 5. One categorical saddle token per mover (movers-order; start_rank filled later).
     saddle_tokens = _build_saddle_tokens(mover_starts, s0, s2, P0, Psad, frame, move_atom_idx)
 
-    # 6. Operational depth signature.
+    # 6. Operational depth signature — from the masked context; a masked site counts
+    # as neither occupied nor empty (memo §3.1), so it is excluded from S0 too.
     depth_sig = compute_depth_sig(
-        tuple(context), tuple(mover_starts), tuple(occ0.keys()), d_max=d_max
+        tuple(context),
+        tuple(mover_starts),
+        tuple(s for s in occ0 if s not in masked_sites),
+        d_max=d_max,
     )
 
     # Projection report (snap residuals / diameter / mover agreement) for the gates.
-    proj_report = _build_report(P0, s0, s2, frame, move_atom_idx, mover_starts)
+    proj_report = _build_report(residuals, s0, s2, P0, move_atom_idx, mover_starts)
 
     ea_fwd = float(_get(row, "energy_barrier", float("nan")))
     k_row = float(_get(row, "k", float("nan")))
@@ -854,12 +897,11 @@ def _frame_unfit_event(
 
     Carries no lattice representation (empty delta/context/movers/tokens) but keeps
     the full row provenance and the real cluster diameter, with infinite snap
-    residuals and ``frame_unfit_reason`` set -- so G3 records ``FRAME_UNFIT`` (before
-    snapping), G4 records the mover mismatch, and the QC delta-less screen
-    quarantines the class. Frame-unfit events canonicalise into one audit-bucket
-    class (they are indistinguishable *on-lattice* precisely because they have no
-    lattice representation); ``source_rows`` / ``source_idx_refs`` keep each event
-    recoverable for re-harvest.
+    residuals and ``frame_unfit_reason`` set -- G3 FAILs it as ``FRAME_UNFIT``
+    before any snap residual is evaluated. Since memo 2026-07-29 §5 these events
+    never join a class: the build drops them into the discard ledger
+    (``reftable``), one place to look for every event the catalogue refused. The
+    ledger row keeps the provenance for re-harvest.
     """
     h = nominal_a / 2.0
     r_ctx = max(nominal_a, rcut, r_ctx_min, (d_max + 1) * h)
@@ -969,19 +1011,19 @@ def _cluster_diameter(P0: np.ndarray) -> float:
 
 
 def _build_report(
-    P0: np.ndarray,
+    residuals: np.ndarray,
     s0: Sequence[Offset],
     s2: Sequence[Offset],
-    frame: LocalFrame,
+    P0: np.ndarray,
     move_atom_idx: int,
     mover_starts: Sequence[Offset],
 ) -> EventProjReport:
-    """Snap residuals, cluster diameter and mover-agreement for the ingest gates."""
+    """Snap residuals, cluster diameter and mover-agreement for the ingest gates.
+
+    ``residuals`` is the per-atom snap-residual array ``project_event`` computes
+    up front (the §6 mask and this report share one computation).
+    """
     n = P0.shape[0]
-    residuals = np.asarray(
-        [float(np.linalg.norm(P0[p] - _site_cart(frame, s0[p]))) for p in range(n)],
-        dtype=float,
-    )
     max_residual = float(np.max(residuals)) if n else 0.0
     mover_atoms = [p for p in range(n) if s0[p] != s2[p]]
     mover_max = float(np.max(residuals[mover_atoms])) if mover_atoms else 0.0
