@@ -1,4 +1,4 @@
-"""CLI for the pylatkmc ingest bridge: ``recover``, ``build``, ``qc``, ``graduate``, ``merge``.
+"""CLI for the pylatkmc ingest bridge: ``recover``, ``build``, ``qc``, ``graduate``, ``merge``, ``remap``.
 
 ``recover`` — trajectory-recovery HTST: per-family Vineyard ν₀ from real events::
 
@@ -70,6 +70,23 @@ policy from a reference catalogue's ``harvested_pair`` class_id set::
         --measured-catalogue catalogue_v3_graduated.parquet \
         --measured-catalogue catalogue_v3_qc_veto_stamped.parquet \
         --conditions "NiCr sweep 29 runs"
+
+``remap`` — lineage stamp remap across a CANON schema bump (over-snapping memo
+2026-07-29 §8.3). A bump relabels every ``class_id``, so measured/graduated
+stamps, veto overlays, and review lists carry across by event lineage: rebuild
+the stamp-source reference table under the new policy (an ordinary ``build``),
+then transfer each old class's ``nu0_pair_policy`` onto the new classes its
+members landed in. Every old class is accounted for in the report (remapped, or
+unmatched with a reason — e.g. all members in the discard ledger)::
+
+    python -m pylatkmc.ingest.cli remap \
+        --old catalogue_v3_graduated.parquet \
+        --new catalogue_v4_raw.parquet \
+        --out catalogue_v4_stamped_remap.parquet \
+        --report remap_report.csv \
+        --overlay-in vetoes_migrated.toml --overlay-out vetoes_v2.toml \
+        --review-in review_list.csv --review-out review_list_v2.csv \
+        --note "CANON v2 migration 2026-07-29"
 """
 
 from __future__ import annotations
@@ -77,6 +94,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime
+import json
 import sys
 from pathlib import Path
 
@@ -265,6 +283,67 @@ def _build_parser() -> argparse.ArgumentParser:
         help="extra provenance appended to each pending_research audit_reason",
     )
     m.add_argument(
+        "--conditions",
+        default="",
+        help="free-text upstream conditions stamp for the output file metadata",
+    )
+
+    r2 = sub.add_parser(
+        "remap",
+        help="lineage stamp remap across a CANON schema bump (memo 2026-07-29 §8.3)",
+    )
+    r2.add_argument(
+        "--old",
+        dest="old_path",
+        required=True,
+        help="old stamped/graduated EventClass Parquet (pre-bump class_ids)",
+    )
+    r2.add_argument(
+        "--new",
+        dest="new_path",
+        required=True,
+        help="new-policy EventClass Parquet built from the SAME reference table "
+        "(its discard ledger sidecar <new>_discarded.parquet is read too)",
+    )
+    r2.add_argument(
+        "--out",
+        dest="out_path",
+        required=True,
+        help="stamped copy of --new (nu0_pair_policy transferred by lineage)",
+    )
+    r2.add_argument(
+        "--report",
+        dest="report_path",
+        required=True,
+        help="CSV accounting for EVERY old class (remapped / unmatched + reason)",
+    )
+    r2.add_argument(
+        "--overlay-in",
+        default=None,
+        help="old-id-keyed veto overlay (TOML/JSON) to remap through the same lineage",
+    )
+    r2.add_argument(
+        "--overlay-out",
+        default=None,
+        help="output path for the remapped (new-id-keyed) veto overlay TOML",
+    )
+    r2.add_argument(
+        "--review-in",
+        default=None,
+        help="review-list CSV with a class_id column to remap (rows kept verbatim; "
+        "adds class_id_v2 + remap_outcome columns)",
+    )
+    r2.add_argument(
+        "--review-out",
+        default=None,
+        help="output path for the remapped review-list CSV",
+    )
+    r2.add_argument(
+        "--note",
+        default="",
+        help="short provenance note recorded in each transferred stamp",
+    )
+    r2.add_argument(
         "--conditions",
         default="",
         help="free-text upstream conditions stamp for the output file metadata",
@@ -607,6 +686,135 @@ def _run_merge(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_remap(args: argparse.Namespace) -> int:
+    from .event_class import read_catalogue_parquet, write_catalogue_parquet
+    from .qc import load_overlay
+    from .reftable import discard_ledger_path
+    from .remap import apply_stamps, build_lineage, remap_classes, remap_payload
+
+    old = read_catalogue_parquet(args.old_path)
+    new = read_catalogue_parquet(args.new_path)
+    ledger_path = discard_ledger_path(args.new_path)
+    ledger_rows: list[dict] = []
+    if ledger_path.is_file():
+        import pyarrow.parquet as pq  # type: ignore[import-untyped]
+
+        ledger_rows = pq.read_table(ledger_path).to_pylist()
+
+    lineage = build_lineage(new, ledger_rows)
+    report = remap_classes(old, lineage)
+    stamped = apply_stamps(new, report, note=args.note)
+    counts = report.counts()
+
+    stamp = (
+        f"{args.conditions.strip()} | REMAP (memo 2026-07-29 §8.3): "
+        f"old={Path(args.old_path).name} new={Path(args.new_path).name} "
+        + " ".join(f"{k}={v}" for k, v in counts.items())
+        + f" join_conflicts={len(report.join_conflicts)}"
+        f" | schema_version=2 date={datetime.date.today().isoformat()}"
+    ).strip(" |")
+    write_catalogue_parquet(
+        stamped,
+        args.out_path,
+        metadata={b"pylatkmc.remap.conditions": stamp.encode("utf-8")},
+    )
+
+    with open(args.report_path, "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(
+            [
+                "old_class_id",
+                "old_policy",
+                "old_audit_status",
+                "n_members",
+                "n_kept",
+                "n_discarded",
+                "n_missing",
+                "outcome",
+                "new_class_ids",
+                "discard_reasons",
+            ]
+        )
+        for cr in report.classes:
+            n_disc = sum(1 for f in cr.fates if f.note and f.note != "MISSING")
+            n_missing = sum(1 for f in cr.fates if f.note == "MISSING")
+            w.writerow(
+                [
+                    cr.old_class_id,
+                    cr.old_policy or "",
+                    cr.old_audit_status,
+                    len(cr.fates),
+                    sum(1 for f in cr.fates if f.new_class_id is not None),
+                    n_disc,
+                    n_missing,
+                    cr.outcome,
+                    ";".join(cr.new_class_ids),
+                    ";".join(cr.discard_reasons),
+                ]
+            )
+
+    if args.overlay_in:
+        if not args.overlay_out:
+            print("--overlay-in requires --overlay-out", file=sys.stderr)
+            return 2
+        overlay = load_overlay(args.overlay_in)
+        new_overlay, records = remap_payload(overlay, report, note=args.note)
+        unmatched = [r for r in records if not r[2]]
+        with open(args.overlay_out, "w") as fh:
+            fh.write(
+                "# Remapped veto overlay - CANON v2 migration (memo 2026-07-29 §8.3)\n"
+                f"# Source: {args.overlay_in} ({len(overlay)} entries) -> "
+                f"{len(new_overlay)} new-id entries; {len(unmatched)} unmatched "
+                "(see remap report).\n"
+                "# Apply via: python -m pylatkmc.ingest.cli qc/merge --overlay <this file>\n\n"
+            )
+            for nid, reason in sorted(new_overlay.items()):
+                fh.write(f"{json.dumps(nid)} = {json.dumps(reason)}\n")
+        for old_id, outcome, _ in unmatched:
+            print(f"  overlay UNMATCHED: {old_id[:12]} ({outcome})")
+        print(
+            f"  overlay: {len(overlay)} old -> {len(new_overlay)} new entries "
+            f"({len(unmatched)} unmatched) -> {args.overlay_out}"
+        )
+
+    if args.review_in:
+        if not args.review_out:
+            print("--review-in requires --review-out", file=sys.stderr)
+            return 2
+        by_old = {cr.old_class_id: cr for cr in report.classes}
+        with open(args.review_in, newline="") as fh:
+            reader = csv.DictReader(fh)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        for row in rows:
+            cr = by_old.get(row.get("class_id", ""))
+            row["class_id_v2"] = ";".join(cr.new_class_ids) if cr else ""
+            row["remap_outcome"] = cr.outcome if cr else "UNMATCHED_NOT_IN_OLD_CATALOGUE"
+        with open(args.review_out, "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=fieldnames + ["class_id_v2", "remap_outcome"])
+            w.writeheader()
+            w.writerows(rows)
+        print(f"  review list: {len(rows)} rows -> {args.review_out}")
+
+    print(
+        "remap: "
+        + " ".join(f"{k}={v}" for k, v in counts.items())
+        + f" join_conflicts={len(report.join_conflicts)}"
+    )
+    for line in report.join_conflicts:
+        print(f"  join conflict: {line}")
+    unmatched_stamped = [cr for cr in report.classes if cr.old_policy and not cr.new_class_ids]
+    for cr in unmatched_stamped:
+        print(
+            f"  stamped-class UNMATCHED: {cr.old_class_id[:12]} [{cr.old_policy}] "
+            f"{cr.outcome} reasons={';'.join(cr.discard_reasons) or 'none'}"
+        )
+    print(f"  wrote {args.out_path}")
+    print(f"  wrote {args.report_path}")
+    print(f"  metadata[pylatkmc.remap.conditions] = {stamp}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     if args.cmd == "recover":
@@ -619,6 +827,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_graduate(args)
     if args.cmd == "merge":
         return _run_merge(args)
+    if args.cmd == "remap":
+        return _run_remap(args)
     return 2
 
 

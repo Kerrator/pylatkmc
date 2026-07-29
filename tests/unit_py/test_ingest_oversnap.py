@@ -21,8 +21,8 @@ Covers the §4–§6 + §8.1 implementation slice:
 * **§11-vii** — ``ni_example``'s committed proclist is byte-identical under
   regeneration (the family-CSV path is untouched by the ingest policy change).
 
-(§11-v, the stamp-remap round-trip, belongs to the migration slice — the remap
-script does not exist yet.)
+(§11-v, the stamp-remap round-trip, lives in ``test_ingest_remap`` with the
+``pylatkmc.ingest.remap`` module it covers.)
 """
 
 from __future__ import annotations
