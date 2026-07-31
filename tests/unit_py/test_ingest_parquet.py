@@ -229,7 +229,7 @@ def test_tlv_encoding_byte_exact_golden() -> None:
 
 
 def test_arrow_schema_column_order(tmp_path) -> None:
-    """The arrow schema preserves the fixed column order on write (schema v2)."""
+    """The arrow schema preserves the fixed column order on write (schema v4)."""
     import pyarrow.parquet as pq
 
     path = tmp_path / "cat.parquet"
@@ -237,8 +237,9 @@ def test_arrow_schema_column_order(tmp_path) -> None:
     schema = pq.read_schema(path)
     assert schema.names[:3] == ["class_id", "canonical_blob", "schema_version"]
     # schema v2 appends the previously-omitted [C] fields + human-veto reason after
-    # gate_log; schema v3 appends the per-member snap residual lists last
-    # (over-snapping memo 2026-07-29 §11).
+    # gate_log; schema v3 appends the per-member snap residual lists; schema v4 the
+    # action axis (action-fingerprint memo 2026-07-30 §7 Phase 1) -- each strictly
+    # after the last, so an older reader's column offsets never move.
     tail = schema.names[schema.names.index("gate_log") :]
     assert tail == [
         "gate_log",
@@ -250,6 +251,11 @@ def test_arrow_schema_column_order(tmp_path) -> None:
         "fallback_stats",
         "mover_max_residual_list",
         "max_residual_list",
+        "arrows",
+        "action_id",
+        "archetype",
+        "one_way",
+        "action_pair_mismatch",
     ]
     # canonical_form is never a column (reconstructed from canonical_blob).
     assert "canonical_form" not in schema.names

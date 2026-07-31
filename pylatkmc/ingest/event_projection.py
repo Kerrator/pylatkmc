@@ -58,6 +58,7 @@ from typing import Any
 import numpy as np
 
 from pylatkmc.ingest.event_class import (
+    Arrow,
     Coloring,
     DeltaSite,
     DepthKind,
@@ -67,6 +68,7 @@ from pylatkmc.ingest.event_class import (
     OccPredicate,
     PathToken,
     ProjectedEvent,
+    RawArrow,
     SaddleKind,
     StencilSite,
     type_to_occ,
@@ -161,10 +163,14 @@ def _origin(frame: LocalFrame) -> np.ndarray:
     return np.asarray(frame.origin, dtype=float)
 
 
+def _lattice_coords(frame: LocalFrame, x: np.ndarray) -> np.ndarray:
+    """Real-valued (UNSNAPPED) lattice coordinates ``u = R^T (x - origin) / h``."""
+    return _rmat(frame).T @ (np.asarray(x, dtype=float) - _origin(frame)) / frame.h
+
+
 def _snap(frame: LocalFrame, x: np.ndarray) -> Offset:
     """Snap one Cartesian position to its nearest even-parity site in ``frame``."""
-    u = _rmat(frame).T @ (np.asarray(x, dtype=float) - _origin(frame)) / frame.h
-    return round_to_even_parity(u)
+    return round_to_even_parity(_lattice_coords(frame, x))
 
 
 def _site_cart(frame: LocalFrame, off: Offset) -> np.ndarray:
@@ -387,6 +393,32 @@ def fit_local_fcc(
 # --------------------------------------------------------------------------- #
 # 5. detect_movers (site-change is ground truth, section 3.2)                 #
 # --------------------------------------------------------------------------- #
+def mover_pairs(
+    s0: Sequence[Offset], s2: Sequence[Offset]
+) -> tuple[tuple[Offset, Offset, int], ...]:
+    """The per-atom ``(start_site, end_site, atom_index)`` pairing of the movers.
+
+    The **capture point of the action axis** (action-fingerprint memo 2026-07-30
+    §3.3): the site-change detection already knows which atom went where, and Phase 1
+    stops discarding it. One entry per distinct start site, sorted by start site, so
+    the result is **aligned 1:1 with** :func:`detect_movers`'s mover tuple.
+
+    Collision policy: when two atoms snap to the same start site (a projection
+    pathology already gated by G3), the **last** atom in index order wins --
+    deliberately the same policy as ``project_event``'s ``occ0[s0[p]] = species[p]``
+    overwrite loop, so the arrow's species can never disagree with the ``delta``
+    row's ``before`` occupancy for that site. ``occ0`` itself feeds ``class_id`` and
+    must not change; the arrows are new, so they align to it.
+    """
+    n = min(len(s0), len(s2))
+    best: dict[Offset, tuple[Offset, int]] = {}
+    for p in range(n):
+        if s0[p] == s2[p]:
+            continue
+        best[s0[p]] = (s2[p], p)  # last-wins, matching occ0's overwrite policy
+    return tuple((start, end, idx) for start, (end, idx) in sorted(best.items()))
+
+
 def detect_movers(
     P0: np.ndarray, P2: np.ndarray, frame_e: LocalFrame
 ) -> tuple[tuple[Offset, ...], list[Offset]]:
@@ -400,7 +432,9 @@ def detect_movers(
     sites strictly inside the initial cluster's bounding box that no atom occupies.
 
     Returns ``(mover_start_offsets, empties)``, both in the ``frame_e`` (anchor0-relative)
-    lattice, sorted for determinism.
+    lattice, sorted for determinism. The **pairing** (which start reached which end) is
+    no longer discarded: it is computed by :func:`mover_pairs`, which this function is a
+    thin projection of, and which :func:`detect_mover_arrows` decorates with species.
     """
     A0 = np.asarray(P0, dtype=float)
     A2 = np.asarray(P2, dtype=float)
@@ -408,10 +442,34 @@ def detect_movers(
     s0 = [_snap(frame_e, A0[p]) for p in range(n)]
     s2 = [_snap(frame_e, A2[p]) for p in range(n)]
 
-    mover_starts = sorted({s0[p] for p in range(n) if s0[p] != s2[p]})
+    mover_starts = [start for start, _end, _p in mover_pairs(s0, s2)]
     occupied0 = set(s0)
     empties = sorted(_interior_empties(s0, occupied0))
     return tuple(mover_starts), list(empties)
+
+
+def detect_mover_arrows(
+    P0: np.ndarray,
+    P2: np.ndarray,
+    frame_e: LocalFrame,
+    species: Sequence[Occ] | None = None,
+) -> tuple[Arrow, ...]:
+    """The movers' species-labelled ``start -> end`` arrows (memo §3.2 + §3.3).
+
+    Convenience wrapper over :func:`mover_pairs` for callers that hold Cartesian
+    snapshots rather than pre-snapped sites (``project_event`` snaps once and calls
+    :func:`mover_pairs` directly). ``species is None`` labels every arrow
+    ``OCC_ANY`` (the grey level).
+    """
+    A0 = np.asarray(P0, dtype=float)
+    A2 = np.asarray(P2, dtype=float)
+    n = A0.shape[0]
+    s0 = [_snap(frame_e, A0[p]) for p in range(n)]
+    s2 = [_snap(frame_e, A2[p]) for p in range(n)]
+    return tuple(
+        Arrow(start, end, species[p] if species is not None else Occ.OCC_ANY)
+        for start, end, p in mover_pairs(s0, s2)
+    )
 
 
 def _interior_empties(sites: Sequence[Offset], occupied: set[Offset]) -> list[Offset]:
@@ -783,6 +841,27 @@ def project_event(
         occ0[s0[p]] = species[p]
         occ2[s2[p]] = species[p]
 
+    # 3b. Action axis (memo 2026-07-30 §3.3): keep the per-atom mover pairing that
+    # detect_movers used to discard, decorated with each atom's species — the same
+    # `species` list `delta` encodes its before/after occupancies from. `arrows` is
+    # aligned 1:1 with `mover_starts`; `arrows_raw` is its UNSNAPPED counterpart,
+    # kept for the discard ledger's off-lattice triage (§5.1).
+    # In GREY colouring `_species_list` still returns REAL Occ codes (the collapse
+    # happens inside `canonical._occ_code`, at identity time). The arrows are stored
+    # provenance, so they must be collapsed HERE or a grey catalogue would leak the
+    # species its identity deliberately dropped.
+    pairs = mover_pairs(s0, s2)
+    arrow_sp = [Occ.OCC_ANY] * n if coloring == Coloring.GREY else species
+    arrows = tuple(Arrow(start, end, arrow_sp[p]) for start, end, p in pairs)
+    arrows_raw = tuple(
+        RawArrow(
+            tuple(float(c) for c in _lattice_coords(frame, P0[p])),  # type: ignore[arg-type]
+            tuple(float(c) for c in _lattice_coords(frame, P2[p])),  # type: ignore[arg-type]
+            arrow_sp[p],
+        )
+        for _start, _end, p in pairs
+    )
+
     # 4a. delta = only sites whose occupancy changed; delta_atoms = net occupancy change.
     touched = sorted(set(occ0) | set(occ2))
     delta: list[DeltaSite] = []
@@ -878,6 +957,8 @@ def project_event(
         move_atom_idx=move_atom_idx,
         source_row=int(_get(row, "source_row", idx_ref)),
         proj_report=proj_report,
+        arrows=arrows,
+        arrows_raw=arrows_raw,
     )
 
 
@@ -895,9 +976,11 @@ def _frame_unfit_event(
 ) -> ProjectedEvent:
     """Degenerate ``ProjectedEvent`` for a cluster with no fittable FCC frame (s3.6).
 
-    Carries no lattice representation (empty delta/context/movers/tokens) but keeps
-    the full row provenance and the real cluster diameter, with infinite snap
-    residuals and ``frame_unfit_reason`` set -- G3 FAILs it as ``FRAME_UNFIT``
+    Carries no lattice representation (empty delta/context/movers/tokens, and --
+    since there is no frame, hence no coordinate system -- empty ``arrows`` /
+    ``arrows_raw``) but keeps the full row provenance and the real cluster diameter,
+    with infinite snap residuals and ``frame_unfit_reason`` set -- G3 FAILs it as
+    ``FRAME_UNFIT``
     before any snap residual is evaluated. Since memo 2026-07-29 §5 these events
     never join a class: the build drops them into the discard ledger
     (``reftable``), one place to look for every event the catalogue refused. The

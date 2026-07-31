@@ -9,7 +9,18 @@ catalogue (``PHASEC_RATE_MODEL_DECISION.md`` §4; ``PHASEC_VALIDATION_REPORT`` �
   A residual above ``tol`` is a mislink or projection artifact; **both** directions are
   quarantined. A *self-linked* class (``backward_class == class_id``) whose ``dEnergy``
   is non-zero is the same defect (a true self-reverse has ``dE == 0``): quarantined.
-* **delta-less** — an empty ``delta`` is not executable on-lattice: quarantined.
+* **delta-less** — an empty ``delta`` is not executable on-lattice: quarantined. A
+  delta-less class that is also **mover-less** is relabelled ``NO_OP`` (action
+  fingerprint memo 2026-07-29 §5.3 / ruling 5): its initial and final states snap
+  identically, so it is the on-lattice image of basin-internal motion rather than a
+  corpus defect. The status is unchanged (a **reason rename only** — a dedicated
+  ``audit_status`` would be silently *included* by every ``== "quarantined"``
+  exclusion); the reason-aware carve-out in :class:`QCReport` is what stops NO_OPs
+  counting against catalogue quality.
+* **linked-pair action** (memo §3.4 / ruling 9) — a linked forward/backward pair
+  must share one ``action_id`` (the canon minimises over ``{A, A⁻¹}``). A mismatch
+  sets the ``action_pair_mismatch`` column, logs a line, and appends the pair to the
+  standing review list — it is **never** a quarantine and never a hard failure.
 * **within-class dE spread** — a class with two or more members whose ``dE_pair_list``
   spread exceeds ``spread_tol`` at identical lattice context is context-underresolved
   by construction (no lattice identity can split it): **quarantined**
@@ -47,12 +58,15 @@ import math
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from dataclasses import field as dataclass_field
 from pathlib import Path
 
 from pylatkmc.ingest.event_class import (
     CATALOGUE_SCHEMA_VERSION,
+    NO_OP_REASON,
     EventClass,
     GateOutcome,
+    is_no_op,
 )
 
 if sys.version_info >= (3, 11):
@@ -94,6 +108,26 @@ _SCREEN_RECIPROCITY = "reciprocity"
 _SCREEN_SPREAD = "spread"
 _SCREEN_OVERLAY = "overlay"
 
+# --- linked-pair action screen (action-fingerprint memo §3.4 + §11 ruling 9) ----
+ACTION_REVIEW_FIELDS: tuple[str, ...] = (
+    "class_id",
+    "partner_class_id",
+    "action_id",
+    "partner_action_id",
+    "archetype",
+    "partner_archetype",
+    "n_events",
+    "review_reason",
+    "review_group",
+)
+"""Column order of the standing action-review list (leads with ``class_id``, so
+``python -m pylatkmc.ingest.cli remap --review-in`` carries it across a CANON bump,
+and tails with the ``review_reason`` / ``review_group`` pair the gap-2 triage list
+uses)."""
+
+ACTION_REVIEW_GROUP: str = "action-pair-mismatch (Phase 1, memo 2026-07-30 ruling 9)"
+"""``review_group`` tag every row this screen appends carries."""
+
 
 @dataclass
 class QCReport:
@@ -105,6 +139,17 @@ class QCReport:
     ``preexisting_quarantined + deltaless_quarantined + reciprocity_quarantined +
     spread_quarantined + overlay_quarantined``. ``overlay_unmatched`` lists overlay
     ``class_id``\\ s absent from the catalogue (surfaced, never silently dropped).
+
+    ``no_op_quarantined`` / ``no_op_events`` are a **reason-aware carve-out**, not a
+    sixth addend: they count the quarantined classes whose reason is
+    :data:`~pylatkmc.ingest.event_class.NO_OP_REASON` (a subset of the quarantine
+    set, usually attributed to the delta-less screen). Ruling 5: NO_OPs are physical
+    (the on-lattice image of basin-internal motion), so they must not read as a
+    catalogue-quality defect -- the ``TOTAL`` line therefore also reports the count
+    net of them.
+
+    The ``action_pair_*`` fields are the linked-pair action screen (ruling 9): a
+    **flag and a review row**, never a quarantine -- the classes keep firing.
     """
 
     n_input: int
@@ -123,9 +168,16 @@ class QCReport:
     total_quarantined: int
     total_quarantined_events: int
     classes: list[EventClass]
+    no_op_quarantined: int = 0
+    no_op_events: int = 0
+    action_pair_mismatch_pairs: int = 0
+    action_pair_mismatch_classes: int = 0
+    action_review_rows: list[dict[str, object]] = dataclass_field(default_factory=list)
 
     def summary(self) -> str:
         """A compact, multi-line human summary of the per-screen counts."""
+        net_classes = self.total_quarantined - self.no_op_quarantined
+        net_events = self.total_quarantined_events - self.no_op_events
         lines = [
             f"ingest QC: {self.n_input} classes / {self.n_events_input} events in",
             f"  reciprocity : {self.reciprocity_quarantined:3d} classes "
@@ -139,8 +191,15 @@ class QCReport:
             f"/ {self.overlay_events} events  quarantined",
             f"  pre-existing: {self.preexisting_quarantined:3d} classes "
             f"/ {self.preexisting_events} events  (carried, never downgraded)",
+            f"  of which NO_OP: {self.no_op_quarantined:3d} classes "
+            f"/ {self.no_op_events} events  — PHYSICAL (on-lattice image of "
+            "basin-internal motion, memo 2026-07-29 §5.3), not a quality defect",
             f"  TOTAL       : {self.total_quarantined:3d} classes "
-            f"/ {self.total_quarantined_events} events  quarantined",
+            f"/ {self.total_quarantined_events} events  quarantined "
+            f"(excl. NO_OP: {net_classes} classes / {net_events} events)",
+            f"  action pairs: {self.action_pair_mismatch_pairs:3d} linked pairs "
+            f"/ {self.action_pair_mismatch_classes} classes  disagree on action_id "
+            "— FLAGGED + review list, never quarantined (ruling 9)",
         ]
         if self.overlay_unmatched:
             lines.append(
@@ -150,6 +209,15 @@ class QCReport:
                 + ", ".join(cid[:12] + "…" for cid in self.overlay_unmatched)
             )
         return "\n".join(lines)
+
+
+_DELTALESS_REASON = "QC: empty delta — not executable"
+"""The generic delta-less quarantine reason the NO_OP relabel is allowed to replace."""
+
+
+def _is_generic_deltaless(reason: str) -> bool:
+    """True iff ``reason`` is this pass's own generic delta-less text (no curator info)."""
+    return reason.strip() == _DELTALESS_REASON
 
 
 def _n_events(ec: EventClass) -> int:
@@ -186,18 +254,20 @@ def apply_qc(
     spread_tol: float = DEFAULT_SPREAD_TOL_EV,
     overlay: Mapping[str, str] | None = None,
 ) -> QCReport:
-    """Run every ingest QC screen over ``classes`` and re-emit them at schema v2.
+    """Run every ingest QC screen over ``classes`` and re-emit them at the current schema.
 
     Screen order (attribution/priority): pre-existing input quarantines are carried
-    first (never downgraded), then delta-less, then reciprocity (self-link before
-    pair, so the self-reverse reason wins for a self-linked class), then the
-    within-class dE-spread **quarantine** (memo 2026-07-22 §3.5), then the human-veto
-    overlay (last, sticky). A class attributed to an earlier screen keeps that
-    attribution for counting; the overlay may still overwrite its ``audit_reason`` to
-    record the veto.
+    first (never downgraded), then delta-less **and its NO_OP relabel**, then
+    reciprocity (self-link before pair, so the self-reverse reason wins for a
+    self-linked class), then the within-class dE-spread **quarantine** (memo
+    2026-07-22 §3.5), then the human-veto overlay (last, sticky), and finally the
+    **linked-pair action screen** (flag-only, memo 2026-07-30 ruling 9). A class
+    attributed to an earlier screen keeps that attribution for counting; the overlay
+    may still overwrite its ``audit_reason`` to record the veto.
 
     Returns a :class:`QCReport` whose ``classes`` are new ``EventClass`` instances
-    (inputs untouched), sorted by ``class_id``, with ``schema_version`` set to 2.
+    (inputs untouched), sorted by ``class_id``, with ``schema_version`` set to the
+    current :data:`~pylatkmc.ingest.event_class.CATALOGUE_SCHEMA_VERSION`.
     """
     ordered = sorted(classes, key=lambda c: c.class_id)
     by_id = {c.class_id: c for c in ordered}
@@ -222,7 +292,31 @@ def apply_qc(
     # --- 1. delta-less screen ------------------------------------------------
     for c in ordered:
         if len(c.delta) == 0:
-            _quarantine(c.class_id, _SCREEN_DELTALESS, "QC: empty delta — not executable")
+            _quarantine(c.class_id, _SCREEN_DELTALESS, _DELTALESS_REASON)
+
+    # --- 1b. NO_OP relabel (ruling 5): reason rename ONLY, never a new status ---
+    # A delta-less AND mover-less class is not an anonymous QC defect: initial and
+    # final states snap identically, i.e. it is the on-lattice image of basin-internal
+    # motion (memo §5.3). The assignment is direct (not via _quarantine's first-wins
+    # reason) so the relabel also applies to a class carried in already-quarantined
+    # from a previous emission; the human-veto overlay still runs later and wins.
+    #
+    # Ruling 5 renames the ANONYMOUS bin — it must not delete curator provenance. A
+    # prior reason that is not the generic delta-less string (a migrated human veto,
+    # a graduation/CONTEXT_SUSPECT note) is PREPENDED-to exactly once, never
+    # overwritten: a re-QC pass keeps an already-prefixed reason verbatim.
+    no_op_ids: list[str] = []
+    for c in ordered:
+        if is_no_op(c.delta, c.arrows, c.saddle_token):
+            _quarantine(c.class_id, _SCREEN_DELTALESS, NO_OP_REASON)
+            prior = (reason.get(c.class_id, c.audit_reason) or "").strip()
+            if prior.startswith(NO_OP_REASON):
+                reason[c.class_id] = prior  # idempotent: a re-QC pass never re-prefixes
+            elif not prior or _is_generic_deltaless(prior):
+                reason[c.class_id] = NO_OP_REASON
+            else:
+                reason[c.class_id] = f"{NO_OP_REASON} | {prior}"
+            no_op_ids.append(c.class_id)
 
     # --- 2. reciprocity screen: self-link first, then linked pairs -----------
     for c in ordered:
@@ -282,7 +376,16 @@ def apply_qc(
             else:
                 reason[cid] = veto_reason  # sticky: the curator note wins
 
-    # --- assemble the re-emitted, schema-v2 classes --------------------------
+    # --- 5. linked-pair action screen (memo §3.4, ruling 9) ------------------
+    # A linked pair's two arrow sets are each other's inverse, and the action canon
+    # minimises over {A, A^-1} — so a linked pair MUST share one action_id. A
+    # mismatch is a pairing/projection defect, but it is NOT quarantined (6 such
+    # pairs exist on the v2 corpus; a hard assertion would fail the first rebuild):
+    # flag the column, log the line, append the pair to the standing review list,
+    # and let the classes keep firing on their measured rates until a human rules.
+    mismatch_ids, action_review_rows = _screen_action_pairs(ordered, by_id)
+
+    # --- assemble the re-emitted, schema-v4 classes --------------------------
     out: list[EventClass] = []
     for c in ordered:
         cid = c.class_id
@@ -292,6 +395,7 @@ def apply_qc(
                     c,
                     audit_status="quarantined",
                     audit_reason=reason.get(cid, c.audit_reason),
+                    action_pair_mismatch=cid in mismatch_ids,
                     schema_version=CATALOGUE_SCHEMA_VERSION,
                 )
             )
@@ -300,6 +404,7 @@ def apply_qc(
                 replace(
                     c,
                     audit_reason=reason.get(cid, c.audit_reason),
+                    action_pair_mismatch=cid in mismatch_ids,
                     schema_version=CATALOGUE_SCHEMA_VERSION,
                 )
             )
@@ -314,6 +419,8 @@ def apply_qc(
     n_spr, ev_spr = _count(_SCREEN_SPREAD)
     n_ovl, ev_ovl = _count(_SCREEN_OVERLAY)
     total_events = sum(_n_events(by_id[cid]) for cid in quarantined)
+    n_no_op = len(no_op_ids)
+    ev_no_op = sum(_n_events(by_id[cid]) for cid in no_op_ids)
 
     return QCReport(
         n_input=len(ordered),
@@ -332,7 +439,125 @@ def apply_qc(
         total_quarantined=len(quarantined),
         total_quarantined_events=total_events,
         classes=out,
+        no_op_quarantined=n_no_op,
+        no_op_events=ev_no_op,
+        action_pair_mismatch_pairs=len(action_review_rows),
+        action_pair_mismatch_classes=len(mismatch_ids),
+        action_review_rows=action_review_rows,
     )
+
+
+def _screen_action_pairs(
+    ordered: Sequence[EventClass], by_id: Mapping[str, EventClass]
+) -> tuple[set[str], list[dict[str, object]]]:
+    """Linked forward/backward pairs that disagree on ``action_id`` (ruling 9).
+
+    Returns ``(flagged_class_ids, review_rows)``. Deterministic: the input is
+    ``class_id``-sorted and each pair is reported once, keyed on the smaller
+    ``class_id`` so the row is stable whichever direction is visited first. A class
+    whose ``action_id`` is ``None`` (a schema<=3 catalogue read forward) is skipped
+    — "unknown" is not evidence of a mismatch.
+    """
+    flagged: set[str] = set()
+    rows: list[dict[str, object]] = []
+    seen_pairs: set[tuple[str, str]] = set()
+    for c in ordered:
+        b_id = c.backward_class
+        if b_id is None or b_id == c.class_id:
+            continue
+        partner = by_id.get(b_id)
+        if partner is None or c.action_id is None or partner.action_id is None:
+            continue
+        if c.action_id == partner.action_id:
+            continue
+        key = (min(c.class_id, b_id), max(c.class_id, b_id))
+        flagged.add(c.class_id)
+        flagged.add(b_id)
+        if key in seen_pairs:
+            continue
+        seen_pairs.add(key)
+        first, second = (c, partner) if c.class_id == key[0] else (partner, c)
+        rows.append(
+            {
+                "class_id": first.class_id,
+                "partner_class_id": second.class_id,
+                "action_id": first.action_id,
+                "partner_action_id": second.action_id,
+                "archetype": first.archetype,
+                "partner_archetype": second.archetype,
+                "n_events": _n_events(first) + _n_events(second),
+                "review_reason": (
+                    f"linked pair disagrees on action_id "
+                    f"({first.action_id:016x} != {second.action_id:016x}) — the action "
+                    "canon minimises over {A, A^-1}, so a linked pair must share one; "
+                    "pairing or projection defect (memo §3.4)"
+                ),
+                "review_group": ACTION_REVIEW_GROUP,
+            }
+        )
+    rows.sort(key=lambda r: str(r["class_id"]))
+    return flagged, rows
+
+
+def append_action_review_rows(path: str | Path, rows: Sequence[Mapping[str, object]]) -> int:
+    """Append **new** action-review rows to the standing review list at ``path``.
+
+    Appends (never truncates), writing the :data:`ACTION_REVIEW_FIELDS` header only
+    when the file is new or empty — the same "one standing list, grown over time"
+    mechanic the gap-2 triage list uses. Rows are **de-duplicated** against the
+    ``(class_id, partner_class_id, action_id, partner_action_id)`` keys already in
+    the file, and within the batch: a standing list is re-appended to on every
+    re-run of ``qc``/``merge``, and duplicate rows would inflate the queue and
+    re-open pairs a curator already ruled on. The digests are part of the key so a
+    recurrence with *changed* action_ids (an action-schema bump, a re-projection)
+    IS written -- new evidence must reach the curator. An existing file whose
+    header is a *different* schema raises: silently
+    writing misaligned rows into a curator's list is exactly the failure this screen
+    exists to prevent. Returns the number of rows **actually written**.
+    """
+    import csv
+
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    exists = p.is_file() and p.stat().st_size > 0
+    seen: set[tuple[str, str, str, str]] = set()
+    if exists:
+        with p.open(newline="", encoding="utf-8") as fh:
+            reader = csv.reader(fh)
+            header = next(reader, [])
+            if tuple(header) != ACTION_REVIEW_FIELDS:
+                raise ValueError(
+                    f"{p} is not an action-review list (header {header!r} != "
+                    f"{list(ACTION_REVIEW_FIELDS)!r}); point --review at a dedicated file"
+                )
+            idx = tuple(
+                ACTION_REVIEW_FIELDS.index(f)
+                for f in ("class_id", "partner_class_id", "action_id", "partner_action_id")
+            )
+            for line in reader:
+                if len(line) > max(idx):
+                    seen.add((line[idx[0]], line[idx[1]], line[idx[2]], line[idx[3]]))
+    fresh: list[Mapping[str, object]] = []
+    for row in rows:
+        key = (
+            str(row.get("class_id", "")),
+            str(row.get("partner_class_id", "")),
+            str(row.get("action_id", "")),
+            str(row.get("partner_action_id", "")),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        fresh.append(row)
+    if not fresh and exists:
+        return 0
+    with p.open("a", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=list(ACTION_REVIEW_FIELDS))
+        if not exists:
+            writer.writeheader()
+        for row in fresh:
+            writer.writerow({k: row.get(k, "") for k in ACTION_REVIEW_FIELDS})
+    return len(fresh)
 
 
 # --------------------------------------------------------------------------- #

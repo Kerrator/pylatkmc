@@ -219,6 +219,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="extra provenance appended to each pending_research audit_reason",
     )
     q.add_argument(
+        "--review",
+        default=None,
+        help="STANDING action-review list CSV to APPEND linked-pair action_id "
+        "mismatches to (memo 2026-07-30 ruling 9; default: <out>_action_review.csv). "
+        "Flag + review only — mismatching classes keep firing on measured rates",
+    )
+    q.add_argument(
         "--conditions",
         default="",
         help="free-text upstream conditions stamp for the output file metadata",
@@ -281,6 +288,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--pending-note",
         default="",
         help="extra provenance appended to each pending_research audit_reason",
+    )
+    m.add_argument(
+        "--review",
+        default=None,
+        help="STANDING action-review list CSV to APPEND linked-pair action_id "
+        "mismatches to (memo 2026-07-30 ruling 9; default: <out>_action_review.csv). "
+        "Corpus-level mismatches materialise HERE, not per-run: a pair's two "
+        "directions can arrive from different runs",
     )
     m.add_argument(
         "--conditions",
@@ -388,6 +403,7 @@ def _run_recover(args: argparse.Namespace) -> int:
 
 
 def _run_build(args: argparse.Namespace) -> int:
+    from .action import IDENTITY_GROUP, action_census
     from .event_class import Coloring, GateThresholds, write_catalogue_parquet
     from .reftable import (
         ReftableBuildReport,
@@ -431,6 +447,7 @@ def _run_build(args: argparse.Namespace) -> int:
         f"bystander_mask_tol={args.bystander_mask_tol:g} "
         f"d_max={args.d_max} r_ctx_min={args.r_ctx_min:g} T_ref={args.t_ref:g} "
         f"coloring={args.coloring} nominal_a={args.nominal_a:g} "
+        f"identity_group={IDENTITY_GROUP} "
         f"emin={args.emin:g} emax={args.emax:g} "
         f"| rows={rep.n_rows} projected={rep.n_projected} "
         f"discarded={rep.n_discarded} (mover_offlattice={rep.n_mover_offlattice} "
@@ -472,6 +489,11 @@ def _run_build(args: argparse.Namespace) -> int:
         f"catalogue: {rep.catalogue.n_classes} classes / "
         f"{rep.catalogue.n_events} events; g7_fail {rep.catalogue.n_g7_fail}"
     )
+    print(action_census(classes).summary())
+    print(
+        f"  member action_id disagreement: {rep.catalogue.n_action_disagree} classes "
+        "(stored arrows are the representative member's; monitor only)"
+    )
     if rep.catalogue.rcut_mismatch_suspected:
         print(f"WARNING: {rep.catalogue.rcut_mismatch_message}")
     print(f"  wrote {args.out}")
@@ -495,7 +517,12 @@ def _read_measured_refs(path: str) -> frozenset[int]:
 
 
 def _run_qc(args: argparse.Namespace) -> int:
-    from .event_class import read_catalogue_parquet, write_catalogue_parquet
+    from .action import action_census
+    from .event_class import (
+        CATALOGUE_SCHEMA_VERSION,
+        read_catalogue_parquet,
+        write_catalogue_parquet,
+    )
     from .qc import apply_qc, load_overlay, stamp_rate_policy
 
     overlay = load_overlay(args.overlay) if args.overlay else None
@@ -522,7 +549,7 @@ def _run_qc(args: argparse.Namespace) -> int:
         f"overlay={args.overlay or 'none'} | classes_in={report.n_input} "
         f"quarantined={report.total_quarantined} events={report.total_quarantined_events}"
         f"{stamp_note} "
-        f"| schema_version=2 date={datetime.date.today().isoformat()}"
+        f"| schema_version={CATALOGUE_SCHEMA_VERSION} date={datetime.date.today().isoformat()}"
     ).strip(" |")
     metadata = {b"pylatkmc.qc.conditions": stamp.encode("utf-8")}
     write_catalogue_parquet(out_classes, args.out_path, metadata=metadata)
@@ -530,9 +557,38 @@ def _run_qc(args: argparse.Namespace) -> int:
     print(report.summary())
     if srep is not None:
         print(srep.summary())
+    print(action_census(out_classes).summary())
+
+    _append_action_review(args, report.action_review_rows)
     print(f"  wrote {args.out_path}")
     print(f"  metadata[pylatkmc.qc.conditions] = {stamp}")
     return 0
+
+
+def _append_action_review(args: argparse.Namespace, rows: list[dict[str, object]]) -> None:
+    """Log linked-pair action mismatches and append them to the standing review list.
+
+    Ruling 9: a flag, a build-log line and a review row — never a quarantine, never a
+    hard failure. Shared by ``qc`` and ``merge``; the merge case is the one that
+    matters most, because a pair's two directions can arrive from different runs, so
+    a corpus-level mismatch only ever materialises at merge time.
+    """
+    from .qc import append_action_review_rows
+
+    if not rows:
+        return
+    review_path = args.review or str(Path(args.out_path).with_suffix("")) + "_action_review.csv"
+    for row in rows:
+        print(
+            f"  ACTION_PAIR_MISMATCH: {str(row['class_id'])[:12]} <-> "
+            f"{str(row['partner_class_id'])[:12]}  "
+            f"action_id {row['action_id']} != {row['partner_action_id']}"
+        )
+    n_new = append_action_review_rows(review_path, rows)
+    print(
+        f"  review list: {len(rows)} pair(s) flagged, {n_new} new -> {review_path} "
+        "(standing list, appended; duplicates skipped)"
+    )
 
 
 def _read_research_csv(path: str) -> dict[str, float]:
@@ -631,7 +687,12 @@ def _resolve_measured_class_ids(paths: list[str]) -> tuple[frozenset[str], str |
 
 
 def _run_merge(args: argparse.Namespace) -> int:
-    from .event_class import read_catalogue_parquet, write_catalogue_parquet
+    from .action import action_census
+    from .event_class import (
+        CATALOGUE_SCHEMA_VERSION,
+        read_catalogue_parquet,
+        write_catalogue_parquet,
+    )
     from .merge import merge_qcd_catalogues
     from .qc import load_overlay
 
@@ -669,7 +730,7 @@ def _run_merge(args: argparse.Namespace) -> int:
         f"status_conflicts={report.status_conflict_count} "
         f"nonconserving_surviving={report.nonconserving_surviving}"
         f"{stamp_note} "
-        f"| schema_version=2 date={datetime.date.today().isoformat()}"
+        f"| schema_version={CATALOGUE_SCHEMA_VERSION} date={datetime.date.today().isoformat()}"
     ).strip(" |")
     write_catalogue_parquet(
         report.classes,
@@ -681,13 +742,19 @@ def _run_merge(args: argparse.Namespace) -> int:
     print(report.qc.summary())
     if report.stamp is not None:
         print(report.stamp.summary())
+    print(action_census(report.classes).summary())
+    _append_action_review(args, report.qc.action_review_rows)
     print(f"  wrote {args.out_path}")
     print(f"  metadata[pylatkmc.merge.conditions] = {stamp}")
     return 0
 
 
 def _run_remap(args: argparse.Namespace) -> int:
-    from .event_class import read_catalogue_parquet, write_catalogue_parquet
+    from .event_class import (
+        CATALOGUE_SCHEMA_VERSION,
+        read_catalogue_parquet,
+        write_catalogue_parquet,
+    )
     from .qc import load_overlay
     from .reftable import discard_ledger_path
     from .remap import apply_stamps, build_lineage, remap_classes, remap_payload
@@ -711,7 +778,7 @@ def _run_remap(args: argparse.Namespace) -> int:
         f"old={Path(args.old_path).name} new={Path(args.new_path).name} "
         + " ".join(f"{k}={v}" for k, v in counts.items())
         + f" join_conflicts={len(report.join_conflicts)}"
-        f" | schema_version=2 date={datetime.date.today().isoformat()}"
+        f" | schema_version={CATALOGUE_SCHEMA_VERSION} date={datetime.date.today().isoformat()}"
     ).strip(" |")
     write_catalogue_parquet(
         stamped,

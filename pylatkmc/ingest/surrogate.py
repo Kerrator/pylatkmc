@@ -45,6 +45,7 @@ from __future__ import annotations
 import csv
 import itertools
 import json
+import math
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -660,8 +661,13 @@ def build_esym_rows(classes: Sequence[EventClass], group_of: Mapping[str, str]) 
         phi = phi_vector(c)
         ch = _is_clean_hop(c)
         cr = _is_mover_cr(c)
-        # dE_pair_list may be shorter than barriers (unpaired members) — NOT strict.
+        # dE_pair_list has two stored conventions (see merge._aligned_dE): the
+        # per-run build's linked-member SUBSET (shorter than barriers — hence NOT
+        # strict) and the merge's ALIGNED form (same length, NaN where unpaired).
+        # Skip the NaN placeholders: an unpaired member has no dE to train on.
         for b, d_e in zip(c.barriers_eV, c.dE_pair_list_eV, strict=False):
+            if not math.isfinite(float(d_e)):
+                continue
             frows.append(phi)
             y_ea.append(float(b))
             y_de.append(float(d_e))

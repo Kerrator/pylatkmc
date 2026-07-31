@@ -64,7 +64,7 @@ A_NOMINAL: float = 3.52
 H: float = A_NOMINAL / 2.0
 """Half-lattice spacing h = a/2 (Angstrom)."""
 
-CATALOGUE_SCHEMA_VERSION: int = 3
+CATALOGUE_SCHEMA_VERSION: int = 4
 """Bump to invalidate the whole Parquet schema deliberately.
 
 v1 -> v2 (2026-07-22, Phase C ingest-QC leg): the formerly-omitted [C] Phase C
@@ -77,6 +77,30 @@ v2 -> v3 (2026-07-29, over-snapping memo §11): per-member snap residuals
 (``mover_max_residual_list`` / ``max_residual_list``, Å, aligned with
 ``barriers_eV``) are persisted so §2-style mover-vs-bystander audits never need a
 re-projection. Same read-compat rule: absent columns -> field defaults.
+
+v3 -> v4 (2026-07-30, action x context fingerprint memo §7 "Phase 1"): the action
+axis becomes explicit and **additive** -- ``arrows`` (the species-labelled site
+permutation captured at projection time), ``action_id`` / ``archetype`` (its
+reverse-symmetric digests, :mod:`pylatkmc.ingest.action`), ``one_way`` (the §5.2
+one-way annex flag) and the ``action_pair_mismatch`` QC flag (§11 ruling 9).
+``class_id`` / ``CANON_SCHEMA_VERSION`` are untouched -- the action canon never
+feeds the class digest in Phase 1. Same read-compat rule: a v1/v2/v3 file's absent
+columns -> field defaults (``arrows=()``, ``action_id``/``archetype`` ``None``,
+both flags ``False``).
+"""
+
+SCHEMA_V4_COLUMNS: frozenset[str] = frozenset(
+    {"arrows", "action_id", "archetype", "one_way", "action_pair_mismatch"}
+)
+"""The columns added by schema v4 (the additive read-compat boundary)."""
+
+EA_ALIVE_CUT_EV: float = 1.4
+"""Barrier (eV) below which a direction counts as kinetically **alive** (memo §5.2).
+
+Stated temperature-free as ``Ea_cut = kT * ln(nu0 / k_floor)``: 1.4 eV is
+``k_floor ~ 0.1 Hz`` at 500 K with ``nu0 = 1e13 Hz``, and absurdly conservative
+below that -- so one fixed cut is valid for every campaign at ``T <= 500 K`` and
+merely over-inclusive at lower T. Re-derive only for a hotter campaign.
 """
 
 PRIOR_EA_STD_FLOOR_EV: float = 0.02
@@ -208,6 +232,43 @@ class DeltaSite:
 
 
 @dataclass(frozen=True)
+class Arrow:
+    """One mover's site permutation entry: atom of species ``species`` went
+    ``start -> end`` (the action axis, memo 2026-07-30 §3.1).
+
+    A **permutation, not a displacement multiset**: which atom went where is the
+    datum a same-species concerted event's ``delta`` cannot reconstruct (memo §2.3),
+    and it costs nothing to capture -- ``detect_movers`` already computes the
+    per-atom ``(snap(P0[p]), snap(P2[p]))`` pair. Both offsets are integer,
+    ``anchor0``-relative sites in the same frame as ``delta``/``context``; vacant
+    sites are never listed (they are the arrow tails/heads no other arrow covers).
+    ``species`` mirrors ``DeltaSite.before``/``after``: a real ``Occ`` in FULL
+    colour, ``OCC_ANY`` in GREY.
+    """
+
+    start: Offset
+    end: Offset
+    species: Occ
+
+
+@dataclass(frozen=True)
+class RawArrow:
+    """The UNSNAPPED counterpart of an :class:`Arrow` (discard-ledger provenance).
+
+    ``start``/``end`` are the **real-valued** lattice coordinates
+    ``u = R^T (x - origin) / h`` that :func:`~pylatkmc.ingest.event_projection._snap`
+    rounds -- so a triage reader sees exactly how far off-lattice the "almost-arrow"
+    was (memo §5.1: an off-lattice event has no faithful site permutation, but its
+    unsnapped arrows still say what almost happened). Only the discard ledger stores
+    these; catalogue rows always store snapped :class:`Arrow`\\ s.
+    """
+
+    start: tuple[float, float, float]
+    end: tuple[float, float, float]
+    species: Occ
+
+
+@dataclass(frozen=True)
 class PathToken:
     """Per-mover categorical saddle mechanism label (contract 3.3)."""
 
@@ -279,6 +340,13 @@ class ProjectedEvent:
     source_row: int
     # --- gate provenance ---
     proj_report: EventProjReport
+    # --- action axis (memo 2026-07-30 §3.3; additive, never enters class_id) ---
+    #: Snapped, species-labelled arrows, ALIGNED 1:1 with ``movers`` (same order,
+    #: same start sites). Empty for a frame-unfit (degenerate) event.
+    arrows: tuple[Arrow, ...] = ()
+    #: The unsnapped counterparts of ``arrows`` (ledger provenance, memo §5.1).
+    #: Empty when no FCC frame could be fitted (there is no coordinate system).
+    arrows_raw: tuple[RawArrow, ...] = ()
 
 
 # --------------------------------------------------------------------------- #
@@ -389,6 +457,32 @@ class EventClass:
     #     memo 2026-07-29 §11 — §2-style audits without re-projection) ---
     mover_max_residual_list: tuple[float, ...] = ()
     max_residual_list: tuple[float, ...] = ()
+    # --- action axis [schema v4] (memo 2026-07-30 §7 Phase 1; purely additive) ---
+    #: The representative member's species-labelled arrows, re-expressed in the
+    #: canonical ``(a*, g*)`` frame — the same frame as ``delta``/``context``.
+    arrows: tuple[Arrow, ...] = ()
+    #: u64 ``blake2b`` digest of the reverse-symmetric action canon
+    #: (:func:`pylatkmc.ingest.action.action_id`). ``None`` only for a schema<=3
+    #: catalogue read back through the v4 reader.
+    action_id: int | None = None
+    #: The same canon computed GREY (species dropped) — the species-blind
+    #: archetype level (:func:`pylatkmc.ingest.action.archetype_id`).
+    archetype: int | None = None
+    #: **One-way annex flag** (memo §5.2 + §2.1): ``True`` iff this class is
+    #: kinetically alive (barrier < :data:`EA_ALIVE_CUT_EV`) in **exactly one**
+    #: direction — i.e. some member is alive forward-or-backward and **no** member
+    #: is alive in both. Backward barriers follow the §2.1 convention
+    #: (``Ea_b = Ea_f - dE``, pair-aligned ``dE_pair_list_eV`` where its length
+    #: matches ``barriers_eV``, else the class-level ``dEnergy_eV``); a member with
+    #: no backward information counts as neither alive nor dead. Never a runtime
+    #: exclusion — one-way classes keep firing on their measured rates; the flag
+    #: only keeps them out of the archetype-defining reversible core and routes
+    #: them to the gap-2 reachability triage. See :func:`one_way_flag`.
+    one_way: bool = False
+    #: **QC flag** (memo §11 ruling 9): the linked forward/backward partner
+    #: canonicalised to a *different* ``action_id``. Flag + build-log line + review
+    #: list, never a quarantine and never a hard failure — the class keeps firing.
+    action_pair_mismatch: bool = False
     # --- Phase C rate-model fields [C] (empty until Phase C populates them) ---
     phi: tuple[float, ...] = ()
     model_version: str | None = None
@@ -409,6 +503,77 @@ class EventClass:
     audit_reason: str = ""
     fallback_stats: tuple[Any, ...] = ()
     schema_version: int = CATALOGUE_SCHEMA_VERSION
+
+
+NO_OP_REASON: str = (
+    "QC: NO_OP — initial and final states snap identically (no delta, no movers); "
+    "the on-lattice image of basin-internal motion, not a catalogue defect "
+    "(action fingerprint memo 2026-07-29 §5.3, ruling 5)"
+)
+"""``audit_reason`` for a delta-less, mover-less class (memo §5.3 / ruling 5).
+
+A **reason rename only**: NO_OP classes stay ``audit_status == "quarantined"`` (they
+are not executable on-lattice). A dedicated ``audit_status`` value was rejected
+because every ``== "quarantined"`` exclusion in ``surrogate``/``merge``/``qc`` would
+silently *include* a new status by default; the census carve-out
+(``QCReport.no_op_quarantined``) is what stops NO_OPs counting against quality.
+"""
+
+
+def is_no_op(delta: Sequence[Any], arrows: Sequence[Any], saddle_token: Sequence[Any]) -> bool:
+    """True iff the event is a NO_OP: no occupancy change and no mover (memo §5.3).
+
+    All three of ``delta`` / ``arrows`` / ``saddle_token`` must be empty. Testing
+    ``arrows`` **and** tokens (not just ``delta``) keeps a same-species exchange —
+    which has an empty ``delta`` but two real arrows — out of the NO_OP bin, and
+    keeps the predicate correct on a schema<=3 catalogue read back with
+    ``arrows == ()`` (there the token count decides, exactly as before).
+    """
+    return len(delta) == 0 and len(arrows) == 0 and len(saddle_token) == 0
+
+
+def one_way_flag(
+    barriers_eV: Sequence[float],
+    dE_pair_list_eV: Sequence[float],
+    dEnergy_eV: float | None,
+    *,
+    cut_eV: float = EA_ALIVE_CUT_EV,
+) -> bool:
+    """Direction-resolved liveness -> the §5.2 one-way annex flag.
+
+    Per member ``i``: forward barrier ``Ea_f = barriers_eV[i]``; backward barrier
+    ``Ea_b = Ea_f - dE`` with ``dE = dE_pair_list_eV[i]`` when that list aligns with
+    ``barriers_eV``, else the class-level ``dEnergy_eV`` (the memo §2.1 convention —
+    per-member alignment is lost as soon as some members are unpaired, and the
+    dE-spread QC screen bounds the class-level value's error). A member with no
+    finite backward barrier contributes to neither tally.
+
+    Returns ``True`` iff **some** member is alive in a direction and **no** member is
+    alive in both — i.e. the class fires one-way only. Purely a report/annex flag:
+    it never removes anything from the engine (memo §5.2).
+    """
+    n = len(barriers_eV)
+    if n == 0:
+        return False
+    de_aligned = len(dE_pair_list_eV) == n
+    fallback = (
+        float(dEnergy_eV) if dEnergy_eV is not None and math.isfinite(dEnergy_eV) else float("nan")
+    )
+    any_both = False
+    any_alive = False
+    for i in range(n):
+        ea_f = float(barriers_eV[i])
+        de = float(dE_pair_list_eV[i]) if de_aligned else fallback
+        ea_b = ea_f - de
+        if not (math.isfinite(ea_f) and math.isfinite(ea_b)):
+            continue
+        f_alive = ea_f < cut_eV
+        b_alive = ea_b < cut_eV
+        if f_alive and b_alive:
+            any_both = True
+        if f_alive or b_alive:
+            any_alive = True
+    return any_alive and not any_both
 
 
 # --------------------------------------------------------------------------- #
@@ -926,13 +1091,17 @@ def _anchor_pred(context: tuple[StencilSite, ...]) -> OccPredicate:
 
 def _canonical_orientation(
     rep: ProjectedEvent, canonical: Any
-) -> tuple[tuple[DeltaSite, ...], tuple[StencilSite, ...], tuple[PathToken, ...]]:
-    """Re-express rep's delta/context/tokens into the winning ``(a*, g*)`` frame.
+) -> tuple[
+    tuple[DeltaSite, ...], tuple[StencilSite, ...], tuple[PathToken, ...], tuple[Arrow, ...]
+]:
+    """Re-express rep's delta/context/tokens/arrows into the winning ``(a*, g*)`` frame.
 
     Uses ``canonical.argmin_orientation`` + the returned ``SymOp`` matrix and
     ``canonical.canonical_rank_map`` for token ordering. Falls back to rep's own
     frame if those A5 helpers are unavailable (best-effort; identity of record is
-    ``canonical_blob``).
+    ``canonical_blob``). ``arrows`` ride the *same* transform as ``delta`` so the two
+    stored fields are always readable in one frame -- the action digests are
+    frame-invariant either way, but a reader joining arrows to delta is not.
     """
     try:
         anchor, gop = canonical.argmin_orientation(rep)
@@ -944,6 +1113,14 @@ def _canonical_orientation(
         context = tuple(
             StencilSite(_transform_offset(cs.off, anchor, mat), cs.pred) for cs in rep.context
         )
+        arrows = tuple(
+            Arrow(
+                _transform_offset(a.start, anchor, mat),
+                _transform_offset(a.end, anchor, mat),
+                a.species,
+            )
+            for a in rep.arrows
+        )
         try:
             ranks = canonical.canonical_rank_map(rep.movers, anchor, gop)
             toks = [
@@ -954,9 +1131,9 @@ def _canonical_orientation(
             saddle_token = tuple(toks)
         except Exception:  # noqa: BLE001 - rank map unavailable -> keep given order
             saddle_token = rep.saddle_tokens
-        return delta, context, saddle_token
+        return delta, context, saddle_token, arrows
     except Exception:  # noqa: BLE001 - argmin unavailable -> rep frame
-        return rep.delta, rep.context, rep.saddle_tokens
+        return rep.delta, rep.context, rep.saddle_tokens, rep.arrows
 
 
 # Systematic rcut-mismatch heuristic (contract 8 — additive diagnostics only, never
@@ -978,10 +1155,19 @@ class CatalogueReport:
     production_NiCrFe failure mode -- near-total G7 STRADDLING because
     ``thresholds.rcut`` is smaller than the pyKMC run's rcut (a config mismatch, not
     bad data; the fix is to raise ``GateThresholds.rcut``, never to loosen the gate).
+
+    ``n_action_disagree`` counts classes whose **members** do not all canonicalise to
+    one ``action_id`` (action-fingerprint memo Phase 1). The stored ``arrows`` are the
+    representative member's, so a disagreement means the class holds one action's
+    geometry for members that did something else. Monitor **only** -- no column, no
+    quarantine, no review row -- because raw arrow sets legitimately differ within a
+    class (different anchors/orientations of one action) while the digest, being
+    frame-invariant, does not.
     """
 
     n_events: int = 0
     n_classes: int = 0
+    n_action_disagree: int = 0
     n_g7_fail: int = 0
     g7_fail_fraction: float = 0.0
     median_cluster_diameter_A: float = float("nan")
@@ -1018,7 +1204,7 @@ def build_class_catalogue(
     G7 STRADDLING failure mode (see :func:`_flag_rcut_mismatch`). The report channel
     never changes ``class_id``, serialization, or any gate outcome.
     """
-    from pylatkmc.ingest import canonical
+    from pylatkmc.ingest import action, canonical
 
     # index every event by idx_ref (deterministic: smallest source_row wins ties)
     by_idx_ref: dict[int, ProjectedEvent] = {}
@@ -1031,13 +1217,22 @@ def build_class_catalogue(
         groups.setdefault(cid, []).append(pe)
 
     out: list[EventClass] = []
+    n_action_disagree = 0
     for cid in sorted(groups):
         members = sorted(groups[cid], key=_member_key)
         rep = members[0]
 
         cf = canonical.canonical_form(rep)
         blob = canonical.canonical_blob(cf)
-        delta_c, context_c, saddle_c = _canonical_orientation(rep, canonical)
+        delta_c, context_c, saddle_c, arrows_c = _canonical_orientation(rep, canonical)
+        is_grey = rep.coloring == Coloring.GREY
+        # Action identity is frame-invariant, so one canon per member is enough to
+        # detect a class holding members that did different things (monitor only).
+        class_action_id = action.action_id(arrows_c, grey=is_grey)
+        if len(members) > 1 and any(
+            action.action_id(m.arrows, grey=is_grey) != class_action_id for m in members[1:]
+        ):
+            n_action_disagree += 1
 
         barriers = tuple(m.Ea_fwd_eV for m in members)
         nu0_f = tuple(m.nu0_fwd_hz for m in members)
@@ -1111,6 +1306,15 @@ def build_class_catalogue(
                 dE_pair_list_eV=tuple(dE_pairs),
                 mover_max_residual_list=mover_resid,
                 max_residual_list=max_resid,
+                # --- action axis (schema v4, additive: never feeds class_id) ---
+                # `grey` mirrors what the identity does: in GREY colouring the class
+                # digest collapses every occupied species, so the action digest must
+                # too — otherwise a grey catalogue's action_id would carry species
+                # its class_id dropped and action_id != archetype for no reason.
+                arrows=arrows_c,
+                action_id=class_action_id,
+                archetype=action.archetype_id(arrows_c),
+                one_way=one_way_flag(barriers, tuple(dE_pairs), dEnergy),
                 k_rate_mean_psinv=agg.k_rate_mean_psinv,
                 Ea_rep_eV=agg.Ea_rep_eV,
                 nu0_geo_psinv=agg.nu0_geo_psinv,
@@ -1133,6 +1337,8 @@ def build_class_catalogue(
 
     out.sort(key=lambda ec: ec.class_id)
     _flag_rcut_mismatch(events, out, thresholds, report)
+    if report is not None:
+        report.n_action_disagree = n_action_disagree
     return out
 
 
@@ -1305,6 +1511,25 @@ def catalogue_arrow_schema() -> pa.Schema:
             ]
         )
     )
+    # schema v4: one row per Arrow — snapped integer start/end sites (same frame as
+    # `delta`) plus the mover's species code. The DISCARD LEDGER's `arrows` column
+    # (reftable.write_discard_ledger_parquet) is the float64 UNSNAPPED counterpart.
+    arrow_type = pa.list_(
+        pa.struct(
+            [
+                ("sx", pa.int32()),
+                ("sy", pa.int32()),
+                ("sz", pa.int32()),
+                ("ex", pa.int32()),
+                ("ey", pa.int32()),
+                ("ez", pa.int32()),
+                # uint8, not int8: OCC_ANY is 254 (a grey catalogue's arrow species)
+                # and OUTSIDE is 255 — both overflow a signed byte. The pre-existing
+                # int8 `delta`/`context` columns are a separate, older trap.
+                ("species", pa.uint8()),
+            ]
+        )
+    )
     return pa.schema(
         [
             ("class_id", pa.string()),
@@ -1358,6 +1583,12 @@ def catalogue_arrow_schema() -> pa.Schema:
             # memo 2026-07-29 §11) ---
             ("mover_max_residual_list", pa.list_(pa.float64())),
             ("max_residual_list", pa.list_(pa.float64())),
+            # --- schema v4: the action axis (action-fingerprint memo §7 Phase 1) ---
+            ("arrows", arrow_type),
+            ("action_id", pa.uint64()),
+            ("archetype", pa.uint64()),
+            ("one_way", pa.bool_()),
+            ("action_pair_mismatch", pa.bool_()),
         ]
     )
 
@@ -1482,6 +1713,23 @@ def _event_to_row(ec: EventClass) -> dict[str, Any]:
         # --- schema v3: per-member snap residuals ---
         "mover_max_residual_list": [float(x) for x in ec.mover_max_residual_list],
         "max_residual_list": [float(x) for x in ec.max_residual_list],
+        # --- schema v4: the action axis ---
+        "arrows": [
+            {
+                "sx": int(a.start[0]),
+                "sy": int(a.start[1]),
+                "sz": int(a.start[2]),
+                "ex": int(a.end[0]),
+                "ey": int(a.end[1]),
+                "ez": int(a.end[2]),
+                "species": int(a.species),
+            }
+            for a in ec.arrows
+        ],
+        "action_id": None if ec.action_id is None else int(ec.action_id),
+        "archetype": None if ec.archetype is None else int(ec.archetype),
+        "one_way": bool(ec.one_way),
+        "action_pair_mismatch": bool(ec.action_pair_mismatch),
     }
 
 
@@ -1549,6 +1797,14 @@ def _row_to_event(row: dict[str, Any]) -> EventClass:
         )
         for g in row["gate_log"]
     )
+    arrows = tuple(
+        Arrow(
+            (int(a["sx"]), int(a["sy"]), int(a["sz"])),
+            (int(a["ex"]), int(a["ey"]), int(a["ez"])),
+            Occ(int(a["species"])),
+        )
+        for a in (row.get("arrows") or ())
+    )
     return EventClass(
         class_id=row["class_id"],
         canonical_form=decode_canonical_blob(row["canonical_blob"]),
@@ -1597,6 +1853,14 @@ def _row_to_event(row: dict[str, Any]) -> EventClass:
         # schema-v3 columns; absent in a v1/v2 parquet -> field defaults (back-compat).
         mover_max_residual_list=tuple(float(x) for x in (row.get("mover_max_residual_list") or ())),
         max_residual_list=tuple(float(x) for x in (row.get("max_residual_list") or ())),
+        # schema-v4 columns; absent in a v1/v2/v3 parquet -> field defaults. A missing
+        # action_id stays None ("this catalogue predates the action axis"), never 0 —
+        # 0 is a legal digest and would read as a real, shared action.
+        arrows=arrows,
+        action_id=None if row.get("action_id") is None else int(row["action_id"]),
+        archetype=None if row.get("archetype") is None else int(row["archetype"]),
+        one_way=bool(row.get("one_way") or False),
+        action_pair_mismatch=bool(row.get("action_pair_mismatch") or False),
         schema_version=int(row["schema_version"]),
     )
 

@@ -40,6 +40,7 @@ from pylatkmc.ingest.event_class import (
     GateOutcome,
     GateThresholds,
     ProjectedEvent,
+    RawArrow,
     build_class_catalogue,
 )
 from pylatkmc.ingest.event_projection import DEFAULT_NOMINAL_A, project_event
@@ -55,6 +56,16 @@ class DiscardedRow:
     frame fitter's reason (``FRAME_UNFIT``) or the residual-vs-threshold message
     (``MOVER_OFFLATTICE``). The remaining fields are the lineage needed to
     re-audit / re-harvest the event without re-projection.
+
+    Action axis (action-fingerprint memo §5.1, Phase 1): ``arrows`` holds the
+    **unsnapped** :class:`~pylatkmc.ingest.event_class.RawArrow` provenance -- real-
+    valued lattice coordinates, so triage can see *what almost happened* -- and the
+    ledger's ``action_id`` / ``archetype`` / ``one_way`` are always ``None``: an
+    off-lattice event has **no faithful site permutation by definition**, so no
+    action is defined for it, and a ledger row is a single event with no class-level
+    forward/backward pairing from which liveness could be resolved. For a
+    ``FRAME_UNFIT`` row even ``arrows`` is empty -- with no frame there is no
+    coordinate system to express an arrow in.
     """
 
     row: int
@@ -67,6 +78,10 @@ class DiscardedRow:
     max_residual: float
     Ea_fwd_eV: float
     move_atom_idx: int
+    arrows: tuple[RawArrow, ...] = ()
+    action_id: int | None = None
+    archetype: int | None = None
+    one_way: bool | None = None
 
 
 @dataclass
@@ -177,6 +192,7 @@ def project_reference_table(
                     max_residual=pe.proj_report.max_residual,
                     Ea_fwd_eV=pe.Ea_fwd_eV,
                     move_atom_idx=pe.move_atom_idx,
+                    arrows=pe.arrows_raw,
                 )
             )
             rep.n_discarded += 1
@@ -201,10 +217,30 @@ def write_discard_ledger_parquet(
     Always writes the file, even when empty, so downstream tooling can rely on
     the sidecar existing next to every catalogue built under the 2026-07-29
     policy.
+
+    The four action-axis columns (action-fingerprint memo §7 Phase 1) are present
+    here too, with the ledger's documented encoding: ``arrows`` is the **unsnapped**
+    (``float64`` lattice-coordinate) counterpart of the catalogue's integer arrow
+    struct, and ``action_id`` / ``archetype`` / ``one_way`` are **always null** —
+    see :class:`DiscardedRow`.
     """
     import pyarrow as pa  # type: ignore[import-untyped]
     import pyarrow.parquet as pq  # type: ignore[import-untyped]
 
+    raw_arrow_type = pa.list_(
+        pa.struct(
+            [
+                ("sx", pa.float64()),
+                ("sy", pa.float64()),
+                ("sz", pa.float64()),
+                ("ex", pa.float64()),
+                ("ey", pa.float64()),
+                ("ez", pa.float64()),
+                # uint8: OCC_ANY is 254 in a grey build (see the catalogue schema).
+                ("species", pa.uint8()),
+            ]
+        )
+    )
     schema = pa.schema(
         [
             ("row", pa.int64()),
@@ -217,6 +253,11 @@ def write_discard_ledger_parquet(
             ("max_residual", pa.float64()),
             ("Ea_fwd_eV", pa.float64()),
             ("move_atom_idx", pa.int64()),
+            # --- action axis (memo §5.1): unsnapped arrows; the rest always null ---
+            ("arrows", raw_arrow_type),
+            ("action_id", pa.uint64()),
+            ("archetype", pa.uint64()),
+            ("one_way", pa.bool_()),
         ]
     )
     ordered = sorted(discarded, key=lambda d: d.row)
@@ -231,6 +272,10 @@ def write_discard_ledger_parquet(
         "max_residual": [_finite_or_none(d.max_residual) for d in ordered],
         "Ea_fwd_eV": [_finite_or_none(d.Ea_fwd_eV) for d in ordered],
         "move_atom_idx": [d.move_atom_idx for d in ordered],
+        "arrows": [_raw_arrow_rows(d.arrows) for d in ordered],
+        "action_id": [d.action_id for d in ordered],
+        "archetype": [d.archetype for d in ordered],
+        "one_way": [d.one_way for d in ordered],
     }
     if metadata is not None:
         schema = schema.with_metadata(metadata)
@@ -243,6 +288,22 @@ def write_discard_ledger_parquet(
 def _finite_or_none(x: float) -> float | None:
     """Parquet-friendly float: ``inf`` (frame-unfit residuals) / NaN -> null."""
     return float(x) if math.isfinite(x) else None
+
+
+def _raw_arrow_rows(arrows: tuple[RawArrow, ...]) -> list[dict[str, Any]]:
+    """One ledger ``arrows`` cell: unsnapped lattice coordinates + species code."""
+    return [
+        {
+            "sx": float(a.start[0]),
+            "sy": float(a.start[1]),
+            "sz": float(a.start[2]),
+            "ex": float(a.end[0]),
+            "ey": float(a.end[1]),
+            "ez": float(a.end[2]),
+            "species": int(a.species),
+        }
+        for a in arrows
+    ]
 
 
 def build_catalogue_from_reference_table(

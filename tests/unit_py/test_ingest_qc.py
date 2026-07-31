@@ -54,6 +54,7 @@ def _mk(
     dE_model_version: str | None = None,
     nu0_pair_policy: str | None = None,
     gate_log: tuple[ec.GateResult, ...] = (),
+    saddle_token: tuple[ec.PathToken, ...] = (),
 ) -> EventClass:
     """A minimal but valid EventClass for QC/round-trip tests (class_id is arbitrary)."""
     cf = (1, 0, 0, 0, 0, (), (), ())
@@ -69,7 +70,7 @@ def _mk(
         delta=delta,
         delta_atoms=0,
         context=(),
-        saddle_token=(),
+        saddle_token=saddle_token,
         orientation_count=1,
         r_ctx_used=5.0,
         r_id_used=5.0,
@@ -161,13 +162,29 @@ def test_self_reverse_zero_dE_kept() -> None:
 # delta-less screen                                                           #
 # --------------------------------------------------------------------------- #
 def test_deltaless_quarantined() -> None:
-    """An empty delta is not executable -> quarantined."""
-    c = _mk("d", delta=())
+    """An empty delta is not executable -> quarantined.
+
+    A delta-less class that still has movers keeps the plain "empty delta" reason;
+    the mover-less case is the NO_OP relabel (next test, memo 2026-07-29 §5.3).
+    """
+    c = _mk("d", delta=(), saddle_token=(ec.PathToken(0, ec.SaddleKind.BRIDGE, (8,)),))
     rep = apply_qc([c])
     out = _by_id(rep)["d"]
     assert out.audit_status == "quarantined"
     assert "empty delta" in out.audit_reason
     assert rep.deltaless_quarantined == 1
+    assert rep.no_op_quarantined == 0
+
+
+def test_deltaless_moverless_relabelled_no_op() -> None:
+    """Delta-less AND mover-less = NO_OP: reason rename only, status untouched."""
+    rep = apply_qc([_mk("d", delta=())])
+    out = _by_id(rep)["d"]
+    assert out.audit_status == "quarantined"  # ruling 5: NO new audit_status value
+    assert "NO_OP" in out.audit_reason
+    assert rep.deltaless_quarantined == 1  # still attributed to the delta-less screen
+    assert rep.no_op_quarantined == 1  # ... and carved out of the quality count
+    assert "excl. NO_OP: 0 classes" in rep.summary()
 
 
 def test_nonempty_delta_kept() -> None:
@@ -250,8 +267,9 @@ def test_schema_version_bumped_on_all_output() -> None:
     """Every re-emitted class carries the current schema_version, quarantined or not."""
     rep = apply_qc([_mk("a"), _mk("d", delta=())])
     assert {c.schema_version for c in rep.classes} == {ec.CATALOGUE_SCHEMA_VERSION}
-    # v3 = per-member snap residual columns (over-snapping memo 2026-07-29 §11).
-    assert ec.CATALOGUE_SCHEMA_VERSION == 3
+    # v3 = per-member snap residual columns (over-snapping memo 2026-07-29 §11);
+    # v4 = the action axis (action-fingerprint memo 2026-07-30 §7 Phase 1).
+    assert ec.CATALOGUE_SCHEMA_VERSION == 4
 
 
 def test_apply_qc_does_not_mutate_inputs() -> None:

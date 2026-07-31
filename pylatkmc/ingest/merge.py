@@ -22,10 +22,15 @@ same digest; verified on 58 shared classes, |ΔEa_rep| median 1 meV).
 
 What the merge does, per shared ``class_id``
 --------------------------------------------
-* **Concatenate member lists** across runs: the aligned ``(Ea, ν0_f, ν0_b)`` member
-  triples, the linked-member ``dE_pair_list_eV``, and the run-local provenance
+* **Concatenate member lists** across runs: the aligned
+  ``(Ea, ν0_f, ν0_b, residuals, dE)`` member rows and the run-local provenance
   (``source_rows`` / ``source_idx_refs``). All concatenations are re-sorted so the
-  stored tuples are order-independent.
+  stored tuples are order-independent — and every per-member column rides **one**
+  tuple through that sort, so a barrier can never end up paired with another
+  member's ``dE``. The merged ``dE_pair_list_eV`` is therefore emitted in the
+  **aligned** convention (one entry per member, ``NaN`` where unpaired); see
+  :func:`_aligned_dE` for the two conventions and how a per-run subset form is
+  re-aligned.
 * **Run-qualify provenance** in ``source_sim_paths`` (empty in a per-run build): one
   ``"<run_tag>#<idx_ref>"`` entry per member, so a cross-run ``idx_ref`` collision
   stays disambiguated (two runs' ``idx_ref == 0`` become distinct provenance strings).
@@ -86,6 +91,7 @@ from pylatkmc.ingest.event_class import (
     GateOutcome,
     GateResult,
     aggregate_rate_space,
+    one_way_flag,
 )
 from pylatkmc.ingest.qc import (
     DEFAULT_RECIPROCITY_TOL_EV,
@@ -118,6 +124,13 @@ class MergeReport:
     qc: QCReport
     stamp: StampReport | None
     classes: list[EventClass]
+    #: Classes whose contributing per-run instances do not all carry one
+    #: ``action_id`` (action-fingerprint memo Phase 1). Monitor **only** — no column,
+    #: no quarantine, no review row: the merged class stores the primary donor's
+    #: arrows, so a non-zero count says that geometry does not describe every run's
+    #: members. Unstamped (schema<=3) instances are ignored, not counted as a
+    #: disagreement.
+    action_disagree_classes: int = 0
 
     def summary(self) -> str:
         """A compact, multi-line human summary of the merge."""
@@ -128,6 +141,9 @@ class MergeReport:
             f"  status conflicts (survive merge): {self.status_conflict_count}",
             f"  non-conserving surviving merge  : {self.nonconserving_surviving} "
             "(delta_atoms != 0; counted, not quarantined — see module docstring)",
+            f"  member action_id disagreement   : {self.action_disagree_classes} classes "
+            "(stored arrows are the primary donor's; monitor only — no column, no "
+            "quarantine)",
         ]
         if self.stamp is not None:
             lines.append(
@@ -161,6 +177,51 @@ def _sortable(x: float) -> float:
     return x if math.isfinite(x) else float("inf")
 
 
+def _aligned_dE(ec: EventClass) -> tuple[tuple[float, ...], list[float]]:
+    """Per-member ``dE`` for one instance, aligned with ``ec.barriers_eV``.
+
+    Two stored conventions exist for ``dE_pair_list_eV`` and both must round-trip
+    through a merge without mispairing a barrier with another member's ``dE``:
+
+    * **aligned** (``len == len(barriers_eV)``) -- one entry per member, ``NaN`` for
+      an unpaired one. What :func:`_merge_one_class` writes, and what a per-run build
+      produces whenever every member is linked.
+    * **subset** (``len < len(barriers_eV)``) -- the historical per-run build form:
+      only the linked members contribute, in member order. It is re-aligned here by
+      the ``nu0_b_list_hz`` mask, which ``build_class_catalogue`` fills in the *same*
+      member loop (``NaN`` exactly for an unpaired member). Measured on the 53-run
+      production corpus: 5/5 subset-form classes re-align exactly, 0 ambiguous.
+
+    Returns ``(aligned, leftover)``. ``leftover`` is non-empty only in the defensive
+    case where the mask cannot resolve the subset (a linked member whose partner had
+    a non-finite nu0 would blur the mask): those values stay out of the aligned array
+    -- guessing an alignment is exactly the defect this function exists to prevent --
+    but are still handed to ``dEnergy``/``pair_status``, so no class loses backward
+    information it has today.
+
+    The mask re-alignment is exact under the build invariant that
+    ``nu0_b_list_hz[i]`` is ``NaN`` for exactly the unpaired members (both lists are
+    filled in the same member loop of ``build_class_catalogue``); an input violating
+    it -- an *unpaired* member carrying a *finite* ``nu0_b`` -- would mis-slot, and
+    no in-tree producer can emit that shape.
+    """
+    n = len(ec.barriers_eV)
+    de = [float(d) for d in ec.dE_pair_list_eV]
+    if len(de) == n:
+        return tuple(de), []
+    if not de:
+        return (float("nan"),) * n, []
+    nb = ec.nu0_b_list_hz
+    if len(nb) == n:
+        linked = [i for i in range(n) if math.isfinite(float(nb[i]))]
+        if len(linked) == len(de):
+            out = [float("nan")] * n
+            for k, i in enumerate(linked):
+                out[i] = de[k]
+            return tuple(out), []
+    return (float("nan"),) * n, de
+
+
 def _merge_one_class(
     class_id: str,
     instances: Sequence[tuple[str, EventClass]],
@@ -174,10 +235,17 @@ def _merge_one_class(
     """
     primary = instances[0][1]
 
-    # --- aligned (Ea, nu0_f, nu0_b, residuals) member rows, concatenated then
-    # re-sorted. The v3 per-member residual columns ride along, aligned by member;
-    # a pre-v3 instance contributes NaN residuals (read-compat).
-    triples: list[tuple[float, float, float, float, float]] = []
+    # --- aligned (Ea, nu0_f, nu0_b, residuals, dE) member rows, concatenated then
+    # re-sorted AS ONE TUPLE. The v3 per-member residual columns ride along, aligned
+    # by member; a pre-v3 instance contributes NaN residuals (read-compat).
+    #
+    # dE must ride the SAME tuple: it used to be collected into its own
+    # independently-``sorted()`` list, so whenever every member happened to be linked
+    # the two lists were the same LENGTH but a different ORDER — enough for the
+    # length-keyed alignment guard in ``one_way_flag`` (and the positional zip in
+    # ``surrogate``) to pair barriers[i] with an unrelated member's dE.
+    rows: list[tuple[float, float, float, float, float, float]] = []
+    leftover_dE: list[float] = []
     for _tag, ec in instances:
         n = len(ec.barriers_eV)
         nu0_b = ec.nu0_b_list_hz if len(ec.nu0_b_list_hz) == n else (float("nan"),) * n
@@ -187,27 +255,29 @@ def _merge_one_class(
             else (float("nan"),) * n
         )
         x_res = ec.max_residual_list if len(ec.max_residual_list) == n else (float("nan"),) * n
+        de_i, leftover = _aligned_dE(ec)
+        leftover_dE.extend(leftover)
         for i in range(n):
-            triples.append(
+            rows.append(
                 (
                     float(ec.barriers_eV[i]),
                     float(ec.nu0_f_list_hz[i]),
                     float(nu0_b[i]),
                     float(m_res[i]),
                     float(x_res[i]),
+                    float(de_i[i]),
                 )
             )
-    triples.sort(key=lambda t: tuple(_sortable(x) for x in t))
-    barriers = tuple(t[0] for t in triples)
-    nu0_f = tuple(t[1] for t in triples)
-    nu0_b = tuple(t[2] for t in triples)
-    mover_resid = tuple(t[3] for t in triples)
-    max_resid = tuple(t[4] for t in triples)
-
-    # --- linked-member dE_pair list (standalone subset), concatenated + sorted -----
-    dE_pairs = sorted(
-        float(d) for _tag, ec in instances for d in ec.dE_pair_list_eV if math.isfinite(d)
-    )
+    rows.sort(key=lambda t: tuple(_sortable(x) for x in t))
+    barriers = tuple(t[0] for t in rows)
+    nu0_f = tuple(t[1] for t in rows)
+    nu0_b = tuple(t[2] for t in rows)
+    mover_resid = tuple(t[3] for t in rows)
+    max_resid = tuple(t[4] for t in rows)
+    # Stored in the ALIGNED convention: one entry per member, NaN where unpaired.
+    dE_aligned = tuple(t[5] for t in rows)
+    # The finite subset drives the order-independent reductions (dEnergy, pairing).
+    dE_pairs = sorted([d for d in dE_aligned if math.isfinite(d)] + leftover_dE)
 
     # --- run-qualified provenance --------------------------------------------------
     source_rows = tuple(sorted(int(r) for _tag, ec in instances for r in ec.source_rows))
@@ -245,7 +315,7 @@ def _merge_one_class(
         barriers_eV=barriers,
         nu0_f_list_hz=nu0_f,
         nu0_b_list_hz=nu0_b,
-        dE_pair_list_eV=tuple(dE_pairs),
+        dE_pair_list_eV=dE_aligned,
         mover_max_residual_list=mover_resid,
         max_residual_list=max_resid,
         k_rate_mean_psinv=agg.k_rate_mean_psinv,
@@ -266,6 +336,12 @@ def _merge_one_class(
         audit_status=audit_status,  # type: ignore[arg-type]
         audit_reason="",
         nu0_pair_policy=None,
+        # Action identity (arrows / action_id / archetype) is geometry, so it rides
+        # along from the primary donor with the rest of the identity fields. The two
+        # *derived* action columns are re-decided on the merged data: `one_way` over
+        # the merged member list, `action_pair_mismatch` by the merged QC pass.
+        one_way=one_way_flag(barriers, dE_aligned, dEnergy),
+        action_pair_mismatch=False,
         schema_version=CATALOGUE_SCHEMA_VERSION,
     )
 
@@ -344,6 +420,19 @@ def merge_qcd_catalogues(
     per_run_counts = {tag: len(classes) for tag, classes in sorted(per_run, key=lambda rc: rc[0])}
     n_instances = sum(len(classes) for _tag, classes in per_run)
 
+    # Cross-run action agreement (monitor only, action-fingerprint memo Phase 1): the
+    # merged class stores the PRIMARY DONOR's arrows, so a class whose per-run
+    # instances disagree on action_id is holding geometry that does not describe every
+    # run's members. `action_id` is frame-invariant, so comparing the stored digests
+    # is enough — no re-canonicalisation. Unstamped (schema<=3) instances carry None
+    # and are ignored rather than counted as a disagreement.
+    by_class: dict[str, set[int]] = {}
+    for _tag, classes in per_run:
+        for ec in classes:
+            if ec.action_id is not None:
+                by_class.setdefault(ec.class_id, set()).add(int(ec.action_id))
+    action_disagree = sum(1 for ids in by_class.values() if len(ids) > 1)
+
     return MergeReport(
         n_runs=len(per_run),
         n_merged_classes=len(out_classes),
@@ -355,6 +444,7 @@ def merge_qcd_catalogues(
         qc=qc,
         stamp=stamp,
         classes=out_classes,
+        action_disagree_classes=action_disagree,
     )
 
 
