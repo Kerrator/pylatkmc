@@ -35,7 +35,7 @@ event_projection         One pyKMC reference row → ``ProjectedEvent`` via its 
                          fit (min-image unwrap, mover/saddle detection, depth signature).
 canonical                Class identity: the complete (translation × D₄ₕ × automorphism)
                          orbit invariant → ``canonical_form``, its TLV ``canonical_blob``,
-                         and the blake2b ``class_id`` (plus ``move_shape``/``family_id``).
+                         and the blake2b ``class_id`` (plus ``move_shape``).
 
 Dependencies
 ------------

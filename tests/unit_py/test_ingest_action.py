@@ -209,6 +209,7 @@ def _mk_pe(**kw) -> ProjectedEvent:
         ),
         movers=((0, 0, 0),),
         saddle_tokens=(PathToken(0, SaddleKind.BRIDGE, (8, 8)),),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.NI),),
         depth_sig=DepthSig(DepthKind.BULK_OR_DEEPER, -1),
         coloring=Coloring.FULL,
         r_ctx_used=5.0,
@@ -229,7 +230,7 @@ def _mk_pe(**kw) -> ProjectedEvent:
     return ProjectedEvent(**base)  # type: ignore[arg-type]
 
 
-_CF = (2, 1, 0, 0, 8, ((0, 0, 0, 1, 0), (1, 1, 0, 0, 1)), (), ())
+_CF = (3, 1, 0, 0, 8, ((0, 0, 0, 1, 1, 0, 1),), ((0, 0, 0, 1, 0), (1, 1, 0, 0, 1)), (), ())
 
 
 def _mk_ec(cid: str, **kw) -> EventClass:
@@ -241,7 +242,6 @@ def _mk_ec(cid: str, **kw) -> EventClass:
         depth_sig=DepthSig(DepthKind.SURFACE, 8),
         coloring=Coloring.FULL,
         move_shape=1,
-        family_id=2,
         delta=(DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY), DeltaSite((1, 1, 0), Occ.EMPTY, Occ.NI)),
         delta_atoms=0,
         context=(),
@@ -344,8 +344,8 @@ def test_grey_arrows_action_equals_archetype() -> None:
 # --------------------------------------------------------------------------- #
 # (d) schema 3 -> 4 read compatibility                                        #
 # --------------------------------------------------------------------------- #
-def test_schema_version_is_4() -> None:
-    assert ecm.CATALOGUE_SCHEMA_VERSION == 4
+def test_schema_version_is_5() -> None:
+    assert ecm.CATALOGUE_SCHEMA_VERSION == 5
 
 
 def test_schema3_parquet_still_reads_with_field_defaults(tmp_path: Path) -> None:
@@ -357,9 +357,11 @@ def test_schema3_parquet_still_reads_with_field_defaults(tmp_path: Path) -> None
     src = _mk_ec("aa" * 32, one_way=True)
     row = ecm._event_to_row(src)
     row["schema_version"] = 3
-    schema = pa.schema(
-        [f for f in ecm.catalogue_arrow_schema() if f.name not in ecm.SCHEMA_V4_COLUMNS]
-    )
+    row["family_id"] = 2  # a REAL v3 file carries the (v5-removed) column
+    fields = [f for f in ecm.catalogue_arrow_schema() if f.name not in ecm.SCHEMA_V4_COLUMNS]
+    pos = [f.name for f in fields].index("move_shape") + 1
+    fields.insert(pos, pa.field("family_id", pa.int64()))
+    schema = pa.schema(fields)
     cols = {f.name: pa.array([row[f.name]], type=f.type) for f in schema}
     path = tmp_path / "v3.parquet"
     pq.write_table(pa.Table.from_pydict(cols, schema=schema), path)
@@ -390,7 +392,7 @@ def test_v4_parquet_round_trips_the_new_columns(tmp_path: Path) -> None:
     assert back.archetype == src.archetype
     assert back.one_way is True
     assert back.action_pair_mismatch is True
-    assert back.schema_version == 4
+    assert back.schema_version == 5
 
 
 # --------------------------------------------------------------------------- #
@@ -674,15 +676,18 @@ def test_action_id_independent_of_pythonhashseed() -> None:
     assert outs[0] == outs[1]
 
 
-def test_action_columns_never_feed_class_id() -> None:
-    """Phase 1 is ADDITIVE: class_id is blind to arrows and CANON stays at v2."""
-    assert C.CANON_SCHEMA_VERSION == 2
-    plain = _mk_pe()
-    with_arrows = _mk_pe(arrows=_hop_arrows())
-    other_arrows = _mk_pe(arrows=_chain_arrows())
-    assert C.class_id(plain) == C.class_id(with_arrows) == C.class_id(other_arrows)
-    assert C.move_shape(plain) == C.move_shape(with_arrows)
-    assert C.family_id(plain) == C.family_id(with_arrows)  # ruling 2: still emitted
+def test_action_axis_feeds_class_id_at_canon_v3() -> None:
+    """CANON v3 (memo §7 Phase 2): the directed arrows ARE identity content.
+
+    Phase 1's additive contract ("class_id is blind to arrows") retired with the
+    v2->v3 bump: two events identical except for where the mover went are now
+    distinct classes, and the redundant u32 ``family_id`` is gone (ruling 2).
+    """
+    assert C.CANON_SCHEMA_VERSION == 3
+    hop = _mk_pe()
+    longer = _mk_pe(arrows=(Arrow((0, 0, 0), (2, 0, 0), Occ.NI),))
+    assert C.class_id(hop) != C.class_id(longer)
+    assert not hasattr(C, "family_id")
 
 
 # --------------------------------------------------------------------------- #
@@ -859,18 +864,27 @@ def test_occ_any_arrow_species_round_trips_through_parquet(tmp_path: Path) -> No
     assert pq.read_table(led).to_pylist()[0]["arrows"][0]["species"] == int(Occ.OCC_ANY)
 
 
-def test_member_action_disagreement_is_counted_not_flagged() -> None:
-    """F5: within-class action disagreement is a MONITOR -- no column, no quarantine."""
+def test_member_action_disagreement_is_structurally_split_at_v3() -> None:
+    """F5 under CANON v3: differing arrows now SPLIT the class instead of hiding.
+
+    Pre-v3 this fixture produced one class with a disagreeing member and the
+    ``n_action_disagree`` monitor counted it. With the arrows in the digest the
+    two events are different classes by construction, so the monitor (kept as a
+    digest-corruption tripwire) must read 0.
+    """
     from pylatkmc.ingest.event_class import CatalogueReport
 
     th = GateThresholds(emin_event=0.0, emax_event=5.0, backward_emin_event=0.0, rcut=5.0)
     pe = project_event(_hop_row(0), coloring=Coloring.FULL, rcut=5.0, d_max=2, r_ctx_min=3.0)
-    # a second member of the same class whose arrows say something else entirely
+    # a second event identical except its arrow says something else entirely
+    # (same mover start — the v3 guard requires arrow/mover alignment — but a
+    # 2NN end instead of the real 1NN one).
     from dataclasses import replace as dc_replace
 
+    a0 = pe.arrows[0]
     odd = dc_replace(
         pe,
-        arrows=(Arrow((0, 0, 0), (2, 0, 0), Occ.NI),),
+        arrows=(Arrow(a0.start, (a0.start[0] + 2, a0.start[1], a0.start[2]), a0.species),),
         idx_ref=1,
         source_row=1,
         event_id="e1",
@@ -880,17 +894,10 @@ def test_member_action_disagreement_is_counted_not_flagged() -> None:
     classes = build_class_catalogue(
         [pe, odd], t_ref_K=500.0, thresholds=th, nu0_fallback_hz=1e12, report=rep
     )
-    assert len(classes) == 1 and len(classes[0].barriers_eV) == 2
-    assert rep.n_action_disagree == 1
-    # monitor only: nothing about the class is flagged or quarantined
-    assert classes[0].action_pair_mismatch is False
-    assert classes[0].audit_status != "quarantined"
-
-    rep_clean = CatalogueReport()
-    build_class_catalogue(
-        [pe], t_ref_K=500.0, thresholds=th, nu0_fallback_hz=1e12, report=rep_clean
-    )
-    assert rep_clean.n_action_disagree == 0
+    assert len(classes) == 2
+    assert all(len(c.barriers_eV) == 1 for c in classes)
+    assert rep.n_action_disagree == 0
+    assert all(c.action_pair_mismatch is False for c in classes)
 
 
 def test_merge_appends_action_mismatches_to_the_review_list(tmp_path: Path) -> None:

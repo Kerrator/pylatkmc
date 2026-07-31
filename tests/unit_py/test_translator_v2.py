@@ -31,6 +31,7 @@ import pytest
 
 from pylatkmc.ingest import event_class as ec
 from pylatkmc.ingest.event_class import (
+    Arrow,
     Coloring,
     DeltaSite,
     DepthKind,
@@ -90,6 +91,7 @@ def _mk_pe(**kw: object) -> ProjectedEvent:
         ),
         movers=((0, 0, 0),),
         saddle_tokens=(PathToken(0, SaddleKind.BRIDGE, (8, 8)),),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.CR),),
         depth_sig=DepthSig(DepthKind.BULK_OR_DEEPER, -1),
         coloring=Coloring.FULL,
         r_ctx_used=5.0,
@@ -273,6 +275,7 @@ def test_nonconserving_and_empty_delta_are_skipped_and_counted() -> None:
         delta=(),
         movers=(),
         saddle_tokens=(),
+        arrows=(),
         idx_ref=2,
         source_row=2,
         event_id="noop",
@@ -356,6 +359,10 @@ def test_multimover_transversal_matches_phase_a() -> None:
             PathToken(0, SaddleKind.BRIDGE, (8, 8)),
             PathToken(1, SaddleKind.BRIDGE, (9, 9)),
         ),
+        arrows=(
+            Arrow((0, 2, 0), (0, 0, 0), Occ.NI),
+            Arrow((2, 0, 0), (0, 2, 0), Occ.CR),
+        ),
         event_id="concerted",
         id_saddle="cs",
         id_final="cf",
@@ -394,6 +401,7 @@ def test_emitted_n_procs_is_sum_of_transversals() -> None:
             StencilSite((0, 0, 0), _sp_pred(Occ.NI)),
             StencilSite((1, 1, 0), OccPredicate("EMPTY")),
         ),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.NI),),
         idx_ref=1,
         source_row=1,
         event_id="ni-hop",
@@ -459,7 +467,7 @@ def test_emission_deterministic_across_hashseeds(tmp_path: Path) -> None:
 import sys
 sys.path.insert(0, __TEST_DIR__)
 from test_translator_v2 import _catalogue, _full_proclist_c, _mk_pe
-from pylatkmc.ingest.event_class import DeltaSite, Occ, OccPredicate, StencilSite
+from pylatkmc.ingest.event_class import Arrow, DeltaSite, Occ, OccPredicate, StencilSite
 from pylatkmc.translator_v2 import translate_event_classes
 
 pe2 = _mk_pe(
@@ -468,6 +476,7 @@ pe2 = _mk_pe(
     context=(StencilSite((0, 0, 0), OccPredicate("SPECIES", frozenset({Occ.NI}))),
              StencilSite((1, 1, 0), OccPredicate("EMPTY")),
              StencilSite((0, 2, 0), OccPredicate("SPECIES", frozenset({Occ.CR})))),
+    arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.NI),),
     idx_ref=1, source_row=1, event_id="ni-hop",
 )
 patterns, _ = translate_event_classes(_catalogue([_mk_pe(), pe2]))

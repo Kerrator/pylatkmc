@@ -38,8 +38,16 @@ def _class_id(blob: bytes) -> str:
 
 def _rich_event() -> EventClass:
     """A fully-populated EventClass exercising nested + nullable fields."""
-    cf = (1, 1, 0, 0, 8, ((0, 0, 0, 1, 0), (1, 1, 0, 0, 1)), ((2, 0, 0, 0), (3, 1, 1, 255)),
-          ((0, 0, (8, 8)),))
+    cf = (
+        1,
+        1,
+        0,
+        0,
+        8,
+        ((0, 0, 0, 1, 0), (1, 1, 0, 0, 1)),
+        ((2, 0, 0, 0), (3, 1, 1, 255)),
+        ((0, 0, (8, 8)),),
+    )
     blob = ec._tlv_encode(cf)
     return EventClass(
         class_id=_class_id(blob),
@@ -48,7 +56,6 @@ def _rich_event() -> EventClass:
         depth_sig=DepthSig(DepthKind.SURFACE, 8),
         coloring=Coloring.FULL,
         move_shape=0xDEADBEEF,
-        family_id=0x0BADF00D,
         delta=(
             DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY),
             DeltaSite((1, 1, 0), Occ.EMPTY, Occ.NI),
@@ -103,7 +110,6 @@ def _sparse_event() -> EventClass:
         depth_sig=DepthSig(DepthKind.SUBSURF, 1),
         coloring=Coloring.GREY,
         move_shape=1,
-        family_id=2,
         delta=(),
         delta_atoms=0,
         context=(),
@@ -146,7 +152,6 @@ def test_parquet_round_trip_every_field(tmp_path) -> None:
     assert back.depth_sig == src.depth_sig
     assert back.coloring == src.coloring
     assert back.move_shape == src.move_shape
-    assert back.family_id == src.family_id
     assert back.delta == src.delta
     assert back.context == src.context
     assert back.saddle_token == src.saddle_token
@@ -217,10 +222,14 @@ def test_tlv_encoding_byte_exact_golden() -> None:
     form = (1, (7,))
     # SEQ(len=2) [ INT(1)  SEQ(len=1)[ INT(7) ] ]
     golden = (
-        b"\x02" + struct.pack(">I", 2)
-        + b"\x01" + struct.pack(">q", 1)
-        + b"\x02" + struct.pack(">I", 1)
-        + b"\x01" + struct.pack(">q", 7)
+        b"\x02"
+        + struct.pack(">I", 2)
+        + b"\x01"
+        + struct.pack(">q", 1)
+        + b"\x02"
+        + struct.pack(">I", 1)
+        + b"\x01"
+        + struct.pack(">q", 7)
     )
     assert ec._tlv_encode(form) == golden
     assert ec.decode_canonical_blob(golden) == form
@@ -238,8 +247,9 @@ def test_arrow_schema_column_order(tmp_path) -> None:
     assert schema.names[:3] == ["class_id", "canonical_blob", "schema_version"]
     # schema v2 appends the previously-omitted [C] fields + human-veto reason after
     # gate_log; schema v3 appends the per-member snap residual lists; schema v4 the
-    # action axis (action-fingerprint memo 2026-07-30 §7 Phase 1) -- each strictly
-    # after the last, so an older reader's column offsets never move.
+    # action axis (action-fingerprint memo 2026-07-30 §7 Phase 1). Schema v5 REMOVED
+    # the mid-schema family_id column, so column offsets are NOT stable across the
+    # v4->v5 boundary -- readers must be (and are) name-keyed, never offset-keyed.
     tail = schema.names[schema.names.index("gate_log") :]
     assert tail == [
         "gate_log",
@@ -259,3 +269,62 @@ def test_arrow_schema_column_order(tmp_path) -> None:
     ]
     # canonical_form is never a column (reconstructed from canonical_blob).
     assert "canonical_form" not in schema.names
+
+
+# --------------------------------------------------------------------------- #
+# schema v5: the CANON family_id column is dropped (ruling 2, CANON v3)       #
+# --------------------------------------------------------------------------- #
+def test_v5_family_id_column_gone_and_field_gone() -> None:
+    """Schema v5 has no family_id column and EventClass has no family_id field."""
+    import dataclasses
+
+    assert "family_id" not in ec.catalogue_arrow_schema().names
+    assert "family_id" not in {f.name for f in dataclasses.fields(EventClass)}
+    assert ec.CATALOGUE_SCHEMA_VERSION == 5
+
+
+def test_v5_reader_tolerates_a_v4_family_id_column(tmp_path) -> None:
+    """A schema<=4 file (with its family_id column) still reads; the column is ignored.
+
+    The read-compat contract gains its first REMOVED column at v5: absent new
+    columns -> field defaults (as before), and a stale ``family_id`` column in an
+    old file is simply not consumed.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    src = [_sparse_event(), _rich_event()]
+    path = tmp_path / "v4_style.parquet"
+    ec.write_catalogue_parquet(src, path)
+    table = pq.read_table(path)
+    assert "family_id" not in table.schema.names
+    # simulate the v4 file faithfully: splice the old int64 column back in at its
+    # REAL mid-schema position (immediately after move_shape), not at the end.
+    pos = table.schema.names.index("move_shape") + 1
+    table = table.add_column(pos, "family_id", pa.array([7] * table.num_rows, pa.int64()))
+    v4_path = tmp_path / "v4_with_family_id.parquet"
+    pq.write_table(table, v4_path)
+    back = ec.read_catalogue_parquet(v4_path)
+    assert [b.class_id for b in back] == sorted(s.class_id for s in src)
+
+
+def test_assert_canon_version_rejects_cross_canon_inputs() -> None:
+    """merge/qc/graduate refuse a pre-bump catalogue loudly (review 2026-07-31 #4).
+
+    The version prefix only makes pre-/post-bump ids DISJOINT -- a cross-canon
+    merge would double-count the same physics with no collision to notice, so the
+    pass-through commands assert the in-band prefix before re-emitting anything.
+    """
+    import dataclasses
+
+    good = _sparse_event()
+    assert good.canonical_form[0] == 1  # the fixture's stored form is old on purpose
+    with pytest.raises(ValueError, match="CANON"):
+        ec.assert_canon_version([good], "old.parquet")
+    from pylatkmc.ingest import canonical as C
+
+    current = dataclasses.replace(
+        good, canonical_form=(C.CANON_SCHEMA_VERSION, 0, 0, 1, 1, (), (), (), ())
+    )
+    ec.assert_canon_version([current], "new.parquet")  # must not raise
+    ec.assert_canon_version([], "empty.parquet")  # empty input is fine

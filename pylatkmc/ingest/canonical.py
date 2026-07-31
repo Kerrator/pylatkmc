@@ -25,8 +25,8 @@ Determinism (contract 0.1, hard gate)
 Nothing here uses ``hash()``, ``set``/``dict`` iteration order, ``PYTHONHASHSEED``,
 or any floating point. Identity is computed over integer lattice offsets and
 integer categorical codes only; every reduction iterates a **sorted** list; the
-only digest is ``hashlib.blake2b`` over the integer TLV bytes. ``move_shape`` /
-``family_id`` are ``blake2b``-derived u32s, likewise seed-independent.
+only digest is ``hashlib.blake2b`` over the integer TLV bytes. ``move_shape``
+is a ``blake2b``-derived u32, likewise seed-independent.
 
 Module-load DAG (contract 0.2)
 ------------------------------
@@ -45,6 +45,7 @@ from dataclasses import replace
 from typing import Any
 
 from pylatkmc.ingest.event_class import (
+    Arrow,
     Coloring,
     DeltaSite,
     DepthSig,
@@ -59,13 +60,44 @@ from pylatkmc.ingest.lattice import D4H, NN12_OFFSETS, Offset, SymOp, apply_op
 # --------------------------------------------------------------------------- #
 # 0.4 Constants                                                               #
 # --------------------------------------------------------------------------- #
-CANON_SCHEMA_VERSION: int = 2
+CANON_SCHEMA_VERSION: int = 3
 """Serialization version prefix. Bumping it changes every ``class_id``.
 
 v1 -> v2 (2026-07-29, over-snapping memo §8.1): the §6 bystander mask changes
 canonical content for ~1/5 of classes, so every ``class_id`` changes loudly —
 the version prefix exists precisely to make cross-policy merges impossible
 (an unbumped merge would silently double-count masked classes under two ids).
+
+v2 -> v3 (2026-07-30, action x context fingerprint memo §7 Phase 2, ruling 8):
+``class_id`` gains the event's DIRECTED arrow rows as a separate TLV field —
+the action axis becomes identity content. This splits the §2.3 chain-vs-hop
+conflation and retires the delta-less identity blindness at the identity level
+(X2 rings / same-species intermediates get distinct ids; they remain
+quarantined/skipped downstream — a delta-less class is still not executable
+on-lattice). ``delta_seq`` is retained: for conserving events it is a pure
+function of the arrows (harmless), and for the deferred non-conserving bucket
+(memo §5.3 — SINK-terminal arrows not yet formalised) it still carries identity
+the arrows cannot.
+
+**Deliberate deviation from the memo's literal "action ‖ context" split:** the
+saddle-token field STAYS in the digest at v3. Memo §3.2 argues mechanism labels
+are "not an identity fact" — but its remedy for a genuine mechanism split
+("parallel channels and their rates add") only holds while the channels are
+separate classes emitting separate procs: the aggregate rate path
+(``aggregate_rate_space`` -> one proc at ``Ea_rep``) AVERAGES a class's members,
+so merging a 0.55 eV BRIDGE channel with a 0.95 eV TOP channel would fire the
+dominant channel at half its measured rate (adversarial review 2026-07-31,
+finding 3). Dropping tokens from identity therefore must ride a future bump
+bundled with a rate-side change that sums parallel channels. Consequence kept
+by the migration gates: v3 identity is strictly FINER than v2 (v3 = v2 fields +
+action field), so a v2->v3 rebuild can only SPLIT classes, never merge them.
+
+Version-namespace composition (decided at Phase 2): the class digest embeds the
+arrow ROWS under **this** version's sole authority — it does not embed
+``action.ACTION_SCHEMA_VERSION``, which keeps governing only the standalone
+``action_id``/``archetype`` digests. The two share the 7-int arrow-row encoding
+(pinned by ``test_v3_form_layout_and_action_row_lockstep``); changing that row
+encoding therefore requires bumping BOTH versions.
 """
 
 _INT_TAG = b"\x01"
@@ -167,14 +199,31 @@ def serialize_variant(pe: ProjectedEvent, anchor: Offset, g: SymOp) -> Variant:
     """Build the comparable integer tuple for one ``(anchor, g)`` (contract 7.1).
 
     With ``T(x) = apply_op(g, x - anchor)`` returns
-    ``(depth_kind, depth_param, delta_seq, context_seq, saddle_seq)`` -- all
-    nested tuples of ints, totally ordered by ordinary Python tuple comparison.
+    ``(depth_kind, depth_param, action_seq, delta_seq, context_seq, saddle_seq)``
+    -- all nested tuples of ints, totally ordered by ordinary Python tuple
+    comparison.
+
+    v3 (fingerprint memo §7 Phase 2): ``action_seq`` is the event's DIRECTED
+    arrow rows ``(T(start), T(end), species_code)`` -- the same 7-int row
+    encoding as ``action.serialize_action_variant`` (lockstep-tested), but with
+    **no** ``{A, A⁻¹}`` minimisation: a class is directional (``backward_class``
+    links forward and backward classes; merging them here would destroy the
+    pairing/rate machinery). ``saddle_seq`` stays -- see the
+    :data:`CANON_SCHEMA_VERSION` deviation note (dropping it must ride a
+    rate-side change that sums parallel channels).
     """
     coloring = pe.coloring
     a0, a1, a2 = anchor
 
     def _t(off: Offset) -> Offset:
         return apply_op(g, (off[0] - a0, off[1] - a1, off[2] - a2))
+
+    action_rows: list[tuple[int, ...]] = []
+    for arw in pe.arrows:
+        s = _t(arw.start)
+        e = _t(arw.end)
+        action_rows.append((s[0], s[1], s[2], e[0], e[1], e[2], _occ_code(arw.species, coloring)))
+    action_seq = tuple(sorted(action_rows))
 
     delta_rows: list[tuple[int, ...]] = []
     for ds in pe.delta:
@@ -199,7 +248,7 @@ def serialize_variant(pe: ProjectedEvent, anchor: Offset, g: SymOp) -> Variant:
 
     depth_kind = int(pe.depth_sig.kind)
     depth_param = int(pe.depth_sig.param)
-    return (depth_kind, depth_param, delta_seq, context_seq, saddle_seq)
+    return (depth_kind, depth_param, action_seq, delta_seq, context_seq, saddle_seq)
 
 
 # --------------------------------------------------------------------------- #
@@ -212,7 +261,18 @@ def _argmin(pe: ProjectedEvent) -> tuple[Variant, Offset, SymOp]:
     (in ``D4H`` index order); a strict ``<`` keeps the **first** ``(a, g)`` that
     achieves the minimum, giving the ``(mover_index, op_index)`` tie-break of
     resolution 7 without affecting the key.
+
+    Hard guard (v3): the arrows feed ``class_id``, so an event that moved atoms
+    but carries no (or misaligned) arrows would silently digest an empty action
+    -- resurrecting the §2.3 blindness for any caller that forgot to thread
+    ``arrows`` through. Rejected loudly instead.
     """
+    if len(pe.arrows) != len(pe.movers) or sorted(a.start for a in pe.arrows) != sorted(pe.movers):
+        raise ValueError(
+            f"ProjectedEvent has movers {tuple(pe.movers)} but arrows starting at "
+            f"{tuple(a.start for a in pe.arrows)}; the v3 identity digests the action "
+            "axis, so arrows must align 1:1 with movers (same start sites)"
+        )
     best_v: Variant | None = None
     best_a: Offset | None = None
     best_g: SymOp | None = None
@@ -233,7 +293,9 @@ def canonical_form(pe: ProjectedEvent) -> CanonicalForm:
     ``min`` over ``candidate_anchors(pe) x D4H`` of :func:`serialize_variant`, with
     the ``(a, g)``-invariant ``(version, coloring, delta_atoms, depth_kind,
     depth_param)`` prefix prepended after the argmin. Tolerance-free; the digest
-    is an index over this tuple.
+    is an index over this tuple. The action and context axes are separate TLV
+    fields minimised **jointly** -- minimising them independently would forget
+    their relative orientation and collide distinct classes.
     """
     best, _a, _g = _argmin(pe)
     return (
@@ -242,9 +304,10 @@ def canonical_form(pe: ProjectedEvent) -> CanonicalForm:
         int(pe.delta_atoms),
         best[0],  # depth_kind
         best[1],  # depth_param
-        best[2],  # delta_seq
-        best[3],  # context_seq
-        best[4],  # saddle_seq
+        best[2],  # action_seq (directed arrow rows)
+        best[3],  # delta_seq
+        best[4],  # context_seq
+        best[5],  # saddle_seq
     )
 
 
@@ -417,6 +480,15 @@ def _reverse_event(pe: ProjectedEvent) -> ProjectedEvent | None:
     if matched is None:
         return None
     rev_movers, rev_tokens = matched
+    # v3: the arrows feed class_id, so the reverse event must carry the INVERTED
+    # arrow set (species riding along); stale forward arrows would corrupt the
+    # is_self_reverse comparison. When the inverted starts (= forward arrow ends)
+    # do not cover the delta-derived reverse movers -- a delta-invisible arrival
+    # or a non-conserving oddity -- there is no well-defined reverse: return
+    # ``None`` rather than hand ``canonical_form`` a guard-tripping event.
+    rev_arrows = tuple(Arrow(a.end, a.start, a.species) for a in pe.arrows)
+    if sorted(a.start for a in rev_arrows) != sorted(rev_movers):
+        return None
     return replace(
         pe,
         delta=rev_delta,
@@ -424,6 +496,7 @@ def _reverse_event(pe: ProjectedEvent) -> ProjectedEvent | None:
         context=rev_context,
         movers=rev_movers,
         saddle_tokens=rev_tokens,
+        arrows=rev_arrows,
     )
 
 
@@ -441,7 +514,7 @@ def is_self_reverse(pe: ProjectedEvent) -> bool:
 
 
 # --------------------------------------------------------------------------- #
-# 7.4 move_shape / depth_hash / family_id (u32)                               #
+# 7.4 move_shape / depth_hash (u32)                                           #
 # --------------------------------------------------------------------------- #
 def _grey_core_event(pe: ProjectedEvent) -> ProjectedEvent:
     """The species-blind core sub-event (contract 7.4).
@@ -463,7 +536,16 @@ def move_shape(pe: ProjectedEvent) -> int:
     """u32 species-blind core digest (contract 7.4).
 
     ``blake2b-4`` of the TLV-encoded GREY core canonical form; deterministic and
-    ``PYTHONHASHSEED``-independent (``blake2b``, not ``hash()``).
+    ``PYTHONHASHSEED``-independent (``blake2b``, not ``hash()``). Values changed
+    at CANON v3 (the core form now carries the action rows and no token field),
+    which is fine: ``move_shape`` is a report/context-tier column, never a key
+    that survives a CANON bump.
+
+    The u32 ``family_id = move_shape ^ depth_hash`` that used to live here was
+    **deleted at CANON v3** (fingerprint memo ruling 2): measured fully redundant
+    (a pure function of ``move_shape``, 821 = 821); its fallback-regressor role
+    is re-keyed to ``action_id``. The curated FAMILY_REGISTRY string
+    ``family_id`` (``families.py``) is unrelated and untouched.
     """
     core = _grey_core_event(pe)
     blob = canonical_blob(canonical_form(core))
@@ -473,8 +555,3 @@ def move_shape(pe: ProjectedEvent) -> int:
 def depth_hash(ds: DepthSig) -> int:
     """u32 packed depth signature (contract 7.4): ``kind<<16 | param``."""
     return ((int(ds.kind) & 0xFFFF) << 16) | (int(ds.param) & 0xFFFF)
-
-
-def family_id(pe: ProjectedEvent) -> int:
-    """u32 fallback-regressor family key: ``move_shape ^ depth_hash`` (contract 7.4)."""
-    return (move_shape(pe) ^ depth_hash(pe.depth_sig)) & 0xFFFFFFFF

@@ -64,7 +64,7 @@ A_NOMINAL: float = 3.52
 H: float = A_NOMINAL / 2.0
 """Half-lattice spacing h = a/2 (Angstrom)."""
 
-CATALOGUE_SCHEMA_VERSION: int = 4
+CATALOGUE_SCHEMA_VERSION: int = 5
 """Bump to invalidate the whole Parquet schema deliberately.
 
 v1 -> v2 (2026-07-22, Phase C ingest-QC leg): the formerly-omitted [C] Phase C
@@ -87,12 +87,22 @@ one-way annex flag) and the ``action_pair_mismatch`` QC flag (§11 ruling 9).
 feeds the class digest in Phase 1. Same read-compat rule: a v1/v2/v3 file's absent
 columns -> field defaults (``arrows=()``, ``action_id``/``archetype`` ``None``,
 both flags ``False``).
+
+v4 -> v5 (2026-07-31, fingerprint memo §7 "Phase 2" / ruling 2, with CANON v3):
+the u32 CANON ``family_id`` column is **dropped** -- the first REMOVED column.
+The read-compat rule gains its second half: absent columns -> field defaults (as
+before), and a column the current schema no longer carries (a v<=4 file's
+``family_id``) is simply not consumed. The arrows now FEED ``class_id`` (CANON
+v3); the curated FAMILY_REGISTRY string ``family_id`` is unrelated and unchanged.
 """
 
 SCHEMA_V4_COLUMNS: frozenset[str] = frozenset(
     {"arrows", "action_id", "archetype", "one_way", "action_pair_mismatch"}
 )
 """The columns added by schema v4 (the additive read-compat boundary)."""
+
+SCHEMA_V5_REMOVED_COLUMNS: frozenset[str] = frozenset({"family_id"})
+"""The columns REMOVED at schema v5 (present in v1-v4 files, never consumed)."""
 
 EA_ALIVE_CUT_EV: float = 1.4
 """Barrier (eV) below which a direction counts as kinetically **alive** (memo §5.2).
@@ -340,9 +350,11 @@ class ProjectedEvent:
     source_row: int
     # --- gate provenance ---
     proj_report: EventProjReport
-    # --- action axis (memo 2026-07-30 §3.3; additive, never enters class_id) ---
+    # --- action axis (memo 2026-07-30 §3.3; identity-bearing since CANON v3:
+    #     the directed arrow rows are a TLV field of the class digest) ---
     #: Snapped, species-labelled arrows, ALIGNED 1:1 with ``movers`` (same order,
-    #: same start sites). Empty for a frame-unfit (degenerate) event.
+    #: same start sites). Empty for a frame-unfit (degenerate) event. The v3
+    #: canonicaliser hard-rejects movers without aligned arrows.
     arrows: tuple[Arrow, ...] = ()
     #: The unsnapped counterparts of ``arrows`` (ledger provenance, memo §5.1).
     #: Empty when no FCC frame could be fitted (there is no coordinate system).
@@ -431,7 +443,6 @@ class EventClass:
     depth_sig: DepthSig
     coloring: Coloring
     move_shape: int
-    family_id: int
     delta: tuple[DeltaSite, ...]
     delta_atoms: int
     context: tuple[StencilSite, ...]
@@ -457,7 +468,8 @@ class EventClass:
     #     memo 2026-07-29 §11 — §2-style audits without re-projection) ---
     mover_max_residual_list: tuple[float, ...] = ()
     max_residual_list: tuple[float, ...] = ()
-    # --- action axis [schema v4] (memo 2026-07-30 §7 Phase 1; purely additive) ---
+    # --- action axis [schema v4 columns; IDENTITY-BEARING since CANON v3:
+    #     the directed arrow rows are a TLV field of the class digest] ---
     #: The representative member's species-labelled arrows, re-expressed in the
     #: canonical ``(a*, g*)`` frame — the same frame as ``delta``/``context``.
     arrows: tuple[Arrow, ...] = ()
@@ -1157,12 +1169,11 @@ class CatalogueReport:
     bad data; the fix is to raise ``GateThresholds.rcut``, never to loosen the gate).
 
     ``n_action_disagree`` counts classes whose **members** do not all canonicalise to
-    one ``action_id`` (action-fingerprint memo Phase 1). The stored ``arrows`` are the
-    representative member's, so a disagreement means the class holds one action's
-    geometry for members that did something else. Monitor **only** -- no column, no
-    quarantine, no review row -- because raw arrow sets legitimately differ within a
-    class (different anchors/orientations of one action) while the digest, being
-    frame-invariant, does not.
+    one ``action_id`` (action-fingerprint memo Phase 1). Since CANON v3 the arrows
+    feed ``class_id``, so members of one class share one action **by construction**
+    and this monitor must read 0 -- it is kept as a digest-corruption tripwire, not
+    a data-quality channel. Monitor **only** -- no column, no quarantine, no review
+    row.
     """
 
     n_events: int = 0
@@ -1290,7 +1301,6 @@ def build_class_catalogue(
                 depth_sig=rep.depth_sig,
                 coloring=rep.coloring,
                 move_shape=int(canonical.move_shape(rep)),
-                family_id=int(canonical.family_id(rep)),
                 delta=delta_c,
                 delta_atoms=rep.delta_atoms,
                 context=context_c,
@@ -1306,7 +1316,7 @@ def build_class_catalogue(
                 dE_pair_list_eV=tuple(dE_pairs),
                 mover_max_residual_list=mover_resid,
                 max_residual_list=max_resid,
-                # --- action axis (schema v4, additive: never feeds class_id) ---
+                # --- action axis (identity-bearing since CANON v3) ---
                 # `grey` mirrors what the identity does: in GREY colouring the class
                 # digest collapses every occupied species, so the action digest must
                 # too — otherwise a grey catalogue's action_id would carry species
@@ -1539,7 +1549,6 @@ def catalogue_arrow_schema() -> pa.Schema:
             ("depth_sig_kind", pa.string()),
             ("depth_sig_param", pa.int32()),
             ("move_shape", pa.int64()),
-            ("family_id", pa.int64()),
             ("delta_atoms", pa.int32()),
             ("orientation_count", pa.int32()),
             ("r_ctx_used", pa.float64()),
@@ -1640,7 +1649,6 @@ def _event_to_row(ec: EventClass) -> dict[str, Any]:
         "depth_sig_kind": DepthKind(ec.depth_sig.kind).name,
         "depth_sig_param": int(ec.depth_sig.param),
         "move_shape": int(ec.move_shape),
-        "family_id": int(ec.family_id),
         "delta_atoms": int(ec.delta_atoms),
         "orientation_count": int(ec.orientation_count),
         "r_ctx_used": float(ec.r_ctx_used),
@@ -1811,8 +1819,8 @@ def _row_to_event(row: dict[str, Any]) -> EventClass:
         canonical_blob=row["canonical_blob"],
         depth_sig=depth_sig,
         coloring=coloring,
+        # a v<=4 file's family_id column is deliberately not consumed (schema v5).
         move_shape=int(row["move_shape"]),
-        family_id=int(row["family_id"]),
         delta=delta,
         delta_atoms=int(row["delta_atoms"]),
         context=context,
@@ -1872,3 +1880,39 @@ def read_catalogue_parquet(path: str | Path) -> list[EventClass]:
     table = pq.read_table(Path(path))
     rows = table.to_pylist()
     return [_row_to_event(row) for row in rows]
+
+
+def assert_canon_version(classes: Sequence[EventClass], source: str | Path) -> None:
+    """Hard guard against cross-canon catalogue inputs (review 2026-07-31, #4).
+
+    The CANON version prefix makes pre- and post-bump ``class_id``\\ s *disjoint*,
+    which is exactly what makes a cross-canon merge dangerous: the same physics
+    counted twice under two ids, with no collision to notice. The prefix is
+    recoverable in-band (``canonical_form[0]``, decoded from the stored blob),
+    so every CLI pass that re-emits or unions catalogues under the CURRENT canon
+    calls this first. ``remap --old`` is the one legitimate pre-bump reader and
+    does not call it. Deliberately unguarded (recorded decision, 2026-07-31):
+    ``translator_v2.load_event_class_catalogue`` — the codegen path reads ONE
+    catalogue chosen by the model spec (no cross-canon mixing is possible there,
+    and the geometry it consumes is version-independent); guarding it is a
+    translator change, out of Phase 2's ingest-only scope.
+    """
+    from pylatkmc.ingest import canonical  # lazy: module-load DAG (contract 0.2)
+
+    found: set[int] = set()
+    for c in classes:
+        if not c.canonical_form:
+            raise ValueError(
+                f"{source}: class {c.class_id[:12]} has an empty canonical_form — "
+                "corrupt catalogue (no in-band CANON version to check)"
+            )
+        found.add(int(c.canonical_form[0]))
+    bad = sorted(found - {canonical.CANON_SCHEMA_VERSION})
+    if bad:
+        raise ValueError(
+            f"{source}: catalogue holds CANON v{bad} class_ids, but this build is "
+            f"CANON v{canonical.CANON_SCHEMA_VERSION} — rebuild it under the current "
+            "policy (or, for a stamped/graduated stamp source, carry it across with "
+            "`remap`); a cross-canon merge/qc/graduate would count the same physics "
+            "twice under two disjoint id namespaces"
+        )

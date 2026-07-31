@@ -520,6 +520,7 @@ def _run_qc(args: argparse.Namespace) -> int:
     from .action import action_census
     from .event_class import (
         CATALOGUE_SCHEMA_VERSION,
+        assert_canon_version,
         read_catalogue_parquet,
         write_catalogue_parquet,
     )
@@ -527,6 +528,7 @@ def _run_qc(args: argparse.Namespace) -> int:
 
     overlay = load_overlay(args.overlay) if args.overlay else None
     classes = read_catalogue_parquet(args.in_path)
+    assert_canon_version(classes, args.in_path)
     report = apply_qc(classes, tol=args.tol, spread_tol=args.spread_tol, overlay=overlay)
     out_classes = report.classes
 
@@ -610,11 +612,12 @@ def _read_research_csv(path: str) -> dict[str, float]:
 
 
 def _run_graduate(args: argparse.Namespace) -> int:
-    from .event_class import read_catalogue_parquet, write_catalogue_parquet
+    from .event_class import assert_canon_version, read_catalogue_parquet, write_catalogue_parquet
     from .qc import graduate_classes
 
     research = _read_research_csv(args.research)
     classes = read_catalogue_parquet(args.in_path)
+    assert_canon_version(classes, args.in_path)
     report = graduate_classes(classes, research_ea_by_class=research, band_eV=args.band)
 
     stamp = (
@@ -675,13 +678,14 @@ def _read_merge_inputs(args: argparse.Namespace) -> list[tuple[str, str]]:
 
 def _resolve_measured_class_ids(paths: list[str]) -> tuple[frozenset[str], str | None]:
     """Measured (``harvested_pair``) class_ids from the first readable reference catalogue."""
-    from .event_class import read_catalogue_parquet
+    from .event_class import assert_canon_version, read_catalogue_parquet
     from .merge import measured_class_ids_from_catalogue
 
     for path in paths:
         if not Path(path).exists():
             continue
         classes = read_catalogue_parquet(path)
+        assert_canon_version(classes, path)
         return measured_class_ids_from_catalogue(classes), path
     return frozenset(), None
 
@@ -690,6 +694,7 @@ def _run_merge(args: argparse.Namespace) -> int:
     from .action import action_census
     from .event_class import (
         CATALOGUE_SCHEMA_VERSION,
+        assert_canon_version,
         read_catalogue_parquet,
         write_catalogue_parquet,
     )
@@ -703,6 +708,7 @@ def _run_merge(args: argparse.Namespace) -> int:
     per_run: list[tuple[str, list]] = []
     for tag, path in sorted(pairs):
         per_run.append((tag, read_catalogue_parquet(path)))
+        assert_canon_version(per_run[-1][1], path)
         print(f"  loaded {tag}: {len(per_run[-1][1])} classes  <- {path}")
 
     report = merge_qcd_catalogues(
@@ -752,6 +758,7 @@ def _run_merge(args: argparse.Namespace) -> int:
 def _run_remap(args: argparse.Namespace) -> int:
     from .event_class import (
         CATALOGUE_SCHEMA_VERSION,
+        assert_canon_version,
         read_catalogue_parquet,
         write_catalogue_parquet,
     )
@@ -761,6 +768,7 @@ def _run_remap(args: argparse.Namespace) -> int:
 
     old = read_catalogue_parquet(args.old_path)
     new = read_catalogue_parquet(args.new_path)
+    assert_canon_version(new, args.new_path)
     ledger_path = discard_ledger_path(args.new_path)
     ledger_rows: list[dict] = []
     if ledger_path.is_file():

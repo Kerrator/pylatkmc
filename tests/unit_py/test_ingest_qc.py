@@ -66,7 +66,6 @@ def _mk(
         depth_sig=DepthSig(DepthKind.SURFACE, 0),
         coloring=Coloring.FULL,
         move_shape=0,
-        family_id=0,
         delta=delta,
         delta_atoms=0,
         context=(),
@@ -269,7 +268,7 @@ def test_schema_version_bumped_on_all_output() -> None:
     assert {c.schema_version for c in rep.classes} == {ec.CATALOGUE_SCHEMA_VERSION}
     # v3 = per-member snap residual columns (over-snapping memo 2026-07-29 §11);
     # v4 = the action axis (action-fingerprint memo 2026-07-30 §7 Phase 1).
-    assert ec.CATALOGUE_SCHEMA_VERSION == 4
+    assert ec.CATALOGUE_SCHEMA_VERSION == 5
 
 
 def test_apply_qc_does_not_mutate_inputs() -> None:

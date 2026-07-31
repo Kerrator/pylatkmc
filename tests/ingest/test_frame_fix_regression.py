@@ -17,7 +17,10 @@ the 2026-07-22 validation (where the installed pipeline reproduced the prototype
 under the over-snapping policy (mover-keyed G3 @ 0.5 Å, §6 bystander mask,
 ``CANON_SCHEMA_VERSION`` 2): the PASS bijection and bucket-(ii) recovery are
 unchanged, and the CANON version prefix relabels every id (bit-identical count is
-0 by construction). The suite is pinned to that corpus: it skips unless the
+0 by construction). **Regenerated 2026-07-31** under CANON v3 (fingerprint memo
+§7 Phase 2: the directed arrow rows join the digest): G3 outcomes unchanged
+(0/445), every id relabelled, and the 124 PASS rows still form 123 classes —
+zero splits/joins on this corpus. The suite is pinned to that corpus: it skips unless the
 resolved reference table's positional ``idx_ref`` sequence matches the fixture.
 """
 

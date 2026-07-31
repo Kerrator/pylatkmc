@@ -13,6 +13,7 @@ import numpy as np
 
 from pylatkmc.ingest import event_class as ec
 from pylatkmc.ingest.event_class import (
+    Arrow,
     Coloring,
     DeltaSite,
     DepthKind,
@@ -144,6 +145,7 @@ def _mk_pe(**kw: object) -> ProjectedEvent:
         ),
         movers=((0, 0, 0),),
         saddle_tokens=(PathToken(0, SaddleKind.BRIDGE, (8, 8)),),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.NI),),
         depth_sig=DepthSig(DepthKind.BULK_OR_DEEPER, -1),
         coloring=Coloring.FULL,
         r_ctx_used=5.0,

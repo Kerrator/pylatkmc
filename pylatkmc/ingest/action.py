@@ -68,8 +68,13 @@ ACTION_SCHEMA_VERSION: int = 1
 """Serialization version prefix of the action canon.
 
 Bumping it changes every ``action_id``/``archetype``. It is **independent of**
-``CANON_SCHEMA_VERSION`` (the ``class_id`` prefix): Phase 1 is additive and must not
-touch the class digest.
+``CANON_SCHEMA_VERSION`` (the ``class_id`` prefix) and stays so at CANON v3: the
+class digest embeds the DIRECTED arrow rows under CANON's sole authority (no
+``{A, A⁻¹}`` minimisation, no embedded action version -- see
+``canonical.CANON_SCHEMA_VERSION``), while this version governs only the
+standalone reverse-symmetric ``action_id``/``archetype`` digests. The two share
+the 7-int arrow-row encoding of :func:`serialize_action_variant`
+(lockstep-tested); changing that row encoding requires bumping BOTH versions.
 """
 
 IDENTITY_GROUP: str = "D4h"

@@ -371,3 +371,31 @@ def test_cli_remap_round_trip_and_determinism(tmp_path: Path) -> None:
     # byte determinism across invocations (report/overlay/review + parquet)
     for i in range(4):
         assert runs[0][i].read_bytes() == runs[1][i].read_bytes(), runs[0][i].name
+
+
+def test_split_old_class_stamps_every_landing_class() -> None:
+    """CANON v3 headline case (fingerprint memo §7): an old class SPLITS.
+
+    The v2->v3 bump separates chain-vs-hop conflations, so one stamped old
+    class's members can land in two new classes. The remap must report
+    ``REMAPPED_SPLIT`` and transfer the stamp to EVERY landing class.
+    """
+    from pylatkmc.ingest.remap import OUTCOME_SPLIT
+
+    old_all = _stamped_old()
+    base_new, _ = _build(mover_snap_tol=0.5)
+    old = dataclasses.replace(
+        old_all[0], source_idx_refs=(0, 1), nu0_pair_policy=NU0_POLICY_HARVESTED_PAIR
+    )
+    new = [
+        dataclasses.replace(base_new[0], class_id="n1" * 32, source_idx_refs=(0,)),
+        dataclasses.replace(base_new[0], class_id="n2" * 32, source_idx_refs=(1,)),
+    ]
+    lineage = build_lineage(new, [])
+    report = remap_classes([old], lineage)
+    (cr,) = report.classes
+    assert cr.outcome == OUTCOME_SPLIT
+    assert cr.new_class_ids == ("n1" * 32, "n2" * 32)
+    stamped = apply_stamps(new, report, note="v3 split")
+    assert all(c.nu0_pair_policy == NU0_POLICY_HARVESTED_PAIR for c in stamped)
+    assert all(old.class_id[:12] in c.audit_reason for c in stamped)

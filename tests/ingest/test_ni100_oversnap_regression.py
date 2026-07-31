@@ -8,7 +8,9 @@ EventClass/ingest path on pure Ni. Measured 2026-07-29 on that corpus:
 
 * **Ledger partition** (§5 conservation): 2,129 = 1,891 kept + 238 discarded
   (all ``MOVER_OFFLATTICE``) + 0 raised; every kept row G3-PASS.
-* **Identity**: the 1,891 kept rows form 1,731 CANON-v2 classes.
+* **Identity**: the 1,891 kept rows form 1,731 classes (measured identical at
+  CANON v2 and CANON v3 — the 2026-07-31 fingerprint bump relabelled every id
+  but split nothing on this corpus; fixture regenerated then).
 * **Masking** (§6): 1,133 kept rows carry >=1 WILDCARD-masked context row
   (59.9% -- far above the NiCr ~15-20% band; corpus property, the 10-vacancy
   slab relaxes more) with per-row counts pinned in the fixture.

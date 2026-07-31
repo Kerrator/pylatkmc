@@ -65,7 +65,6 @@ def _mk(
         depth_sig=DepthSig(DepthKind.SURFACE, 0),
         coloring=Coloring.FULL,
         move_shape=0,
-        family_id=0,
         delta=delta,
         delta_atoms=delta_atoms,
         context=(),

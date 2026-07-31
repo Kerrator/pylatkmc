@@ -25,6 +25,7 @@ import pytest
 from pylatkmc.ingest import surrogate as S
 from pylatkmc.ingest.event_class import (
     CATALOGUE_SCHEMA_VERSION,
+    Arrow,
     Coloring,
     DeltaSite,
     DepthKind,
@@ -71,6 +72,7 @@ def _synth_class() -> EventClass:
         ),
         movers=((0, 0, 0),),
         saddle_tokens=(PathToken(0, SaddleKind.BRIDGE, (8, 8)),),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.CR),),
         depth_sig=DepthSig(DepthKind.SURFACE, 8),
         coloring=Coloring.FULL,
         r_ctx_used=5.0,
