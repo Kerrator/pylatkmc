@@ -1,0 +1,41 @@
+# nicr_v2_scratch — Phase B acceptance model (MACHINE-LOCAL, NOT for commit).
+#
+# Drives the v2 EventClass-catalogue path end to end: the catalogue below was
+# re-ingested from production_NiCrFe/verify_fix_T500_1vac/reference_table.pickle
+# at the run's true rcut = 8.5 A (see .scratch/phaseB/sizing_probe.py). The
+# parquet lives under .scratch/, so this spec only regenerates on the box that
+# built it — which is why this model directory stays untracked.
+
+name    = "nicr_v2_scratch"
+lattice = "fcc"
+
+species = ["Vacant", "Ni", "Cr"]
+
+[[shells]]
+name = "nn1"
+cutoff_mult = 1.05
+
+[[shells]]
+name = "nn2"
+cutoff_mult = 1.50
+
+# Vestigial key axes (validated but not the emission driver).
+[[key.axes]]
+name = "mover_species"
+kind = "enum"
+max  = 2
+skip_vacant = true
+
+[[key.axes]]
+name  = "n_vac_nn1"
+kind  = "count"
+shell = "nn1"
+match = "vac"
+max   = 5
+
+[rate_data]
+event_class_table = "../../.scratch/phaseC/sweep_catalogue_2026-07-29/sweep_catalogue_merged_stamped.parquet"
+surrogate_model   = "../../.scratch/phaseC/esym_model_v1.json"
+temperature_K     = 500.0
+k0_Hz             = 1.0e13
+prefactor_style   = "htst"
