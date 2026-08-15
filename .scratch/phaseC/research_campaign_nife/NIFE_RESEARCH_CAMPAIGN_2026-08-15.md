@@ -110,6 +110,10 @@ promotion of the graduated candidate is your call.**
 6. **The measured set is energetically homogeneous**: 52% of accepted barriers in [0.63, 0.65] eV
    — the Ni-matrix workhorse hop. Fe-specific contexts and minor archetypes (C2/C3, HOP_2NN…)
    remain unmeasured; a stratified (per-action / Fe-in-context) leg is the natural next slice.
+   *(Correction 2026-08-15, next-leg design pass: homogeneous in barrier and action, but NOT in
+   chemistry — 153/180 measured classes are **Fe-mover** hops, and Fe-mover classes carry 91.8%
+   of corpus flux while being 7% of classes. What remains unmeasured is the Fe-mover tail,
+   Fe-near-path Ni hops, and the minor archetypes; see `NEXTLEG_DESIGN_2026-08-15.md`.)*
 7. **Rate-policy vs curation status are separate axes**: 111/180 graduated classes still carry
    `audit_status='pending'` (unchanged from before — graduation touches `nu0_pair_policy` only).
 8. Minor: 384 flux-bearing `run#idx` refs (0.22% of flux, 69 selections) map to no merged class —
