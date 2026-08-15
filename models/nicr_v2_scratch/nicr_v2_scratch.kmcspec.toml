@@ -35,7 +35,7 @@ max   = 5
 
 [rate_data]
 event_class_table = "../../.scratch/phaseC/sweep_catalogue_2026-07-29/sweep_catalogue_merged_stamped.parquet"
-surrogate_model   = "../../.scratch/phaseC/esym_model_v1.json"
+surrogate_model   = "../../.scratch/phaseC/esym_model_v2.json"
 temperature_K     = 500.0
 k0_Hz             = 1.0e13
 prefactor_style   = "htst"
