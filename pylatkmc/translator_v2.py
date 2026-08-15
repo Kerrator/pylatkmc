@@ -327,14 +327,32 @@ def _movers_in_token_order(cls: EventClass) -> list[Offset]:
 
     Phase A stores ``saddle_token`` sorted by ``start_rank`` — the lex rank
     of the mover's CRYSTAL-frame canonical offset (``canonical_rank_map``:
-    key = ``apply_op(g*, m − a*)``, exactly the offsets ``cls.delta`` is
-    stored in). So token ``i`` belongs to the ``i``-th mover in crystal-frame
+    key = ``apply_op(g*, m − a*)``, exactly the frame ``cls.delta``/``cls.arrows``
+    are stored in). So token ``i`` belongs to the ``i``-th mover in crystal-frame
     lex order. Sort in the crystal frame FIRST, then map each offset to the
     runtime frame: ``to_runtime_frame`` does not preserve lex order, so
     sorting the runtime offsets instead would mis-bind tokens whenever a
     multi-mover class's order flips under the frame map.
+
+    The mover set is ``cls.arrows`` (schema v4 / CANON v3), **not** the
+    occupied ``cls.delta`` rows. ``delta`` holds only sites whose *occupancy
+    changed*, so a concerted chain in which a same-species atom takes over a
+    just-vacated site elides that site entirely — "which atom went where is the
+    datum a same-species concerted event's ``delta`` cannot reconstruct"
+    (``event_class.Arrow``). Deriving movers from ``delta`` therefore
+    under-counts exactly the concerted classes (11.1% of the 2026-08-14 NiFe
+    merge, 7.1% of NiCr), which then failed the ``len(tokens) != len(movers)``
+    guard and were skipped. ``arrows`` is aligned 1:1 with the true movers and
+    rides the same canonical transform, so this is a no-op wherever the two
+    agree — verified equal as sets on 100% of the classes that translate today.
+    A schema<=3 catalogue has no arrows; fall back to the delta-derived set.
     """
-    mover_offs_crystal = sorted(tuple(ds.off) for ds in cls.delta if _occ_name(ds.before) != VACANT)
+    if cls.arrows:
+        mover_offs_crystal = sorted(tuple(a.start) for a in cls.arrows)
+    else:
+        mover_offs_crystal = sorted(
+            tuple(ds.off) for ds in cls.delta if _occ_name(ds.before) != VACANT
+        )
     return [to_runtime_frame(off) for off in mover_offs_crystal]
 
 
@@ -528,6 +546,11 @@ def translate_event_classes(
         movers = _movers_in_token_order(cls)
         tokens = tuple((int(t.kind), tuple(int(c) for c in t.coord_sig)) for t in cls.saddle_token)
         if len(tokens) != len(movers):
+            # Phase A builds exactly one token per mover, so on an arrow-bearing
+            # (schema v4) catalogue this is unreachable and means a corrupt row —
+            # measured 0/90,472 across the 2026-08-14 NiCr + NiFe merges. It can
+            # still fire on a schema<=3 catalogue, where the fallback mover set is
+            # delta-derived and a concerted same-species chain under-counts.
             report.skipped_token_mismatch += 1
             continue
 

@@ -400,18 +400,81 @@ def test_multimover_tokens_bind_by_crystal_rank() -> None:
     from pylatkmc.translator_v2 import _movers_in_token_order
 
     p_off, q_off = (0, 2, 0), (2, 0, 0)  # crystal lex: P < Q
-    cls = SimpleNamespace(
-        delta=(
-            DeltaSite((0, 0, 0), Occ.EMPTY, Occ.NI),
-            DeltaSite(p_off, Occ.NI, Occ.CR),
-            DeltaSite(q_off, Occ.CR, Occ.EMPTY),
-        ),
+    delta = (
+        DeltaSite((0, 0, 0), Occ.EMPTY, Occ.NI),
+        DeltaSite(p_off, Occ.NI, Occ.CR),
+        DeltaSite(q_off, Occ.CR, Occ.EMPTY),
     )
+    arrows = (Arrow(p_off, (0, 0, 0), Occ.NI), Arrow(q_off, p_off, Occ.CR))
     expected = [to_runtime_frame(p_off), to_runtime_frame(q_off)]
+    cls = SimpleNamespace(delta=delta, arrows=arrows)
     assert _movers_in_token_order(cls) == expected  # type: ignore[arg-type]
+    # Same answer from the schema<=3 fallback (no arrows column): here every
+    # mover's start site DID change occupancy, so delta reproduces the set.
+    legacy = SimpleNamespace(delta=delta, arrows=())
+    assert _movers_in_token_order(legacy) == expected  # type: ignore[arg-type]
     # The regression this guards: the runtime images sort the OTHER way
     # ((2,-2,0) < (2,2,0)), so sorting after the map would flip the binding.
     assert expected != sorted(expected)
+
+
+def test_same_species_concerted_chain_binds_tokens_via_arrows() -> None:
+    """A same-species relay must NOT be lost to the token-mismatch skip.
+
+    In ``v <- A(Ni) <- B(Ni)`` the handoff site A is occupied by Ni before AND
+    after, so ``delta`` elides it entirely — "which atom went where is the datum
+    a same-species concerted event's ``delta`` cannot reconstruct"
+    (``event_class.Arrow``). Deriving the mover list from ``delta`` yields 1
+    mover against 2 saddle tokens and the class was skipped
+    (``skipped_token_mismatch``: 2,176/20,293 on the 2026-08-14 NiFe merge,
+    5,014/70,179 on NiCr). ``arrows`` carries the true permutation, so the class
+    translates and its token binding stays crystal-rank ordered.
+    """
+    from pylatkmc.translator_v2 import _movers_in_token_order
+
+    vac, a_off, b_off = (0, 0, 0), (1, 1, 0), (2, 2, 0)
+    pe = _mk_pe(
+        delta=(  # NOTE: no row for a_off — Ni -> Ni is not an occupancy change
+            DeltaSite(vac, Occ.EMPTY, Occ.NI),
+            DeltaSite(b_off, Occ.NI, Occ.EMPTY),
+        ),
+        context=(
+            StencilSite(vac, OccPredicate("EMPTY")),
+            StencilSite(a_off, _sp_pred(Occ.NI)),
+            StencilSite(b_off, _sp_pred(Occ.NI)),
+        ),
+        movers=(a_off, b_off),
+        saddle_tokens=(
+            PathToken(0, SaddleKind.HOLLOW_FCC, (8, 8)),
+            PathToken(1, SaddleKind.OTHER, (9, 9)),
+        ),
+        arrows=(Arrow(a_off, vac, Occ.NI), Arrow(b_off, a_off, Occ.NI)),
+        event_id="relay",
+        id_saddle="rs",
+        id_final="rf",
+    )
+    (cls,) = _catalogue([pe])
+    # Precondition: the delta really does under-count the movers.
+    assert len(cls.saddle_token) == len(cls.arrows) == 2
+    assert sum(1 for d in cls.delta if d.before is not Occ.EMPTY) == 1
+
+    # Offsets are re-expressed in the canonical (a*, g*) frame, so bind against
+    # the stored arrows rather than the fixture's own frame.
+    movers = _movers_in_token_order(cls)
+    assert len(movers) == len(cls.saddle_token)
+    assert movers == [to_runtime_frame(o) for o in sorted(a.start for a in cls.arrows)]
+    # ...and that is strictly more than the delta-derived set the old code used.
+    assert len(movers) > len({d.off for d in cls.delta if d.before is not Occ.EMPTY})
+
+    patterns, report = translate_event_classes([cls])
+    assert report.skipped_token_mismatch == 0
+    assert report.n_translated == 1
+    assert report.orientation_mismatches == []
+    # The emitted pattern stays a pure lattice-state rewrite: the elided handoff
+    # site is pinned by a context row, not by a delta row.
+    (pat,) = patterns
+    assert len(pat.delta) == 2
+    assert to_runtime_frame(a_off) not in {r.off for r in pat.delta}
 
 
 def test_multimover_transversal_matches_phase_a() -> None:
