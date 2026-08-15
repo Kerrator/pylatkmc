@@ -81,6 +81,42 @@ For the full architectural walkthrough see
 
 ---
 
+## Pure-Python engine (reference backend)
+
+Alongside the codegen → C → MPI fast backend above, the same model can be run by
+a **pure-Python engine** (`pylatkmc/engine/`) that interprets the identical
+`translate_all(...) → list[Process]` catalogue directly — no codegen, no C, no
+MPI. It reads the same `.kmcinit` lattice and `input.ini`, runs a BKL
+(n-fold-way) loop with its own numpy RNG, and writes the same `summary.json` /
+`aggregate_summary.json` the C runtime writes (so the existing
+`tools/compare_*.py` work against it unchanged). Use it to develop and iterate on
+a model from Python without the compile loop.
+
+```bash
+# 1. Serialise the catalogue once, on a checkout where the family CSV resolves.
+#    Commits models/<name>/generated/catalogue.json — the portable projection of
+#    translate_all(...), travelling with the repo like generated/proclist.{c,h}.
+pylatkmc-gen export-catalogue models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
+
+# 2. Run the model with the Python backend (plain Python replica loop, no MPI).
+pylatkmc-gen run models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml \
+    models/ni_fe_cr_v1/examples/input.ini --backend=python --replicas 4
+cat models/ni_fe_cr_v1/examples/output/aggregate_summary.json
+
+# Debug: list the processes eligible at one anchor site for a given lattice.
+pylatkmc-gen eligible models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml \
+    --kmcinit models/ni_fe_cr_v1/examples/config.kmcinit --site 0
+```
+
+The Python engine is a **statistically-validated reference backend**, not a
+bit-exact port: it uses a numpy RNG (not the C runtime's xoshiro256++ stream), so
+agreement with the C engine is checked statistically — `tools/compare_py_vs_c.py`
+asserts the diffusivity `D = MSD/(6t)` (and the Arrhenius `Eₐ`) agree within a
+calibrated tolerance over a replica ensemble. Same seed → same Python trajectory
+(internal determinism) is guaranteed and unit-tested.
+
+---
+
 ## Where to read next
 
 - **[`CHANGELOG.md`](CHANGELOG.md)** — release-by-release feature log
