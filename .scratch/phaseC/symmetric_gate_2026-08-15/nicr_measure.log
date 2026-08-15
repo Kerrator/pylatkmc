@@ -1,0 +1,66 @@
+measuring 60 run(s) -> /home/kerr/pykmc/pylatkmc/.scratch/phaseC/symmetric_gate_2026-08-15/p2_measure  (workers=4, nominal_a=3.52)
+  [1/60] NiCr_Ni95_Cr05_T300_2vac: OK rows=188 P0fail=12 P2fail=22 P2only=10 halfshift=19
+  [2/60] NiCr_Ni95_Cr05_T300_3vac: OK rows=373 P0fail=37 P2fail=76 P2only=43 halfshift=54
+  [3/60] NiCr_Ni95_Cr05_T300_4vac: OK rows=358 P0fail=30 P2fail=59 P2only=29 halfshift=44
+  [4/60] NiCr_Ni95_Cr05_T300_1vac: OK rows=624 P0fail=24 P2fail=53 P2only=29 halfshift=41
+  [5/60] NiCr_Ni95_Cr05_T300_5vac: OK rows=429 P0fail=28 P2fail=51 P2only=24 halfshift=39
+  [6/60] NiCr_Ni95_Cr05_T300_10vac: OK rows=903 P0fail=59 P2fail=133 P2only=76 halfshift=90
+  [7/60] NiCr_Ni95_Cr05_T300_7vac: OK rows=414 P0fail=44 P2fail=102 P2only=58 halfshift=70
+  [8/60] NiCr_Ni95_Cr05_T300_6vac: OK rows=737 P0fail=37 P2fail=78 P2only=42 halfshift=51
+  [9/60] NiCr_Ni95_Cr05_T300_8vac: OK rows=773 P0fail=38 P2fail=95 P2only=57 halfshift=69
+  [10/60] NiCr_Ni95_Cr05_T400_2vac: OK rows=144 P0fail=4 P2fail=15 P2only=11 halfshift=7
+  [11/60] NiCr_Ni95_Cr05_T300_9vac: OK rows=1029 P0fail=101 P2fail=228 P2only=129 halfshift=168
+  [12/60] NiCr_Ni95_Cr05_T400_1vac: OK rows=1174 P0fail=0 P2fail=0 P2only=0 halfshift=0
+  [13/60] NiCr_Ni95_Cr05_T400_4vac: OK rows=330 P0fail=30 P2fail=68 P2only=39 halfshift=47
+  [14/60] NiCr_Ni95_Cr05_T400_3vac: OK rows=1073 P0fail=89 P2fail=202 P2only=120 halfshift=148
+  [15/60] NiCr_Ni95_Cr05_T400_10vac: OK rows=1678 P0fail=134 P2fail=297 P2only=164 halfshift=229
+  [16/60] NiCr_Ni95_Cr05_T400_5vac: OK rows=1238 P0fail=102 P2fail=224 P2only=122 halfshift=161
+  [17/60] NiCr_Ni95_Cr05_T400_8vac: OK rows=932 P0fail=84 P2fail=185 P2only=105 halfshift=134
+  [18/60] NiCr_Ni95_Cr05_T400_7vac: OK rows=1554 P0fail=100 P2fail=205 P2only=106 halfshift=143
+  [19/60] NiCr_Ni95_Cr05_T400_6vac: OK rows=1618 P0fail=145 P2fail=302 P2only=167 halfshift=231
+  [20/60] NiCr_Ni95_Cr05_T400_9vac: OK rows=888 P0fail=105 P2fail=216 P2only=116 halfshift=156
+  [21/60] NiCr_Ni95_Cr05_T500_1vac: OK rows=1137 P0fail=0 P2fail=0 P2only=0 halfshift=0
+  [22/60] NiCr_Ni95_Cr05_T500_10vac: OK rows=1627 P0fail=4 P2fail=55 P2only=51 halfshift=5
+  [23/60] NiCr_Ni95_Cr05_T500_2vac: OK rows=1471 P0fail=94 P2fail=204 P2only=110 halfshift=146
+  [24/60] NiCr_Ni95_Cr05_T500_4vac: OK rows=684 P0fail=0 P2fail=0 P2only=0 halfshift=0
+  [25/60] NiCr_Ni95_Cr05_T500_3vac: OK rows=1799 P0fail=98 P2fail=253 P2only=159 halfshift=152
+  [26/60] NiCr_Ni95_Cr05_T500_6vac: OK rows=484 P0fail=3 P2fail=14 P2only=11 halfshift=3
+  [27/60] NiCr_Ni95_Cr05_T500_5vac: OK rows=1367 P0fail=1 P2fail=13 P2only=12 halfshift=0
+  [28/60] NiCr_Ni95_Cr05_T500_7vac: OK rows=1519 P0fail=17 P2fail=49 P2only=32 halfshift=18
+  [29/60] NiCr_Ni95_Cr05_T600_10vac: OK rows=763 P0fail=8 P2fail=30 P2only=22 halfshift=14
+  [30/60] NiCr_Ni95_Cr05_T500_8vac: OK rows=1270 P0fail=4 P2fail=44 P2only=41 halfshift=3
+  [31/60] NiCr_Ni95_Cr05_T600_3vac: OK rows=888 P0fail=0 P2fail=0 P2only=0 halfshift=0
+  [32/60] NiCr_Ni95_Cr05_T500_9vac: OK rows=1895 P0fail=9 P2fail=33 P2only=24 halfshift=13
+  [33/60] NiCr_Ni95_Cr05_T600_2vac: OK rows=968 P0fail=9 P2fail=19 P2only=10 halfshift=12
+  [34/60] NiCr_Ni95_Cr05_T600_5vac: OK rows=942 P0fail=0 P2fail=14 P2only=14 halfshift=0
+  [35/60] NiCr_Ni95_Cr05_T600_1vac: OK rows=2144 P0fail=6 P2fail=18 P2only=12 halfshift=5
+  [36/60] NiCr_Ni95_Cr05_T600_4vac: OK rows=1796 P0fail=11 P2fail=64 P2only=55 halfshift=10
+  [37/60] NiCr_Ni95_Cr05_T600_6vac: OK rows=2221 P0fail=8 P2fail=41 P2only=33 halfshift=14
+  [38/60] NiCr_Ni95_Cr05_T600_9vac: OK rows=933 P0fail=6 P2fail=39 P2only=33 halfshift=6
+  [39/60] NiCr_Ni95_Cr05_T600_8vac: OK rows=2038 P0fail=25 P2fail=100 P2only=78 halfshift=30
+  [40/60] NiCr_Ni95_Cr05_T600_7vac: OK rows=2512 P0fail=23 P2fail=96 P2only=73 halfshift=30
+  [41/60] NiCr_Ni95_Cr05_T700_10vac: OK rows=2333 P0fail=7 P2fail=64 P2only=58 halfshift=8
+  [42/60] NiCr_Ni95_Cr05_T700_1vac: OK rows=2162 P0fail=0 P2fail=1 P2only=1 halfshift=0
+  [43/60] NiCr_Ni95_Cr05_T700_2vac: OK rows=1897 P0fail=26 P2fail=71 P2only=47 halfshift=24
+  [44/60] NiCr_Ni95_Cr05_T700_3vac: OK rows=2083 P0fail=0 P2fail=3 P2only=3 halfshift=0
+  [45/60] NiCr_Ni95_Cr05_T700_4vac: OK rows=1783 P0fail=1 P2fail=8 P2only=7 halfshift=1
+  [46/60] NiCr_Ni95_Cr05_T700_5vac: OK rows=2546 P0fail=3 P2fail=39 P2only=36 halfshift=5
+  [47/60] NiCr_Ni95_Cr05_T700_6vac: OK rows=2565 P0fail=30 P2fail=144 P2only=115 halfshift=40
+  [48/60] NiCr_Ni95_Cr05_T700_7vac: OK rows=2787 P0fail=45 P2fail=177 P2only=136 halfshift=64
+  [49/60] NiCr_Ni95_Cr05_T700_8vac: OK rows=2530 P0fail=14 P2fail=90 P2only=78 halfshift=15
+  [50/60] NiCr_Ni95_Cr05_T700_9vac: OK rows=2291 P0fail=6 P2fail=63 P2only=58 halfshift=7
+  [51/60] NiCr_Ni95_Cr05_T800_2vac: OK rows=878 P0fail=1 P2fail=2 P2only=1 halfshift=2
+  [52/60] NiCr_Ni95_Cr05_T800_3vac: OK rows=648 P0fail=0 P2fail=0 P2only=0 halfshift=0
+  [53/60] NiCr_Ni95_Cr05_T800_1vac: OK rows=1816 P0fail=1 P2fail=3 P2only=2 halfshift=1
+  [54/60] NiCr_Ni95_Cr05_T800_10vac: OK rows=4630 P0fail=63 P2fail=309 P2only=250 halfshift=73
+  [55/60] NiCr_Ni95_Cr05_T800_4vac: OK rows=2460 P0fail=19 P2fail=79 P2only=60 halfshift=28
+  [56/60] NiCr_Ni95_Cr05_T800_6vac: OK rows=2400 P0fail=24 P2fail=61 P2only=37 halfshift=33
+  [57/60] NiCr_Ni95_Cr05_T800_5vac: OK rows=3967 P0fail=18 P2fail=131 P2only=114 halfshift=22
+  [58/60] NiCr_Ni95_Cr05_T800_7vac: OK rows=3496 P0fail=90 P2fail=342 P2only=256 halfshift=106
+  [59/60] NiCr_Ni95_Cr05_T800_8vac: OK rows=4489 P0fail=31 P2fail=137 P2only=110 halfshift=47
+  [60/60] NiCr_Ni95_Cr05_T800_9vac: OK rows=5300 P0fail=70 P2fail=332 P2only=267 halfshift=93
+
+NiCr: 60 runs, 97976 events -> /home/kerr/pykmc/pylatkmc/.scratch/phaseC/symmetric_gate_2026-08-15/p2_measure/NiCr/_summary.csv
+  n_rows=97976  n_frame_unfit=0  n_error=0  n_P0_fail=1978  n_P2_fail=5753  n_P2_only_fail=3853  n_sym_fail=5831  n_half_shift=2931  n_multi_mover=9699
+
+elapsed 96.5s

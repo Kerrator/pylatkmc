@@ -1,0 +1,3 @@
+run_tag,v1_ledger_sets_equal,v1_max_dev,v2_singletons,v2_max_dev,v2_multiset_max_dev,v3_singleton_n,v3_singleton_ok,v3_singleton_max_dev,v3_singleton_nonzero_n,v3_singleton_nonzero_max_dev,v3_singleton_nonzero_max_stored,v3_pure_n,v3_pure_ok,v3_pure_max_dev,v3_mixed_n,v3_mixed_ok,v3_mixed_max_dev,v4_kept_not_cited,v4_cited_not_kept
+NiCr_Ni95_Cr05_T300_1vac,True,0.0,574,0.0,0.0,300,300,0.0,110,0.0,0.43462257758964506,1,1,0.0,283,283,0.0,0,0
+NiFe_Ni95_Fe05_T800_10vac,True,0.0,1450,0.0,0.0,925,925,0.0,156,0.0,0.49329545438453604,4,4,0.0,541,541,0.0,0,0
