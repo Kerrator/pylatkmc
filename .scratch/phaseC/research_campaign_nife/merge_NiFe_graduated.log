@@ -1,0 +1,115 @@
+  loaded NiFe_Ni95_Fe05_T300_10vac: 205 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_10vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_1vac: 48 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_1vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_2vac: 50 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_2vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_3vac: 56 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_3vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_4vac: 122 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_4vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_5vac: 111 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_5vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_6vac: 147 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_6vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_7vac: 191 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_7vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_8vac: 215 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_8vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T300_9vac: 192 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T300_9vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_10vac: 189 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_10vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_1vac: 34 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_1vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_2vac: 86 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_2vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_3vac: 107 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_3vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_4vac: 169 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_4vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_5vac: 221 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_5vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_6vac: 187 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_6vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_7vac: 293 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_7vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_8vac: 415 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_8vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T400_9vac: 161 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T400_9vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_10vac: 859 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_10vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_1vac: 101 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_1vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_2vac: 111 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_2vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_3vac: 104 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_3vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_4vac: 147 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_4vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_5vac: 227 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_5vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_6vac: 283 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_6vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_7vac: 407 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_7vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_8vac: 706 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_8vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T500_9vac: 881 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T500_9vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_10vac: 630 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_10vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_1vac: 500 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_1vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_2vac: 416 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_2vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_3vac: 227 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_3vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_4vac: 660 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_4vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_5vac: 414 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_5vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_6vac: 825 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_6vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_7vac: 567 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_7vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_8vac: 1037 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_8vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T600_9vac: 991 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T600_9vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_10vac: 1382 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_10vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_1vac: 421 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_1vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_2vac: 586 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_2vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_3vac: 567 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_3vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_4vac: 532 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_4vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_5vac: 694 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_5vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_6vac: 753 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_6vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_7vac: 1248 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_7vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_8vac: 611 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_8vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T700_9vac: 1397 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T700_9vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_10vac: 1470 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_10vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_1vac: 870 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_1vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_2vac: 776 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_2vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_3vac: 337 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_3vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_4vac: 620 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_4vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_5vac: 684 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_5vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_6vac: 1979 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_6vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_7vac: 1483 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_7vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_8vac: 2954 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_8vac_qc.parquet
+  loaded NiFe_Ni95_Fe05_T800_9vac: 1525 classes  <- /data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/per_run/NiFe_Ni95_Fe05_T800_9vac_qc.parquet
+cross-run merge: 60 runs / 34181 (run,class) instances -> 20293 merged classes
+  quarantined in >=1 run          : 600
+  status conflicts (survive merge): 0
+  non-conserving surviving merge  : 10 (delta_atoms != 0; counted, not quarantined — see module docstring)
+  member action_id disagreement   : 0 classes (stored arrows are the primary donor's; monitor only — no column, no quarantine)
+  stamped measured / pending / non-rep: 180 / 16510 / 0
+ingest QC: 20293 classes / 34629 events in
+  reciprocity : 3561 classes / 12439 events  quarantined
+  delta-less  :  42 classes / 54 events  quarantined
+  dE-spread   :   0 classes / 0 events  quarantined (CONTEXT_UNDERRESOLVED, memo 2026-07-22 s3.5)
+  human veto  :   0 classes / 0 events  quarantined
+  pre-existing:   0 classes / 0 events  (carried, never downgraded)
+  of which NO_OP:  42 classes / 54 events  — PHYSICAL (on-lattice image of basin-internal motion, memo 2026-07-29 §5.3), not a quality defect
+  TOTAL       : 3603 classes / 12493 events  quarantined (excl. NO_OP: 3561 classes / 12439 events)
+  action pairs:   4 linked pairs / 8 classes  disagree on action_id — FLAGGED + review list, never quarantined (ruling 9)
+rate-policy stamp: 20293 classes
+  measured (harvested_pair)      : 180
+  pending re-search (surrogate)  : 16510
+  non-representable (unstamped)  : 0
+  quarantined (untouched)        : 3603
+action census (memo 2026-07-30 §2.2/§4; identity group D4h, action schema v1):
+  classes 20293 (20293 with an action_id, 0 unstamped) | distinct action_id 41 | distinct archetype 21
+    V1NN_inplane      :  9296 classes  (  2 actions)  one_way    77
+    HOP_3NN           :  7625 classes  (  2 actions)  one_way  7267
+    C2_60deg          :  1305 classes  (  5 actions)  one_way  1296
+    C3                :   628 classes  ( 12 actions)  one_way     2
+    C2_0deg           :   618 classes  (  4 actions)  one_way   296
+    HOP_2NN           :   405 classes  (  2 actions)  one_way     0
+    HOP_4NN           :   104 classes  (  1 action)  one_way     0
+    HOP_far           :   103 classes  (  1 action)  one_way     0
+    C2_90deg          :    97 classes  (  3 actions)  one_way    32
+    NO_OP             :    42 classes  (  1 action)  one_way     0
+    V1NN_outofplane   :    31 classes  (  2 actions)  one_way    27
+    UNCLASSIFIED      :    29 classes  (  6 actions)  one_way     0
+    NC                :    10 classes  (  1 action)  one_way     0
+    action 5cf5705e14817baf V1NN_inplane: 8529 classes
+    action e3f82eec16f18196 HOP_3NN: 7623 classes
+    action 0b5d2d35c5a48117 C2_60deg: 1116 classes
+    action 4d73ca9fd13196ca V1NN_inplane: 777 classes
+    action a89efd09a942c916 HOP_2NN: 373 classes
+    action f31814dda77c8e3c C3: 326 classes
+    action 844fa20db465063e C2_0deg: 294 classes
+    action bd9c7e211dc4ddcc C2_0deg: 214 classes
+  one-way annex     :  8997 classes (alive in exactly one direction, Ea < 1.4 eV; memo §5.2 — not an exclusion)
+  NO_OP             :    42 classes / 54 events (42 already quarantined+labelled) — PHYSICAL (memo §5.3), excluded from catalogue-quality counts
+  UNCLASSIFIED/NC   :    39 classes (0.19%) — taxonomy-v1 residual, COUNTED here only; ruling-6 routing to the standing review list happens at corpus curation, not in this pass
+  action_pair_mismatch:   8 classes (linked pair disagrees on action_id; flag only — ruling 9)
+  no action_id      :     0 classes (schema<=3 rows read without the v4 columns — excluded from every tally above, NOT counted as NO_OP; rebuild to populate the action axis)
+  ACTION_PAIR_MISMATCH: 1c55e1dd7693 <-> 4c5c31525a3a  action_id 596913094241648005 != 12372552688323648446
+  ACTION_PAIR_MISMATCH: 564f7be07b87 <-> ba21e6517785  action_id 9534017115911423550 != 6698383570156747695
+  ACTION_PAIR_MISMATCH: 7eb28667dd2f <-> b15252ad7868  action_id 17260868818186240187 != 12372552688323648446
+  ACTION_PAIR_MISMATCH: a71609ab3551 <-> f0b0ea76ecf1  action_id 6698383570156747695 != 17260868818186240187
+  review list: 4 pair(s) flagged, 0 new -> /home/kerr/pykmc/pylatkmc/.scratch/phaseC/research_campaign_nife/action_review.csv (standing list, appended; duplicates skipped)
+  wrote /home/kerr/pykmc/pylatkmc/.scratch/phaseC/research_campaign_nife/merged_v3_NiFe_graduated.parquet
+  metadata[pylatkmc.merge.conditions] = full 60-run NiFe re-merge | CANON v3 | per-alloy split | measured set = 2026-08-15 re-search graduation (decision 3.4) | 2026-08-15 | MERGE: runs=60 instances=34181 classes=20293 tol=1e-06 spread_tol=0.1 overlay=none quarantined=3603 status_conflicts=0 nonconserving_surviving=10 | stamp(class_id): measured=180 pending=16510 nonrepresentable=0 measured_src=catalogue_v3_NiFe_graduated.parquet | schema_version=5 date=2026-08-15
