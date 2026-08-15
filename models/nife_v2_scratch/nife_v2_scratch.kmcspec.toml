@@ -1,0 +1,50 @@
+# nife_v2_scratch — NiFe measured-rates model on the Phase B/C v2 path.
+#
+# Drives the v2 EventClass-catalogue path with the graduated NiFe production
+# candidate from the 2026-08-14 full campaign (60 NiFe runs, CANON v3,
+# per-alloy split) after the 2026-08-15 re-search graduation: 180 of the
+# 20,293 classes carry `nu0_pair_policy = "harvested_pair"` and are the only
+# measured Fe kinetics in the corpus. The remaining classes are
+# `pending_research` / quarantined and are skip-counted by translator_v2 —
+# never silently baked.
+#
+# The catalogue lives on /data (OUTSIDE this repo and READ-ONLY), so — like
+# ni_fe_cr_v1 — this model does NOT regenerate in a bare clone; it still
+# compiles from the committed generated/proclist.{c,h}. See README.md.
+#
+# NOTE: no [rate_data].surrogate_model on purpose. `esym_model_v2` is NiCr-fit
+# (Fe context range [0,0]), so every Fe-bearing context trips SURR_TRIG_SPECIES
+# — it could only flag an Fe gap, never fill it. See README.md.
+
+name    = "nife_v2_scratch"
+lattice = "fcc"
+
+species = ["Vacant", "Ni", "Fe"]
+
+[[shells]]
+name = "nn1"
+cutoff_mult = 1.05
+
+[[shells]]
+name = "nn2"
+cutoff_mult = 1.50
+
+# Vestigial key axes (validated by the loader but not the emission driver).
+[[key.axes]]
+name = "mover_species"
+kind = "enum"
+max  = 2
+skip_vacant = true
+
+[[key.axes]]
+name  = "n_vac_nn1"
+kind  = "count"
+shell = "nn1"
+match = "vac"
+max   = 5
+
+[rate_data]
+event_class_table = "/data/pylatkmc_ingest/sweep_catalogue_2026-08-14_full/merged_v3_NiFe_graduated_2026-08-15.parquet"
+temperature_K     = 500.0
+k0_Hz             = 1.0e13
+prefactor_style   = "htst"
