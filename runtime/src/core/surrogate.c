@@ -4,7 +4,14 @@
  * (state_features, dphi2_from_maps) + a depth-signature port, evaluated over the
  * baked per-1NN-direction context tables from surrogate_codegen. The channel is
  * compiled out entirely unless the generated proclist.h defines
- * PYLATKMC_HAS_SURROGATE (v0.3 / no-model builds → empty TU). */
+ * PYLATKMC_HAS_SURROGATE (v0.3 / no-model builds → empty TU).
+ *
+ * Basis v2 (2026-08-15, blockers B2+B3): the six-category alphabet {C,E,F,N,U,W}
+ * with Fe first-class (CAT_F) and WILDCARD/OCC_ANY its own CAT_W, plus the pooled
+ * ridge's mover-species dummies. SURR_NPHI = 115. Any edit here must land in the
+ * same commit as pylatkmc/ingest/surrogate.py (feature layer) and
+ * pylatkmc/surrogate_codegen.py (bake + oracle) — test_surrogate_parity locks the
+ * three together to <=1e-10 and test_surrogate_index_layout locks the indices. */
 
 #include "proclist.h"   /* PYLATKMC_HAS_SURROGATE, PYLATKMC_KB_EV_PER_K, pylatkmc_surrogate */
 
@@ -17,44 +24,76 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "events_base.h"   /* SP_VACANT, SP_NI, SP_CR */
+#include "events_base.h"   /* SP_VACANT, SP_NI, SP_FE, SP_CR */
 
 /* Covered-hop check emitted into proclist.c (measured-channel de-dup). */
 int pylatkmc_measured_covers_hop(const Lattice *lat, const State *st,
                                  const AvailSites *as,
                                  int32_t vac_site, int32_t neigh_site);
 
-/* ---- feature category codes (match the s{shell}_{cat} ordering C,E,N,U) ---- */
-enum { CAT_C = 0, CAT_E = 1, CAT_N = 2, CAT_U = 3 };
+/* ---- feature category codes (v2: the closed lex-sorted alphabet C,E,F,N,U,W) ----
+ *
+ * Occupied species: C (Cr), F (Fe), N (Ni). E = empty. Two *unknown* labels:
+ * U = OUTSIDE (beyond truncation) and W = WILDCARD/OCC_ANY (occupied-but-masked).
+ * W behaves structurally exactly like U (excluded from bonds; never a mover) but is
+ * its own one-hot label. W is HARVEST-SIDE ONLY — this runtime can never produce it
+ * (every live site has a definite species) — yet every reduction below mirrors
+ * Python's W handling term-for-term, so the ports stay provably in lockstep. */
+enum { CAT_C = 0, CAT_E = 1, CAT_F = 2, CAT_N = 3, CAT_U = 4, CAT_W = 5 };
+#define CAT_COUNT 6
 
+/* Species -> category by NAME (SP_* enum), never by the ingest Occ integers:
+ * Occ.CR=2/Occ.FE=3 vs SP_FE=2/SP_CR=3 disagree, so an integer bridge swaps them. */
 static inline int sp_base_cat(uint8_t sp)
 {
     if (sp == SP_NI) return CAT_N;
     if (sp == SP_CR) return CAT_C;
+    if (sp == SP_FE) return CAT_F;
     return CAT_E;   /* SP_VACANT, stub(255), anything else → empty */
 }
 
-/* phi feature-index helpers (ESYM_FEATURE_KEYS order) */
+static inline int cat_is_unknown(int c) { return c == CAT_U || c == CAT_W; }
+static inline int cat_is_occupied(int c) { return c == CAT_N || c == CAT_C || c == CAT_F; }
+
+/* phi feature-index helpers — the pinned lex order of ESYM_FEATURE_KEYS (115):
+ *   0        abs_delta_atoms
+ *   1..10    b_{CC,CE,CF,CN,EE,EF,EN,FF,FN,NN}
+ *   11,12    depth_param, depth_surface
+ *   13,14    mover_n_C, mover_n_F
+ *   15..32   mv{C,F,N}_{C,E,F,N,U,W}
+ *   33       n_delta
+ *   34..93   s{0..9}_{C,E,F,N,U,W}
+ *   94..114  t3_{sorted pair over all six cats}
+ * test_surrogate_index_layout re-derives every constant here from the Python
+ * basis; test_surrogate_parity locks the resulting vectors to <=1e-10. */
 #define PHI_ABS_DELTA   0
-#define PHI_DEPTH_PARAM 7
-#define PHI_DEPTH_SURF  8
-#define PHI_N_DELTA     17
-#define SHELL_IDX(sh, cat) (18 + (sh) * 4 + (cat))
+#define PHI_DEPTH_PARAM 11
+#define PHI_DEPTH_SURF  12
+#define PHI_MOVER_N_C   13
+#define PHI_MOVER_N_F   14
+#define PHI_N_DELTA     33
+#define SHELL_IDX(sh, cat) (34 + (sh) * CAT_COUNT + (cat))
 
-/* bond index for a sorted {C,E,N} pair (U excluded): C=0<E=1<N=2 */
-static const int BOND_IDX[3][3] = { {1, 2, 3}, {2, 4, 5}, {3, 5, 6} };
+/* bond index for a sorted bondable pair (U/W excluded): C=0<E=1<F=2<N=3 */
+static const int BOND_IDX[4][4] = {
+    {1, 2, 3, 4},
+    {2, 5, 6, 7},
+    {3, 6, 8, 9},
+    {4, 7, 9, 10},
+};
 
-/* triangle index for a sorted {C,E,N,U} pair, base 58 */
-static const int TRI_BASE[4] = {0, 4, 7, 9};
+/* triangle index for a sorted pair over all six cats, base 94 */
+static const int TRI_BASE[CAT_COUNT] = {0, 6, 11, 15, 18, 20};
 static inline int tri_idx(int a, int b)
 {
     int lo = a < b ? a : b, hi = a < b ? b : a;
-    return 58 + TRI_BASE[lo] + (hi - lo);
+    return 94 + TRI_BASE[lo] + (hi - lo);
 }
-/* mv index: mover species cat (C or N) × neighbour cat (C,E,N,U) */
+/* mv index: mover species cat (C, F or N) × neighbour cat (C,E,F,N,U,W) */
+static const int MV_BASE[CAT_COUNT] = {15, -1, 21, 27, -1, -1};  /* C, -, F, N, -, - */
 static inline int mv_idx(int mover_cat, int nb_cat)
 {
-    return (mover_cat == CAT_C ? 9 : 13) + nb_cat;
+    return MV_BASE[mover_cat] + nb_cat;
 }
 
 /* --- one direction's live category map for a (config, mask) --- */
@@ -84,7 +123,7 @@ static void fill_cat(const SurrDir *D, const int8_t *base_cat, int atom_cat,
         if (base == CAT_E)
             cat[i] = site_near(&D->sites[i], mask_sel) ? CAT_E : CAT_U;
         else
-            cat[i] = (int8_t)base;   /* N/C never U */
+            cat[i] = (int8_t)base;   /* N/C/F never U */
     }
 }
 
@@ -93,22 +132,22 @@ static void fill_cat(const SurrDir *D, const int8_t *base_cat, int atom_cat,
 static void sf_accumulate(const SurrDir *D, const int8_t *cat, int shell_v_frame,
                           double *phi, double weight)
 {
-    /* shells: every ball site contributes (U included). */
+    /* shells: every ball site contributes (U and W included, each own label). */
     for (int32_t i = 0; i < D->n_sites; ++i) {
         int sh = shell_v_frame ? D->sites[i].shell_v : D->sites[i].shell_n;
         phi[SHELL_IDX(sh, cat[i])] += weight;
     }
-    /* 1NN bonds (both endpoints non-U). */
+    /* 1NN bonds (both endpoints must be known: U and W never bond). */
     for (int32_t b = 0; b < D->n_bond; ++b) {
         int ci = cat[D->bond_i[b]], cj = cat[D->bond_j[b]];
-        if (ci == CAT_U || cj == CAT_U) continue;
+        if (cat_is_unknown(ci) || cat_is_unknown(cj)) continue;
         phi[BOND_IDX[ci][cj]] += weight;
     }
-    /* mover-local broken bonds + triangles, for each occupied mover. */
+    /* mover-local broken bonds + triangles, for each occupied mover (N/C/F). */
     for (int mv = 0; mv < 2; ++mv) {
         int32_t moidx = mv == 0 ? D->vac_idx : D->atom_idx;
         int mcat = cat[moidx];
-        if (mcat != CAT_N && mcat != CAT_C) continue;
+        if (!cat_is_occupied(mcat)) continue;
         int32_t n_nbr = mv == 0 ? D->n_vac_nbr : D->n_atom_nbr;
         const int16_t *nbr = mv == 0 ? D->vac_nbr : D->atom_nbr;
         for (int32_t k = 0; k < n_nbr; ++k)
@@ -132,7 +171,7 @@ static void depth_sig(const SurrDir *D, const int8_t *cat, int32_t seed_idx,
     double net[3] = {0.0, 0.0, 0.0};
     for (int32_t k = 0; k < n_nbr; ++k) {
         int c = cat[nbr[k]];
-        if (c == CAT_N || c == CAT_C) {
+        if (cat_is_occupied(c)) {
             coordination++;
         } else if (c == CAT_E) {
             n_empty++;
@@ -156,7 +195,7 @@ static void depth_sig(const SurrDir *D, const int8_t *cat, int32_t seed_idx,
         int has_occ = 0;
         for (int k = 0; k < 12; ++k) {
             int32_t j = D->nn1_adj[12 * i + k];
-            if (j >= 0 && (cat[j] == CAT_N || cat[j] == CAT_C)) { has_occ = 1; break; }
+            if (j >= 0 && cat_is_occupied(cat[j])) { has_occ = 1; break; }
         }
         if (!has_occ) continue;
         int dk = D->sites[i].ck - seed_k;
@@ -178,7 +217,9 @@ static inline int exposure(const SurrDir *D, const int8_t *cat, int32_t idx)
     return n;
 }
 
-/* sp_key p-index for a delta/affected pair (both in {N,C}); N-before-C. */
+/* sp_key p-index for a delta/affected pair (both in {N,C}); N-before-C.
+ * F/W never reach here: H2FEATS carries no Fe and no wildcard terms, so both are
+ * skipped alongside E (see dphi2 below) — matching dphi2_from_maps exactly. */
 static inline int spkey_p(int a, int b)
 {
     if (a == CAT_N && b == CAT_N) return 0;   /* NN */
@@ -186,7 +227,13 @@ static inline int spkey_p(int a, int b)
     return 1;                                  /* NC */
 }
 
-/* dphi2_from_maps port. `bef`/`aft` are cat[] arrays (midpoint mask). */
+/* dphi2_from_maps port. `bef`/`aft` are cat[] arrays (midpoint mask).
+ *
+ * F/W zero-contribution semantics (v2): H2FEATS has no Fe and no wildcard terms,
+ * so an F/W delta or affected site contributes nothing (the N/C guards already do
+ * this once F/W are distinct categories) and an F/W neighbour is skipped alongside
+ * the E skip — BEFORE the U-channel branch, so it is never mis-routed into
+ * b{shell}_{a}U. Python carries the identical skip at the identical point. */
 static void dphi2(const SurrDir *D, const int8_t *bef, const int8_t *aft, double *v)
 {
     for (int i = 0; i < SURR_NH2; ++i) v[i] = 0.0;
@@ -211,7 +258,8 @@ static void dphi2(const SurrDir *D, const int8_t *bef, const int8_t *aft, double
                     int32_t j = adj[(shell == 1 ? 12 : 6) * i + k];
                     if (j >= 0 && (j == dset0 || j == dset1) && j < i) continue;
                     int b = (j < 0) ? CAT_U : m[j];
-                    if (b == CAT_E) continue;
+                    /* E: no bond; F/W: no trained H(sigma) term */
+                    if (b == CAT_E || b == CAT_F || b == CAT_W) continue;
                     if (b == CAT_U) {
                         v[(shell == 1 ? 14 : 16) + (a == CAT_N ? 0 : 1)] += sgn;
                         continue;
@@ -241,6 +289,7 @@ static void dphi2(const SurrDir *D, const int8_t *bef, const int8_t *aft, double
                         if (in_aff) continue;
                     }
                     int b = (j < 0) ? CAT_U : m[j];
+                    /* E: no bond; U: exposure-independent, cancels; F/W: untrained */
                     if (b != CAT_N && b != CAT_C) continue;
                     int surf = (exposure(D, m, i) >= 3) ||
                                (j >= 0 && exposure(D, m, j) >= 3);
@@ -296,6 +345,11 @@ int surrogate_eval(const Surrogate *S, const Lattice *lat, const State *st,
     phi[PHI_N_DELTA]     = 2.0;
     phi[PHI_DEPTH_SURF]  = 0.5 * (double)(ds_n + ds_v);
     phi[PHI_DEPTH_PARAM] = 0.5 * (double)(dp_n + dp_v);
+    /* mover-species dummies (ruling 2026-08-15c): the single hopping atom. Same
+     * value in both directional vectors, so the n<->v average is unchanged and
+     * DB-exactness is preserved. Keyed by NAME (SP_*), never by an Occ integer. */
+    phi[PHI_MOVER_N_C]   = (atom_sp == SP_CR) ? 1.0 : 0.0;
+    phi[PHI_MOVER_N_F]   = (atom_sp == SP_FE) ? 1.0 : 0.0;
 
     /* E_sym = z.w + ym ; leverage = z.Ainv.z ; z = (phi-mu)/sd */
     static double z[SURR_NPHI];
@@ -319,12 +373,15 @@ int surrogate_eval(const Surrogate *S, const Lattice *lat, const State *st,
     double dE = 0.0;
     for (int i = 0; i < SURR_NH2; ++i) dE += dv[i] * S->h2_theta[i];
 
-    /* context counts (species trigger): before-midpoint map N/C/E. */
-    int nN = 0, nC = 0, nE = 0;
+    /* context counts (species trigger): before-midpoint map N/C/E/F. No W count:
+     * this runtime can never observe W, and a harvest-side W floor would flag
+     * every candidate forever. */
+    int nN = 0, nC = 0, nE = 0, nF = 0;
     for (int32_t i = 0; i < D->n_sites; ++i) {
         if (cbm[i] == CAT_N) nN++;
         else if (cbm[i] == CAT_C) nC++;
         else if (cbm[i] == CAT_E) nE++;
+        else if (cbm[i] == CAT_F) nF++;
     }
 
     double ea = e + 0.5 * dE;
@@ -340,7 +397,8 @@ int surrogate_eval(const Surrogate *S, const Lattice *lat, const State *st,
     if (lev > (lev_gate > 0.0 ? lev_gate : S->lev_q75)) trig |= SURR_TRIG_LEVERAGE;
     if (nN < S->ctx_n_lo || nN > S->ctx_n_hi ||
         nC < S->ctx_c_lo || nC > S->ctx_c_hi ||
-        nE < S->ctx_e_lo || nE > S->ctx_e_hi) trig |= SURR_TRIG_SPECIES;
+        nE < S->ctx_e_lo || nE > S->ctx_e_hi ||
+        nF < S->ctx_f_lo || nF > S->ctx_f_hi) trig |= SURR_TRIG_SPECIES;
 
     out->e_sym = e;
     out->dE_H = dE;
@@ -349,7 +407,7 @@ int surrogate_eval(const Surrogate *S, const Lattice *lat, const State *st,
     out->leverage = lev;
     out->k = k;
     out->trigger = trig;
-    out->n_ctx = nN; out->c_ctx = nC; out->e_ctx = nE;
+    out->n_ctx = nN; out->c_ctx = nC; out->e_ctx = nE; out->f_ctx = nF;
     return 0;
 }
 
@@ -412,7 +470,8 @@ double surrogate_rebuild(SurrCtx *ctx, const Lattice *lat, const State *st,
         for (int32_t e = lattice_nn1_begin(lat, v); e < lattice_nn1_end(lat, v); ++e) {
             int32_t n = lat->nn1_indices[e];
             uint8_t sp = st->species[n];
-            if (sp != SP_NI && sp != SP_CR) continue;   /* real atom only */
+            /* real, categorisable atom only (Ni/Cr/Fe — by NAME, not by integer) */
+            if (sp != SP_NI && sp != SP_CR && sp != SP_FE) continue;
             /* which baked direction is this neighbour? match runtime offset */
             int32_t du = lat->site_ijk[3 * n + 0] - lat->site_ijk[3 * v + 0];
             int32_t dv = lat->site_ijk[3 * n + 1] - lat->site_ijk[3 * v + 1];

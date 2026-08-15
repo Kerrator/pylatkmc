@@ -6,14 +6,20 @@ built on pylatkmc.ingest.surrogate's map-level functions) to float precision on
 identical local configurations. Also checks DB-exactness of the KRA form
 (k_f/k_b == exp(-dE/kT)) which the whole channel rests on.
 
-Compile-gated: skips without cc, or without the Phase C catalogue + surrogate
-model artifacts (machine-local under .scratch/phaseC/).
+Basis v2 (2026-08-15, blockers B2+B3): the synthetic configurations include SP_FE
+atoms and Fe hopping candidates, so CAT_F is exercised on both sides — the whole
+point of the Fe leg. (CAT_W cannot be exercised here: the runtime never observes a
+masked site; W parity is covered on the Python side by test_surrogate.py.)
+
+Compile-gated: skips without cc, or without the machine-local EventClass
+catalogue the nicr spec names. The surrogate model is SYNTHESIZED here (see
+_esym_fixture) rather than read from .scratch, so this test does not depend on any
+particular fit — and never silently skips because a model artifact is stale.
 """
 
 from __future__ import annotations
 
 import ctypes
-import math
 import os
 import shutil
 import subprocess
@@ -22,13 +28,17 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from ._esym_fixture import catalogue_available, synthetic_v2_model, write_v2_spec
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RUNTIME_CORE = REPO_ROOT / "runtime" / "src" / "core"
 HELPERS_SRC = Path(__file__).parent / "_runtime_test_helpers.c"
 SHIM_SRC = Path(__file__).parent / "_surrogate_test_shim.c"
-MODEL_JSON = REPO_ROOT / ".scratch" / "phaseC" / "esym_model_v1.json"
-NICR_SPEC = REPO_ROOT / "models" / "nicr_v2_scratch" / "nicr_v2_scratch.kmcspec.toml"
-GEN_DIR = REPO_ROOT / "models" / "nicr_v2_scratch" / "generated"
+
+#: len(pylatkmc.ingest.surrogate.ESYM_FEATURE_KEYS) == SURR_NPHI. Mirrored by hand
+#: (like tests/unit_py/test_coord_table.py mirrors the NeighbourCode enum) so a
+#: one-sided basis change fails here loudly instead of reading past the struct.
+SURR_NPHI = 115
 
 KB = 8.617333262e-5
 
@@ -39,7 +49,7 @@ def _have_cc() -> bool:
 
 class SurrEval(ctypes.Structure):
     _fields_ = [
-        ("phi", ctypes.c_double * 68),
+        ("phi", ctypes.c_double * SURR_NPHI),
         ("e_sym", ctypes.c_double),
         ("dE_H", ctypes.c_double),
         ("ea_hat", ctypes.c_double),
@@ -50,23 +60,33 @@ class SurrEval(ctypes.Structure):
         ("n_ctx", ctypes.c_int32),
         ("c_ctx", ctypes.c_int32),
         ("e_ctx", ctypes.c_int32),
+        ("f_ctx", ctypes.c_int32),
     ]
+
+
+@pytest.fixture(scope="module")
+def esym_model():
+    """The synthetic v2 model both the C bake and the Python oracle are driven from."""
+    return synthetic_v2_model()
 
 
 @pytest.fixture(scope="module")
 def libsurr(tmp_path_factory: pytest.TempPathFactory):
     if not _have_cc():
         pytest.skip("cc not on PATH")
-    if not MODEL_JSON.exists():
-        pytest.skip("surrogate model artifact absent (.scratch/phaseC)")
-    # Regenerate the nicr proclist (needs the phaseC catalogue + model).
+    if not catalogue_available():
+        pytest.skip("machine-local EventClass catalogue absent (.scratch/phaseC)")
     try:
         from pylatkmc import codegen, loader
     except Exception as e:  # pragma: no cover
         pytest.skip(f"pylatkmc import failed: {e}")
-    spec = loader.load(NICR_SPEC)
+
+    workdir = tmp_path_factory.mktemp("surr_spec")
+    spec_path = write_v2_spec(workdir)
+    GEN_DIR = workdir / "generated"
+    spec = loader.load(spec_path)
     try:
-        codegen.generate(spec, GEN_DIR, spec_path=NICR_SPEC)
+        codegen.generate(spec, GEN_DIR, spec_path=spec_path)
     except Exception as e:
         pytest.skip(f"nicr codegen failed (catalogue absent?): {e}")
 
@@ -115,15 +135,23 @@ def libsurr(tmp_path_factory: pytest.TempPathFactory):
     return lib
 
 
-SP_VACANT, SP_NI, SP_CR = 0, 1, 3
+#: Runtime Species enum values (events_base.h). NOTE SP_FE=2 / SP_CR=3 — the
+#: ingest Occ enum has them the other way round; the bridge is by NAME only.
+SP_VACANT, SP_NI, SP_FE, SP_CR = 0, 1, 2, 3
+
+#: species NAME -> runtime code, by NAME (never by an Occ integer).
+_SP_CODE = {"Vacant": SP_VACANT, "Ni": SP_NI, "Fe": SP_FE, "Cr": SP_CR}
 
 
 def _to_runtime(o):
     return (o[0] + o[1], o[1] - o[0], o[2])
 
 
-def _build_config(rng, kcut):
+def _build_config(rng, kcut, *, with_fe=True):
     """Physical crystal sites (even parity, |i|,|j|,|k|<=7) minus surface cut.
+
+    A ternary Ni-Cr-Fe decoration by default, so CAT_F appears in shells, bonds,
+    mover-neighbour counts, triangles and the coordination/depth reductions.
 
     Returns (phys: dict off->name, present: set of physical offsets)."""
     phys = {}
@@ -137,14 +165,20 @@ def _build_config(rng, kcut):
                     continue
                 off = (i, j, k)
                 present.add(off)
-                phys[off] = "Cr" if rng.random() < 0.25 else "Ni"
+                r = rng.random()
+                if r < 0.25:
+                    phys[off] = "Cr"
+                elif with_fe and r < 0.45:
+                    phys[off] = "Fe"
+                else:
+                    phys[off] = "Ni"
     phys[(0, 0, 0)] = "Vacant"
     return phys, present
 
 
 def _c_eval(lib, phys, present, dir_off, dir_idx, atom_name):
     """Drive the C surrogate_eval on a lattice built from `phys`."""
-    sp_code = {"Vacant": SP_VACANT, "Ni": SP_NI, "Cr": SP_CR}
+    sp_code = _SP_CODE
     ordered = [(0, 0, 0)] + sorted(o for o in present if o != (0, 0, 0))
     n = len(ordered)
     cells = (ctypes.c_int32 * (3 * n))()
@@ -176,29 +210,63 @@ def _py_eval(model, g, phys, atom_name):
 
 
 @pytest.mark.parametrize("kcut", [7, 1, 0, -1])
-def test_c_python_feature_parity(libsurr, kcut):
-    from pylatkmc.ingest.surrogate import load_model
+def test_c_python_feature_parity(libsurr, esym_model, kcut):
+    """Every phi entry / E_sym / dE_H / leverage agrees C-vs-Python to <=1e-10.
+
+    Ternary Ni-Cr-Fe contexts with the hopping candidate cycling through all three
+    species: this is what locks CAT_F into the same reductions on both sides.
+    """
     from pylatkmc.surrogate_codegen import DIRECTIONS, bake_direction
 
-    model = load_model(MODEL_JSON)
+    model = esym_model
     rng = np.random.default_rng(1234 + kcut)
     worst = 0.0
+    n_fe_mover = 0
     for dir_idx, dir_off in enumerate(DIRECTIONS):
         phys, present = _build_config(rng, kcut)
         # ensure the atom neighbour exists and is occupied
         if dir_off not in present:
             continue
-        atom_name = "Cr" if rng.random() < 0.4 else "Ni"
+        # cycle the mover species so Ni / Cr / Fe all appear across the 12 directions
+        atom_name = ("Ni", "Cr", "Fe")[dir_idx % 3]
+        n_fe_mover += atom_name == "Fe"
         g = bake_direction(dir_off)
         c = _c_eval(libsurr, phys, present, dir_off, dir_idx, atom_name)
         p = _py_eval(model, g, phys, atom_name)
         cphi = np.array(c.phi)
+        assert len(cphi) == len(p["phi"]) == SURR_NPHI
         worst = max(worst, float(np.max(np.abs(cphi - p["phi"]))))
         for key, cval in (("e_sym", c.e_sym), ("dE_H", c.dE_H), ("leverage", c.leverage)):
             denom = max(1.0, abs(p[key]))
             rel = abs(cval - p[key]) / denom
             assert rel < 1e-10, f"kcut={kcut} dir={dir_off} {key}: C={cval} PY={p[key]} rel={rel}"
     assert worst < 1e-9, f"max phi abs deviation {worst}"
+    if kcut >= 0:
+        assert n_fe_mover > 0, "the Fe mover leg never ran"
+
+
+def test_fe_context_trips_species_trigger(libsurr, esym_model):
+    """An Fe-bearing context flags OOD: the model bakes ctx_f = [0, 0] (all-NiCr fit).
+
+    This is the safety net that makes the untrained-Fe ΔE_H acceptable — every Fe
+    candidate lands on the priority re-search flag registry.
+    """
+    from pylatkmc.surrogate_codegen import DIRECTIONS
+
+    assert esym_model.context_count_ranges["F"] == (0, 0)
+    rng = np.random.default_rng(7)
+    dir_idx, dir_off = 0, DIRECTIONS[0]
+
+    pure, present = _build_config(rng, kcut=7, with_fe=False)
+    c_pure = _c_eval(libsurr, pure, present, dir_off, dir_idx, "Ni")
+    assert c_pure.f_ctx == 0
+
+    ternary = dict(pure)
+    # a single Fe well inside the ball is enough
+    ternary[(2, 0, 0)] = "Fe"
+    c_fe = _c_eval(libsurr, ternary, present, dir_off, dir_idx, "Ni")
+    assert c_fe.f_ctx > 0
+    assert c_fe.trigger & 0x2, "SURR_TRIG_SPECIES not set for an Fe context"
 
 
 def test_db_exactness(libsurr):
@@ -214,7 +282,7 @@ def test_db_exactness(libsurr):
         # Build a physical config where BOTH endpoints and full context exist.
         phys[dir_off] = "Vacant"  # place vacancy at n for the reverse
         present.add(dir_off)
-        atom = "Cr" if rng.random() < 0.4 else "Ni"
+        atom = ("Ni", "Cr", "Fe")[dir_idx % 3]
         # forward: vacancy at 0, atom at dir_off
         phys_f = dict(phys); phys_f[(0, 0, 0)] = "Vacant"; phys_f[dir_off] = atom
         cf = _c_eval(libsurr, phys_f, present | {(0, 0, 0), dir_off}, dir_off, dir_idx, atom)
@@ -236,13 +304,13 @@ def test_db_exactness(libsurr):
         cr = _c_eval(libsurr, phys_r, present_r, rdir, rdir_idx, atom)
         assert abs(cf.e_sym - cr.e_sym) < 1e-9, f"E_sym asym dir={dir_off}"
         assert abs(cf.dE_H + cr.dE_H) < 1e-9, f"dE not antisym dir={dir_off}"
-        kf = math.exp(-cf.ea_clamped / kT)
-        kb = math.exp(-cr.ea_clamped / kT)
-        # unclamped DB: use ea_hat (clamp can break DB by design near the floor)
-        kf2 = math.exp(-cf.ea_hat / kT)
-        kb2 = math.exp(-cr.ea_hat / kT)
-        assert abs((kf2 / kb2) - math.exp(-cf.dE_H / kT)) < 1e-6 * (kf2 / kb2), dir_off
-        _ = (kf, kb)
+        # DB in LOG space: k_f/k_b == exp(-dE/kT)  <=>  Ea_f - Ea_b == dE_H.
+        # Stated this way it is exact and cannot overflow (a synthetic model's
+        # random weights put ea_hat far outside any physical range; exp() of that
+        # over kT ~ 0.043 eV overflows a double while the identity itself holds).
+        # Use ea_hat, not ea_clamped: the clamp breaks DB near the bounds by design.
+        assert abs((cf.ea_hat - cr.ea_hat) - cf.dE_H) < 1e-9, f"DB broken dir={dir_off}"
+        assert kT > 0.0
 
 
 def test_v6_accumulator(libsurr):

@@ -105,6 +105,43 @@ of events — run in the background.)*
 >   class (harvested pairs fire), above the band it is marked `CONTEXT_SUSPECT` and written to the
 >   review list. Exclusions lift only through this documented gate, never silently.
 
+#### Phase C E_sym surrogate — the feature basis (v2, 2026-08-15)
+
+The optional `[rate_data].surrogate_model` (`esym_model.json`, fit by
+`pylatkmc.ingest.surrogate.fit_esym_model`) is baked into `proclist.c` and re-implemented
+verbatim in `runtime/src/core/surrogate.c`. Its feature basis is a **closed 115-key** one-hot
+alphabet over six categories — `C` (Cr), `E` (empty), `F` (Fe), `N` (Ni), `U` (OUTSIDE) and
+`W` (WILDCARD / OCC_ANY, i.e. occupied-but-masked):
+
+| group | count | keys |
+|---|---|---|
+| scalars | 6 | `abs_delta_atoms`, `depth_param`, `depth_surface`, `n_delta`, `mover_n_C`, `mover_n_F` |
+| shells | 60 | `s{0..9}_{C,E,F,N,U,W}` |
+| 1NN bonds | 10 | unordered pairs over `{C,E,F,N}` — `U`/`W` never bond |
+| mover-neighbour | 18 | `mv{C,F,N}_{C,E,F,N,U,W}` |
+| triangles | 21 | unordered pairs over all six categories |
+
+Three things bite:
+
+- **`W` is structurally `U` but is its own label.** It is excluded wherever `U` is excluded
+  (bonds, being a mover) yet counted separately in shells / mover-neighbours / triangles, so
+  "occupied by something we can't name" never reads as "can't see it". `W` is **harvest-side
+  only** — the C runtime can never produce it, and the OOD trigger deliberately carries **no**
+  `W` range (a `W` floor would flag every candidate forever). The mild train/serve deflation
+  this causes in the `N/C/E/F` counts errs toward *over*-flagging.
+- **ΔE_H is untrained for Fe and `W`.** `H2FEATS` (18 features) is frozen at the external
+  2026-07-21 H(σ) campaign and has no Fe / wildcard terms, so an `F` or `W` category
+  contributes exactly zero to ΔΦ on both the Python and the C side. An all-NiCr fit bakes the
+  Fe context range as `[0, 0]`, so every runtime Fe context trips `SURR_TRIG_SPECIES` and
+  lands on the priority re-search `flag_registry.csv`. That gate is what makes the untrained
+  ΔE acceptable — do not widen it without an Fe-bearing corpus.
+- **The basis is closed, not corpus-measured.** A future NiFe catalogue stamps against it
+  without tripping `phi_vector`'s unknown-key guard (which stays: a key outside the closed set
+  is a real bug). But a **pre-v2 68-key `esym_model.json` can no longer be baked** —
+  `emit_surrogate_tables` asserts `len(mu) == len(ESYM_FEATURE_KEYS)`. Refit, then regenerate
+  every model that names a surrogate model; a stale committed `generated/proclist.c` will not
+  even compile against the new `surrogate.h`.
+
 **Fallback — canonical slabs** for zero/low-event families (e.g. `bulk_1NN_inplane`):
 
 ```bash

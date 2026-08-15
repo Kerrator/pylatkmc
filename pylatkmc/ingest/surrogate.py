@@ -4,16 +4,23 @@ This module is the production port of the approved Phase C rate architecture's
 E_sym leg (``PHASEC_RATE_MODEL_DECISION.md`` §8, ``PHASEC_VALIDATION_REPORT_2026-07-21``).
 It carries three things a later codegen leg consumes:
 
-1. **The exact feature definitions** from ``esym_v1v3v5_2026-07-21.py`` — the
-   symmetrized ≤2-body+3-body E_sym one-hot basis (:func:`sym_features`,
+1. **The exact feature definitions**, originally from ``esym_v1v3v5_2026-07-21.py`` —
+   the symmetrized ≤2-body+3-body E_sym one-hot basis (:func:`sym_features`,
    :data:`ESYM_FEATURE_KEYS`, :func:`phi_vector`) and the H(σ) v2 surfsplit ΔΦ
-   basis (:func:`dphi2`, :data:`H2FEATS`). They are ported **verbatim** (the
-   port-fidelity scratch test asserts exact equality against the original script
-   over all 439 classes). The API is split into two layers: map-level functions
-   (:func:`state_features`, :func:`sym_state_features`, :func:`dphi2_from_maps`)
-   operating on plain ``dict[Offset, category-str]`` state maps so a later C-parity
-   test can drive them without an ``EventClass``, and ``EventClass``-level wrappers
-   (:func:`sym_features`, :func:`dphi2`) numerically identical to the script's.
+   basis (:func:`dphi2`, :data:`H2FEATS`). The API is split into two layers:
+   map-level functions (:func:`state_features`, :func:`sym_state_features`,
+   :func:`dphi2_from_maps`) operating on plain ``dict[Offset, category-str]`` state
+   maps so the C-parity test can drive them without an ``EventClass``, and
+   ``EventClass``-level wrappers (:func:`sym_features`, :func:`dphi2`).
+
+   **Basis v2 (2026-08-15, blockers B2+B3)** deliberately deviates from the v1 script
+   in three approved ways: WILDCARD/OCC_ANY becomes its own category ``"W"`` instead
+   of crashing :func:`occ_cat` (ruling a), Fe becomes its own ``"F"`` instead of being
+   silently folded into Cr (ruling b), and the pooled ridge gains the two
+   mover-species dummies ``mover_n_C``/``mover_n_F`` (ruling c). On a class with no
+   Fe and no wildcards, :func:`sym_features` still reproduces the v1 script dict
+   exactly apart from those two extra keys. :data:`ESYM_FEATURE_KEYS` is now the
+   **closed** 115-key alphabet rather than a corpus-measured union.
 
 2. **The ridge + leverage machinery** (:func:`ridge_fit_std`, :func:`ridge_pred`,
    :func:`ridge_fit_nointercept`, :func:`leverages`) — exact ports of the script's
@@ -63,7 +70,19 @@ Offset = tuple[int, int, int]
 """Integer FCC lattice offset (i, j, k)."""
 
 StateMap = dict[Offset, str]
-"""Sparse occupancy category map: offset -> one of ``"N"``/``"C"``/``"E"``/``"U"``."""
+"""Sparse occupancy category map: offset -> one of ``"N"``/``"C"``/``"F"``/``"E"``/``"U"``/``"W"``.
+
+The six-letter alphabet (v2 basis, rulings 2026-08-15a/b): three occupied species
+``N`` (Ni) / ``C`` (Cr) / ``F`` (Fe), ``E`` empty, and two *unknown* labels — ``U``
+(OUTSIDE: beyond the harvest truncation or parity-forbidden) and ``W``
+(WILDCARD/OCC_ANY: occupied-but-masked, e.g. a ≥0.5 Å static bystander the
+over-snap memo masks out). ``W`` behaves structurally exactly like ``U`` in every
+reduction (excluded wherever ``U`` is excluded) but keeps its own one-hot label, so
+"we know this site is occupied by something we cannot name" is never conflated with
+"we cannot see this site at all". ``W`` is **harvest-side only**: the C runtime can
+never produce it (every live site has a definite species), yet the C reductions
+mirror its handling exactly so the ports stay in lockstep.
+"""
 
 FloatArray = npt.NDArray[np.float64]
 
@@ -94,14 +113,25 @@ def shell_of(off: Offset) -> int:
 # --------------------------------------------------------------------------- #
 # E_sym feature basis — map level (verbatim; order-independent reductions)     #
 # --------------------------------------------------------------------------- #
+#: The two *unknown* categories. Structurally interchangeable in every reduction
+#: (both are excluded from bonds and from being a mover), but distinct one-hot
+#: labels wherever a category is counted (shells, mover-neighbours, triangles).
+UNKNOWN_CATS: tuple[str, ...] = ("U", "W")
+
+#: The occupied (nameable species) categories: Ni / Cr / Fe.
+OCCUPIED_CATS: tuple[str, ...] = ("N", "C", "F")
+
+
 def state_features(m: StateMap, movers: Collection[Offset]) -> dict[str, float]:
     """One-hot ≤2-body + selected 3-body features of ONE state map (script port).
 
     Per-shell per-category counts (``s{shell}_{cat}``), 1nn bond counts
     (``b_{sorted pair}``), mover-local broken bonds (``mv{sp}_{cat}``) and
-    mover-adjacent 1nn triangles (``t3_{sorted pair}``). ``"U"`` (OUTSIDE/unknown)
-    sites never enter a bond/triangle. All keys use ``sorted`` category pairs so the
-    result is independent of iteration order (C-parity safe).
+    mover-adjacent 1nn triangles (``t3_{sorted pair}``). ``"U"`` (OUTSIDE) and
+    ``"W"`` (WILDCARD/OCC_ANY) sites never enter a bond and are never movers, but
+    they *do* carry their own shell / mover-neighbour / triangle labels. All keys
+    use ``sorted`` category pairs so the result is independent of iteration order
+    (C-parity safe).
     """
     f: dict[str, float] = {}
     for off, cat_ in m.items():
@@ -110,20 +140,20 @@ def state_features(m: StateMap, movers: Collection[Offset]) -> dict[str, float]:
     offs = list(m)
     for i, o1 in enumerate(offs):
         c1 = m[o1]
-        if c1 == "U":
+        if c1 in UNKNOWN_CATS:
             continue
         for o2 in offs[i + 1 :]:
             if sum((a - b) ** 2 for a, b in zip(o1, o2, strict=True)) != 2:
                 continue
             c2 = m[o2]
-            if c2 == "U":
+            if c2 in UNKNOWN_CATS:
                 continue
             key = "b_" + "".join(sorted((c1, c2)))
             f[key] = f.get(key, 0.0) + 1
     offset_set = set(offs)
     for mo in movers:
         sp = m.get(mo, "U")
-        if sp not in ("N", "C"):
+        if sp not in OCCUPIED_CATS:
             continue
         nbs: list[Offset] = []
         for d1 in NN1:
@@ -150,13 +180,20 @@ def sym_state_features(
     abs_delta_atoms: int,
     depth_surface: int,
     depth_param: int,
+    mover_n_C: float = 0.0,
+    mover_n_F: float = 0.0,
 ) -> dict[str, float]:
     """Endpoint-exchange-symmetrized E_sym feature dict from two state maps (script port).
 
-    ``f_sym = ½·(f(before) + f(after))`` over the union of keys, plus the four
+    ``f_sym = ½·(f(before) + f(after))`` over the union of keys, plus the
     ``(a,g)``-invariant scalars ``n_delta``/``abs_delta_atoms``/``depth_surface``/
-    ``depth_param`` (appended un-symmetrized, exactly as the script). Symmetrizing the
-    two endpoints makes the surrogate detailed-balance-safe by construction.
+    ``depth_param`` (appended un-symmetrized, exactly as the script) and the v2
+    mover-species dummies ``mover_n_C``/``mover_n_F`` (ruling 2026-08-15c: one
+    pooled ridge, no per-species heads — the dummies carry the species-of-the-mover
+    offset). They are passed in rather than derived here so this map-level function
+    stays pure (the C-parity oracle drives it without an ``EventClass``).
+    Symmetrizing the two endpoints makes the surrogate detailed-balance-safe by
+    construction; the dummies are exchange-symmetric by construction too.
     """
     fb = state_features(before, movers)
     fa = state_features(after, movers)
@@ -167,6 +204,8 @@ def sym_state_features(
     f["abs_delta_atoms"] = abs_delta_atoms
     f["depth_surface"] = depth_surface
     f["depth_param"] = depth_param
+    f["mover_n_C"] = mover_n_C
+    f["mover_n_F"] = mover_n_F
     return f
 
 
@@ -179,7 +218,18 @@ H2FEATS: tuple[str, ...] = tuple(
     + [f"b2{e}_{p}" for e in ("B", "S") for p in ("NN", "NC", "CC")]
     + ["b1_NU", "b1_CU", "b2_NU", "b2_CU"]
 )
-"""The 18 H(σ) v2 surfsplit features (bond terms split by endpoint surface exposure)."""
+"""The 18 H(σ) v2 surfsplit features (bond terms split by endpoint surface exposure).
+
+**UNCHANGED at the v2 basis bump.** The embedded ``h2_theta`` comes from the external
+2026-07-21 H(σ) campaign (``H_sigma_v2_theta_2026-07-21.csv``) and cannot be refit
+from the E_sym corpus, so the ΔE_H model has **no Fe and no WILDCARD terms**: an
+``"F"`` or ``"W"`` category contributes exactly zero everywhere (see
+:func:`dphi2_from_maps`). ΔE_H is therefore *untrained* for Fe — an Fe candidate
+gets ΔE contributions only from its Ni/Cr surroundings. That is deliberate and is
+made safe by the runtime OOD gate: every Fe context trips ``SURR_TRIG_SPECIES``
+(an all-NiCr-trained model bakes the Fe context range as ``[0, 0]``), so such
+candidates always land on the priority re-search flag registry.
+"""
 
 H2IDX: dict[str, int] = {k: i for i, k in enumerate(H2FEATS)}
 
@@ -208,6 +258,14 @@ def dphi2_from_maps(
     surface (``S``) channel by whether either endpoint has ≥3 EMPTY 1nn. Delta and
     affected sets are walked in ``sorted`` order; the ``j < i`` de-duplication and the
     ±1 accumulation make the result order-independent (C-parity safe).
+
+    **F/W zero-contribution semantics (v2).** :data:`H2FEATS` carries no Fe and no
+    WILDCARD terms, so ``"F"`` and ``"W"`` contribute *nothing*: an ``F``/``W`` delta
+    or affected site is skipped (no point term, no bonds), and an ``F``/``W``
+    neighbour is skipped alongside the ``"E"`` skip — **before** the ``"U"`` channel,
+    so it is not mis-routed into ``b{shell}_{a}U``. The C port
+    (``runtime/src/core/surrogate.c``) carries the identical skip at the identical
+    point. Consequence: ΔE_H is untrained for Fe/W (see :data:`H2FEATS`).
     """
     dset = set(delta_offsets)
     aff: set[Offset] = set()
@@ -232,8 +290,8 @@ def dphi2_from_maps(
                     if j in dset and j < i:
                         continue
                     b = m.get(j, "U")
-                    if b == "E":
-                        continue
+                    if b in ("E", "F", "W"):
+                        continue  # E: no bond; F/W: no trained H(sigma) term
                     if b == "U":
                         v[H2IDX[f"b{shell}_{a}U"]] += sgn
                         continue
@@ -250,7 +308,9 @@ def dphi2_from_maps(
                         continue
                     b = m.get(j, "U")
                     if b not in ("N", "C"):
-                        continue  # E: no bond; U: exposure-independent, cancels
+                        # E: no bond; U: exposure-independent, cancels;
+                        # F/W: no trained H(sigma) term (zero contribution).
+                        continue
                     surf = (_exposure(m, i) >= 3) or (_exposure(m, j) >= 3)
                     v[H2IDX[f"b{shell}{'S' if surf else 'B'}_{sp_key(a, b)}"]] += sgn
     return v
@@ -259,23 +319,46 @@ def dphi2_from_maps(
 # --------------------------------------------------------------------------- #
 # EventClass-level wrappers (verbatim state-map build)                         #
 # --------------------------------------------------------------------------- #
-OCCC: dict[str, str] = {"NI": "N", "CR": "C", "EMPTY": "E"}
-"""Delta-site occupancy-name -> category (matches the script's per-delta mapping)."""
+#: Species NAME -> category, by NAME only (the ``Occ`` and runtime ``Species``
+#: integers disagree on Cr/Fe — mapping by integer silently swaps them).
+SPECIES_CAT: dict[str, str] = {"NI": "N", "CR": "C", "FE": "F"}
+
+OCCC: dict[str, str] = {"NI": "N", "CR": "C", "FE": "F", "EMPTY": "E"}
+"""Delta-site occupancy-name -> category (v2: Fe is its own ``"F"``, ruling 2026-08-15b)."""
 
 
 def occ_cat(pred: OccPredicate) -> str:
-    """Context-predicate -> category ``"N"``/``"C"``/``"E"``/``"U"`` (script port).
+    """Context-predicate -> category ``"N"``/``"C"``/``"F"``/``"E"``/``"U"``/``"W"``.
 
-    EMPTY -> ``"E"``, OUTSIDE -> ``"U"``; a single-species predicate -> ``"N"`` for Ni,
-    ``"C"`` otherwise (Cr). Mirrors the script exactly (a non-SPECIES occupied predicate
-    would raise on the single-element unpack, as in the original).
+    ``EMPTY`` -> ``"E"``; ``OUTSIDE`` -> ``"U"``; ``WILDCARD`` and ``OCC_ANY`` ->
+    ``"W"`` (ruling 2026-08-15a: an occupied-but-masked site is its own category, NOT
+    folded into ``"U"``/OUTSIDE); a single-species ``SPECIES`` predicate maps by NAME
+    (NI -> ``"N"``, CR -> ``"C"``, FE -> ``"F"``, ruling 2026-08-15b).
+
+    Raises ``ValueError`` for a species with no category (never silently folded — the
+    v1 port's ``"N" if NI else "C"`` mapped Fe onto Cr, blocker B3) and for a
+    multi-species ``SPECIES`` predicate (unrepresentable in a one-hot basis).
     """
     if pred.kind == "EMPTY":
         return "E"
     if pred.kind == "OUTSIDE":
         return "U"
+    if pred.kind in ("WILDCARD", "OCC_ANY"):
+        return "W"
+    if len(pred.species) != 1:
+        raise ValueError(
+            f"occ_cat: SPECIES predicate must name exactly one species, got "
+            f"{sorted(s.name for s in pred.species)}"
+        )
     (sp,) = pred.species
-    return "N" if sp.name == "NI" else "C"
+    try:
+        return SPECIES_CAT[sp.name]
+    except KeyError:
+        raise ValueError(
+            f"occ_cat: no E_sym category for species {sp.name!r}; the surrogate basis "
+            f"knows {sorted(SPECIES_CAT)} — extend SPECIES_CAT + ESYM_FEATURE_KEYS + "
+            f"runtime/src/core/surrogate.{{c,h}} together and refit"
+        ) from None
 
 
 def state_maps(cls: EventClass) -> tuple[StateMap, StateMap]:
@@ -288,10 +371,26 @@ def state_maps(cls: EventClass) -> tuple[StateMap, StateMap]:
     return before, after
 
 
+def mover_species_dummies(cls: EventClass) -> tuple[float, float]:
+    """The ``(mover_n_C, mover_n_F)`` dummies of a class (ruling 2026-08-15c).
+
+    ``½·Σ_d [(before == X) + (after == X)]`` over the delta sites, which is
+    exchange-symmetric by construction and equals the number of X movers for a
+    conservative move (each mover contributes a vacated and an occupied endpoint).
+    """
+    n_c = 0.0
+    n_f = 0.0
+    for d in cls.delta:
+        n_c += float(d.before.name == "CR") + float(d.after.name == "CR")
+        n_f += float(d.before.name == "FE") + float(d.after.name == "FE")
+    return 0.5 * n_c, 0.5 * n_f
+
+
 def sym_features(cls: EventClass) -> dict[str, float]:
-    """The symmetrized E_sym feature dict of one ``EventClass`` (numerically == script)."""
+    """The symmetrized E_sym feature dict of one ``EventClass`` (v2 115-key basis)."""
     before, after = state_maps(cls)
     movers = {d.off for d in cls.delta}
+    mv_c, mv_f = mover_species_dummies(cls)
     return sym_state_features(
         before,
         after,
@@ -300,6 +399,8 @@ def sym_features(cls: EventClass) -> dict[str, float]:
         abs_delta_atoms=abs(cls.delta_atoms),
         depth_surface=1 if cls.depth_sig.kind.name == "SURFACE" else 0,
         depth_param=cls.depth_sig.param,
+        mover_n_C=mv_c,
+        mover_n_F=mv_f,
     )
 
 
@@ -313,82 +414,144 @@ def dphi2(cls: EventClass) -> FloatArray:
 # --------------------------------------------------------------------------- #
 # Pinned E_sym feature order                                                   #
 # --------------------------------------------------------------------------- #
+CATEGORIES: tuple[str, ...] = ("C", "E", "F", "N", "U", "W")
+"""The closed, lex-sorted category alphabet: Cr / Empty / Fe / Ni / Outside / Wildcard."""
+
 ESYM_FEATURE_KEYS: tuple[str, ...] = (
     "abs_delta_atoms",
     "b_CC",
     "b_CE",
+    "b_CF",
     "b_CN",
     "b_EE",
+    "b_EF",
     "b_EN",
+    "b_FF",
+    "b_FN",
     "b_NN",
     "depth_param",
     "depth_surface",
+    "mover_n_C",
+    "mover_n_F",
     "mvC_C",
     "mvC_E",
+    "mvC_F",
     "mvC_N",
     "mvC_U",
+    "mvC_W",
+    "mvF_C",
+    "mvF_E",
+    "mvF_F",
+    "mvF_N",
+    "mvF_U",
+    "mvF_W",
     "mvN_C",
     "mvN_E",
+    "mvN_F",
     "mvN_N",
     "mvN_U",
+    "mvN_W",
     "n_delta",
     "s0_C",
     "s0_E",
+    "s0_F",
     "s0_N",
     "s0_U",
+    "s0_W",
     "s1_C",
     "s1_E",
+    "s1_F",
     "s1_N",
     "s1_U",
+    "s1_W",
     "s2_C",
     "s2_E",
+    "s2_F",
     "s2_N",
     "s2_U",
+    "s2_W",
     "s3_C",
     "s3_E",
+    "s3_F",
     "s3_N",
     "s3_U",
+    "s3_W",
     "s4_C",
     "s4_E",
+    "s4_F",
     "s4_N",
     "s4_U",
+    "s4_W",
     "s5_C",
     "s5_E",
+    "s5_F",
     "s5_N",
     "s5_U",
+    "s5_W",
     "s6_C",
     "s6_E",
+    "s6_F",
     "s6_N",
     "s6_U",
+    "s6_W",
     "s7_C",
     "s7_E",
+    "s7_F",
     "s7_N",
     "s7_U",
+    "s7_W",
     "s8_C",
     "s8_E",
+    "s8_F",
     "s8_N",
     "s8_U",
+    "s8_W",
     "s9_C",
     "s9_E",
+    "s9_F",
     "s9_N",
     "s9_U",
+    "s9_W",
     "t3_CC",
     "t3_CE",
+    "t3_CF",
     "t3_CN",
     "t3_CU",
+    "t3_CW",
     "t3_EE",
+    "t3_EF",
     "t3_EN",
     "t3_EU",
+    "t3_EW",
+    "t3_FF",
+    "t3_FN",
+    "t3_FU",
+    "t3_FW",
     "t3_NN",
     "t3_NU",
+    "t3_NW",
     "t3_UU",
+    "t3_UW",
+    "t3_WW",
 )
-"""The pinned sorted union of ``sym_features`` keys over the production corpus (68 keys).
+"""The pinned E_sym basis: the **closed** 115-key alphabet, lex-sorted (v2).
 
-Measured over all 439 classes of ``catalogue_qc_rcut8p5.parquet`` (identical to the
-422 non-quarantined subset); matches the validation report's "68 feats". ``phi_vector``
-emits values in exactly this order; a key produced by ``sym_features`` that is not here
-raises (loud, not silent).
+Unlike v1 (a 68-key *corpus-measured* union over the 439-class NiCr catalogue), v2 is
+the closed form of the basis over :data:`CATEGORIES` — every key the reductions *can*
+produce is present whether or not the training corpus exercised it:
+
+* 6 scalars — ``abs_delta_atoms``, ``depth_param``, ``depth_surface``, ``n_delta``,
+  and the v2 mover-species dummies ``mover_n_C`` / ``mover_n_F`` (ruling 2026-08-15c);
+* 60 shell counts ``s{0..9}_{C,E,F,N,U,W}``;
+* 10 bonds — unordered pairs over the bondable cats ``{C,E,F,N}`` (U/W never bond);
+* 18 mover-neighbour ``mv{C,F,N}_{C,E,F,N,U,W}``;
+* 21 triangles — unordered pairs-with-repetition over all six categories.
+
+Closing the alphabet is what lets a future NiFe (or wildcard-heavy) catalogue be
+stamped against this basis without tripping :func:`phi_vector`'s unknown-key guard —
+the guard stays, because a key outside the *closed* set is a real basis bug.
+``phi_vector`` emits values in exactly this order; the C runtime's index helpers
+(``runtime/src/core/surrogate.c``) mirror it positionally.
 """
 
 _ESYM_KEY_SET: frozenset[str] = frozenset(ESYM_FEATURE_KEYS)
@@ -461,7 +624,12 @@ def leverages(x: FloatArray, mu: FloatArray, sd: FloatArray, ainv: FloatArray) -
 # --------------------------------------------------------------------------- #
 # Model container + I/O                                                        #
 # --------------------------------------------------------------------------- #
-DEFAULT_MODEL_VERSION = "E_sym_v1_ridge_sym2b3b"
+DEFAULT_MODEL_VERSION = "E_sym_v2_ridge_sym2b3b_wf"
+"""v2 = the closed 115-key W/F basis (rulings 2026-08-15a/b/c).
+
+A v1 (68-key) ``esym_model.json`` can no longer be baked — ``emit_surrogate_tables``
+asserts ``len(mu) == len(ESYM_FEATURE_KEYS)``. Refit and regenerate.
+"""
 DEFAULT_DE_MODEL_VERSION = "H_sigma_v2_surfsplit_aug"
 DEFAULT_NU0_PAIR_POLICY = "harvested_pair"
 
@@ -614,17 +782,23 @@ def pair_group_of(classes: Sequence[EventClass]) -> dict[str, str]:
 
 
 def _is_clean_hop(cls: EventClass) -> bool:
-    """The script's clean-hop test: a 2-site conservative Ni↔vac or Cr↔vac exchange."""
+    """Clean-hop test: a 2-site conservative Ni↔vac, Cr↔vac **or Fe↔vac** exchange."""
     return (
         len(cls.delta) == 2
         and cls.delta_atoms == 0
-        and sorted(d.before.name for d in cls.delta) in (["EMPTY", "NI"], ["CR", "EMPTY"])
+        and sorted(d.before.name for d in cls.delta)
+        in (["EMPTY", "NI"], ["CR", "EMPTY"], ["EMPTY", "FE"])
     )
 
 
 def _is_mover_cr(cls: EventClass) -> bool:
     """True if any delta site starts as Cr (the dealloying-critical subpopulation)."""
     return any(d.before.name == "CR" for d in cls.delta)
+
+
+def _is_mover_fe(cls: EventClass) -> bool:
+    """True if any delta site starts as Fe (the v2 Fe reporting slice)."""
+    return any(d.before.name == "FE" for d in cls.delta)
 
 
 @dataclass(frozen=True)
@@ -639,6 +813,7 @@ class EsymRows:
     cid: npt.NDArray[np.str_]
     clean_hop: npt.NDArray[np.bool_]
     mover_cr: npt.NDArray[np.bool_]
+    mover_fe: npt.NDArray[np.bool_]
 
 
 def build_esym_rows(classes: Sequence[EventClass], group_of: Mapping[str, str]) -> EsymRows:
@@ -655,12 +830,14 @@ def build_esym_rows(classes: Sequence[EventClass], group_of: Mapping[str, str]) 
     cid: list[str] = []
     clean: list[bool] = []
     mcr: list[bool] = []
+    mfe: list[bool] = []
     for c in classes:
         if c.audit_status == "quarantined":
             continue
         phi = phi_vector(c)
         ch = _is_clean_hop(c)
         cr = _is_mover_cr(c)
+        fe = _is_mover_fe(c)
         # dE_pair_list has two stored conventions (see merge._aligned_dE): the
         # per-run build's linked-member SUBSET (shorter than barriers — hence NOT
         # strict) and the merge's ALIGNED form (same length, NaN where unpaired).
@@ -675,6 +852,7 @@ def build_esym_rows(classes: Sequence[EventClass], group_of: Mapping[str, str]) 
             cid.append(c.class_id)
             clean.append(ch)
             mcr.append(cr)
+            mfe.append(fe)
     x = np.array(frows, dtype=np.float64)
     yea = np.array(y_ea, dtype=np.float64)
     yde = np.array(y_de, dtype=np.float64)
@@ -687,6 +865,7 @@ def build_esym_rows(classes: Sequence[EventClass], group_of: Mapping[str, str]) 
         cid=np.array(cid),
         clean_hop=np.array(clean, dtype=bool),
         mover_cr=np.array(mcr, dtype=bool),
+        mover_fe=np.array(mfe, dtype=bool),
     )
 
 
@@ -781,24 +960,40 @@ def clean_hop_nu0_geo_hz(classes: Iterable[EventClass]) -> float:
     return float(np.exp(np.mean(np.log(np.array(pool, dtype=np.float64)))))
 
 
+#: Categories whose clean-hop before-state counts drive the runtime OOD species
+#: trigger. ``W`` is deliberately absent: it is harvest-side only (the runtime can
+#: never observe a masked site — every live site has a definite species), so a
+#: ``W`` floor baked from training would flag *every* runtime candidate forever.
+#: ``U`` is absent for the same reason as in v1 (it tracks ball truncation, not
+#: composition). The residual cost is a mild train/serve count deflation: a class
+#: whose bystanders were WILDCARD-masked reports lower N/C/E/F counts than the
+#: fully-observed runtime ball would — which widens nothing and errs toward
+#: OVER-flagging (extra re-search candidates), never toward silently trusting an
+#: unseen composition.
+CONTEXT_RANGE_CATS: tuple[str, ...] = ("N", "C", "E", "F")
+
+
 def clean_hop_context_ranges(classes: Iterable[EventClass]) -> dict[str, tuple[int, int]]:
-    """Per-category before-state count [min, max] over clean-hop classes (unseen trigger)."""
-    lo = {"N": None, "C": None, "E": None}
-    hi = {"N": None, "C": None, "E": None}
+    """Per-category before-state count [min, max] over clean-hop classes (unseen trigger).
+
+    Tracks :data:`CONTEXT_RANGE_CATS` (N/C/E/F). An all-NiCr corpus therefore bakes
+    ``F: (0, 0)``, so any runtime context containing an Fe atom trips
+    ``SURR_TRIG_SPECIES`` — the intended behaviour until an Fe-bearing corpus is fit.
+    """
     lod: dict[str, int] = {}
     hid: dict[str, int] = {}
     for c in classes:
         if c.audit_status == "quarantined" or not _is_clean_hop(c):
             continue
         before, _after = state_maps(c)
-        cnt = {"N": 0, "C": 0, "E": 0}
+        cnt = dict.fromkeys(CONTEXT_RANGE_CATS, 0)
         for cat_ in before.values():
             if cat_ in cnt:
                 cnt[cat_] += 1
         for k, val in cnt.items():
             lod[k] = val if k not in lod else min(lod[k], val)
             hid[k] = val if k not in hid else max(hid[k], val)
-    return {k: (lod[k], hid[k]) for k in ("N", "C", "E") if k in lod}
+    return {k: (lod[k], hid[k]) for k in CONTEXT_RANGE_CATS if k in lod}
 
 
 def fit_esym_model(
@@ -812,8 +1007,10 @@ def fit_esym_model(
     """Fit the production E_sym model on the non-quarantined corpus + embed H(σ) θ.
 
     Returns ``(model, report)`` where ``report`` carries the alpha selection trace and the
-    nested-CV holdout numbers (all / clean-hop / multi-site / Cr-mover RMSE + Spearman)
-    for the artifact record and the §3 sanity check.
+    nested-CV holdout numbers (all / clean-hop / multi-site / Cr-mover / **Fe-mover**
+    RMSE + Spearman) for the artifact record and the §3 sanity check. The Fe slice is
+    empty (``n = 0``, NaN metrics) on an all-NiCr corpus — that is the honest signal
+    that the pooled ridge has no Fe evidence yet, not a failure.
     """
     group_of = pair_group_of(classes)
     rows = build_esym_rows(classes, group_of)
@@ -827,6 +1024,11 @@ def fit_esym_model(
 
     def _metrics(mask: npt.NDArray[np.bool_]) -> dict[str, float]:
         m = mask & ok
+        if not m.any():
+            # An empty slice (e.g. fe_mover on an all-NiCr corpus) reports NaN rather
+            # than raising / emitting numpy warnings — absence of evidence, recorded.
+            return {"n": 0, "rmse": float("nan"), "null": float("nan"),
+                    "spearman": float("nan")}
         e = yhat[m] - rows.y_sym[m]
         return {
             "n": int(m.sum()),
@@ -840,6 +1042,7 @@ def fit_esym_model(
         "clean_hop": _metrics(rows.clean_hop),
         "multi_site": _metrics(~rows.clean_hop),
         "cr_mover": _metrics(rows.mover_cr),
+        "fe_mover": _metrics(rows.mover_fe),
     }
 
     # final model on ALL training rows at the chosen alpha

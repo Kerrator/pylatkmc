@@ -20,7 +20,12 @@
  * PYLATKMC_HAS_SURROGATE (i.e. a model was baked); v0.3 / no-model builds get an
  * empty translation unit. */
 
-#define SURR_NPHI 68
+/* SURR_NPHI is len(pylatkmc.ingest.surrogate.ESYM_FEATURE_KEYS) — the CLOSED v2
+ * basis over the six-category alphabet {C,E,F,N,U,W}: 6 scalars + 60 shell counts
+ * + 10 bonds + 18 mover-neighbour + 21 triangles. SURR_NH2 is the (unchanged)
+ * H(sigma) v2 surfsplit basis. Both are cross-checked in Python by
+ * test_surrogate_index_layout / test_surrogate_parity. */
+#define SURR_NPHI 115
 #define SURR_NH2  18
 
 /* One context-ball site (offsets/shells baked relative to the vacancy). */
@@ -61,13 +66,18 @@ typedef struct Surrogate {
     int32_t nphi, nh2, ndir;
     const double *mu, *sd, *w, *ainv, *h2_theta;
     double ym, tier0_nu0_hz, lev_q75, ea_lo, ea_hi;
-    int32_t ctx_n_lo, ctx_n_hi, ctx_c_lo, ctx_c_hi, ctx_e_lo, ctx_e_hi;
+    /* Trained clean-hop context count ranges (the unseen-composition trigger).
+     * F is baked as [0,0] by an all-NiCr corpus, which flags every runtime Fe
+     * context — intended (dE_H has no Fe terms). There is deliberately NO W
+     * range: W is harvest-side only, so a W floor would flag everything. */
+    int32_t ctx_n_lo, ctx_n_hi, ctx_c_lo, ctx_c_hi, ctx_e_lo, ctx_e_hi,
+            ctx_f_lo, ctx_f_hi;
     const SurrDir *dirs;
 } Surrogate;
 
 /* ---- trigger bitmask (per surrogate instance) ---- */
 #define SURR_TRIG_LEVERAGE 0x1u  /* leverage > gate */
-#define SURR_TRIG_SPECIES  0x2u  /* an N/C/E context count outside the trained range */
+#define SURR_TRIG_SPECIES  0x2u  /* an N/C/F/E context count outside the trained range */
 #define SURR_TRIG_FLUX     0x4u  /* integrated-flux share > flux_threshold */
 #define SURR_TRIG_CLAMP    0x8u  /* Ea_hat out of the model's clamp range */
 
@@ -81,10 +91,10 @@ typedef struct {
     double leverage;
     double k;            /* tier0_nu0 * exp(-ea_clamped/kT), floored */
     uint32_t trigger;    /* bitmask (flux bit set later during accounting) */
-    int32_t n_ctx, c_ctx, e_ctx; /* N/C/E context counts (before/midpoint map) */
+    int32_t n_ctx, c_ctx, e_ctx, f_ctx; /* N/C/E/F counts (before/midpoint map) */
 } SurrEval;
 
-/* Evaluate a candidate: vacancy at `vac_site`, atom (`atom_sp` = SP_NI/SP_CR)
+/* Evaluate a candidate: vacancy at `vac_site`, atom (`atom_sp` = SP_NI/SP_CR/SP_FE)
  * at its 1NN reached by direction `dir_idx` (0..11), hopping into the vacancy.
  * Fills `out` (phi/e_sym/dE/ea/leverage/k/trigger). `k_floor` (>0) floors k;
  * `lev_gate` is the leverage trigger threshold. Returns 0, or -EINVAL. */

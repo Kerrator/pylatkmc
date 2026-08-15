@@ -168,11 +168,60 @@ def test_cr_mover_survives_translation_by_name() -> None:
 
 def test_emitted_c_uses_sp_cr_symbol_not_integer() -> None:
     """The emitter writes SP_CR by NAME. Ingest Occ.CR = 2 but runtime
-    SP_CR = 3 (SP_FE is 2): emitting integers would silently swap Cr/Fe."""
+    SP_CR = 3 (SP_FE is 2): emitting integers would silently swap Cr/Fe.
+
+    The negative half is fixture-scoped: THIS catalogue has no stamped Fe class,
+    so SP_FE must not appear. Fe emission itself is covered by
+    test_fe_mover_emits_sp_fe below — do not read this as "Fe is never emitted".
+    """
     patterns, _ = translate_event_classes(_catalogue([_mk_pe()]))
     body = emit_pattern_tables(patterns)
     assert "SP_CR" in body
-    assert "SP_FE" not in body  # no Fe anywhere in this catalogue
+    assert "SP_FE" not in body  # no Fe anywhere in THIS catalogue
+
+
+def _mk_fe_pe(**kw: object) -> ProjectedEvent:
+    """The Fe twin of ``_mk_pe`` (same geometry, Fe mover)."""
+    base: dict[str, object] = dict(
+        delta=(
+            DeltaSite((0, 0, 0), Occ.FE, Occ.EMPTY),
+            DeltaSite((1, 1, 0), Occ.EMPTY, Occ.FE),
+        ),
+        context=(
+            StencilSite((0, 0, 0), _sp_pred(Occ.FE)),
+            StencilSite((1, 1, 0), OccPredicate("EMPTY")),
+        ),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.FE),),
+    )
+    base.update(kw)
+    return _mk_pe(**base)
+
+
+def test_fe_mover_survives_translation_by_name() -> None:
+    """An Fe hop translates with mover species 'Fe' (Occ.FE=3 vs SP_FE=2 guard)."""
+    patterns, report = translate_event_classes(_catalogue([_mk_fe_pe()]))
+    assert report.n_translated == 1
+    (pat,) = patterns
+    assert pat.mover_species == ("Fe",)
+    assert {r.before for r in pat.delta} == {"Fe", "Vacant"}
+    assert {r.after for r in pat.delta} == {"Fe", "Vacant"}
+    assert report.mover_pattern_counts == {"Fe": 1}
+
+
+def test_fe_mover_emits_sp_fe() -> None:
+    """A STAMPED Fe class DOES reach the emitter as SP_FE (and never as SP_CR).
+
+    Blocker B3's counterpart on the emission side: an Fe class must not be dropped,
+    and must not be relabelled Cr. ``nu0_pair_policy`` is the harvested-pair stamp,
+    so this also exercises the phase-C raw-pair path rather than the aggregate one.
+    """
+    classes = _catalogue([_mk_fe_pe()])
+    assert all(c.nu0_pair_policy == HARVESTED_PAIR_POLICY for c in classes)
+    patterns, report = translate_event_classes(classes, phase_c=True)
+    assert report.n_translated == 1 and report.skipped_unstamped == 0
+    body = emit_pattern_tables(patterns)
+    assert "SP_FE" in body
+    assert "SP_CR" not in body
 
 
 # ---------------------------------------------------------------------------

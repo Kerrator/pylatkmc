@@ -1,7 +1,9 @@
 """Byte-determinism of the Phase C surrogate codegen across PYTHONHASHSEED, and
 byte-invariance of the committed v0.3 ni_example proclist.
 
-Skips the surrogate half without the machine-local .scratch/phaseC artifacts.
+Skips the surrogate half without the machine-local EventClass catalogue. The
+surrogate model itself is synthesized on the current basis (see _esym_fixture), so
+this test never silently skips because a machine-local fit is stale.
 """
 
 from __future__ import annotations
@@ -13,10 +15,10 @@ from pathlib import Path
 
 import pytest
 
+from ._esym_fixture import catalogue_available, write_v2_spec
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
-NICR_SPEC = REPO_ROOT / "models" / "nicr_v2_scratch" / "nicr_v2_scratch.kmcspec.toml"
 NIE_SPEC = REPO_ROOT / "models" / "ni_example" / "ni_example.kmcspec.toml"
-MODEL_JSON = REPO_ROOT / ".scratch" / "phaseC" / "esym_model_v1.json"
 
 _GEN_SNIPPET = (
     "from pathlib import Path;"
@@ -39,10 +41,11 @@ def _generate(spec: Path, out: Path, seed: str) -> bytes:
 
 
 def test_surrogate_codegen_byte_deterministic(tmp_path: Path) -> None:
-    if not MODEL_JSON.exists():
-        pytest.skip("surrogate model artifact absent (.scratch/phaseC)")
-    a = _generate(NICR_SPEC, tmp_path / "a", "1")
-    b = _generate(NICR_SPEC, tmp_path / "b", "424242")
+    if not catalogue_available():
+        pytest.skip("machine-local EventClass catalogue absent (.scratch/phaseC)")
+    spec = write_v2_spec(tmp_path / "spec")
+    a = _generate(spec, tmp_path / "a", "1")
+    b = _generate(spec, tmp_path / "b", "424242")
     assert a == b, "surrogate proclist.c differs across PYTHONHASHSEED"
     assert b"g_surrogate" in a and b"v2_proc_v6_ea" in a
 

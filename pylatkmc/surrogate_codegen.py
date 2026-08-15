@@ -14,8 +14,16 @@ runtime-frame integer offsets, per-end crystal shell indices, per-end + midpoint
 OUTSIDE("U") flags, the 1NN bond-pair list, per-site NN1/NN2 ball-adjacency
 (for triangles / exposure / ΔΦ), the two mover-neighbour lists, and the affected
 set. The runtime resolves sites via ``lattice_site_at_ijk``, categorises by
-species (SP_VACANT/absent→"E", Ni→"N", Cr→"C" — by NAME), then runs the same
-reductions as :mod:`pylatkmc.ingest.surrogate`.
+species (SP_VACANT/absent→"E", Ni→"N", Cr→"C", Fe→"F" — by NAME), then runs the
+same reductions as :mod:`pylatkmc.ingest.surrogate`.
+
+Species (v2 basis, 2026-08-15): the harvest-side ``"W"`` category
+(WILDCARD/OCC_ANY) can never arise on this side — every live lattice site has a
+definite species — but the C reductions mirror its handling term-for-term so the
+two ports stay in lockstep. Fe is a first-class category (``"F"`` / ``CAT_F``),
+and the pooled ridge's mover-species dummies ``mover_n_C``/``mover_n_F`` are set
+from the hopping atom's species (1.0 for Cr / Fe respectively, else 0.0) in both
+directional vectors.
 
 DB-exactness (contract): E_sym is the average of the two directional feature
 vectors (origin at the atom end, origin at the vacancy end), so E_sym is
@@ -250,6 +258,12 @@ def surrogate_ball_reach(model: EsymModel) -> tuple[int, int]:
 # --------------------------------------------------------------------------- #
 # Python reference evaluation (the C-parity oracle)                            #
 # --------------------------------------------------------------------------- #
+#: Runtime species NAME -> E_sym category. By NAME only — the ingest ``Occ`` and
+#: runtime ``Species`` integers disagree on Cr/Fe (``Occ.CR=2, Occ.FE=3`` vs
+#: ``SP_FE=2, SP_CR=3``), so an integer bridge would silently swap them.
+_NAME_CAT: dict[str, str] = {"Ni": "N", "Cr": "C", "Fe": "F"}
+
+
 def _build_map(
     g: DirGeom,
     species_at: dict[Offset, str],
@@ -262,10 +276,11 @@ def _build_map(
     """Category map keyed by ``anchor``-relative offsets (anchor ∈ {(0,0,0),dir}).
 
     ``species_at`` maps the CURRENT crystal ball offset (vacancy-relative) →
-    species NAME ("Vacant"/"Ni"/"Cr") or ``"absent"``. The two mover sites are
-    overridden per config: ``atom_at_vac`` False → atom at ``dir`` / vac at 0;
+    species NAME ("Vacant"/"Ni"/"Cr"/"Fe") or ``"absent"``. The two mover sites
+    are overridden per config: ``atom_at_vac`` False → atom at ``dir`` / vac at 0;
     True → atom at 0 / vac at ``dir``. Occupied sites are never "U"; an
-    empty/absent site beyond the ``near`` mask → "U".
+    empty/absent site beyond the ``near`` mask → "U". The harvest-side "W"
+    category never arises here (a live site always has a definite species).
     """
     m: dict[Offset, str] = {}
     for i, off in enumerate(g.offs):
@@ -276,8 +291,9 @@ def _build_map(
         else:
             sp = species_at[off]
         key = (off[0] - anchor[0], off[1] - anchor[1], off[2] - anchor[2])
-        if sp in ("Ni", "Cr"):
-            m[key] = "N" if sp == "Ni" else "C"
+        cat = _NAME_CAT.get(sp)
+        if cat is not None:
+            m[key] = cat
         else:  # vacant or absent
             m[key] = "E" if near[i] else "U"
     return m
@@ -287,9 +303,9 @@ def _depth(g: DirGeom, m: dict[Offset, str], *, seed: Offset) -> tuple[int, int]
     """(depth_surface, depth_param) — faithful port of ingest compute_depth_sig.
 
     ``m`` is keyed in the same frame as ``seed`` (the primary mover). U sites
-    are excluded from ``empty``.
+    are excluded from ``empty``; every named species (N/C/F) counts as occupied.
     """
-    occupied = {off for off, c in m.items() if c in ("N", "C")}
+    occupied = {off for off, c in m.items() if c in ("N", "C", "F")}
     empty = {off for off, c in m.items() if c == "E"}
 
     empty_dirs: list[np.ndarray] = []
@@ -351,6 +367,10 @@ def eval_candidate(
         f["abs_delta_atoms"] = 0.0
         f["depth_surface"] = float(ds)
         f["depth_param"] = float(dp)
+        # mover-species dummies: the single hopping atom (same in both directional
+        # vectors, so the n<->v average is unchanged and DB-exactness is preserved).
+        f["mover_n_C"] = 1.0 if atom_species == "Cr" else 0.0
+        f["mover_n_F"] = 1.0 if atom_species == "Fe" else 0.0
         return np.array([float(f.get(k, 0.0)) for k in ESYM_FEATURE_KEYS], dtype=np.float64)
 
     phi_n = directional(g.near_n, g.dir)          # atom-end anchor
@@ -411,7 +431,13 @@ def emit_surrogate_tables(model: EsymModel) -> str:
     a("/* ================= Phase C surrogate channel (b) tables ================= */")
     a("/* Model: E_sym = ((phi-mu)/sd).w + ym ; dE_H = dphi2.h2_theta ;")
     a(" * leverage = z.Ainv.z with z=(phi-mu)/sd. Ea_hat = E_sym + 0.5*dE_H. */")
-    assert len(model.mu) == len(ESYM_FEATURE_KEYS), "phi basis / model mu mismatch"
+    assert len(model.mu) == len(ESYM_FEATURE_KEYS), (
+        f"phi basis / model mu mismatch: model has {len(model.mu)} features, the "
+        f"pinned ESYM_FEATURE_KEYS basis has {len(ESYM_FEATURE_KEYS)}. A pre-v2 "
+        f"(68-key, no F/W categories, no mover dummies) esym_model.json cannot be "
+        f"baked against the v2 basis — refit the model "
+        f"(.scratch/phaseC/refit_esym_v2_*.py) and regenerate this proclist."
+    )
     assert len(model.h2_theta) == len(H2FEATS), "H2 basis / theta mismatch"
     a("")
     # --- model vectors/matrices ---
@@ -440,13 +466,21 @@ def emit_surrogate_tables(model: EsymModel) -> str:
     n_lo, n_hi = rng.get("N", (0, 0))
     c_lo, c_hi = rng.get("C", (0, 0))
     e_lo, e_hi = rng.get("E", (0, 0))
+    # An all-NiCr-trained model has no "F" range → (0, 0), so ANY runtime context
+    # containing an Fe atom trips SURR_TRIG_SPECIES and lands on the flag registry.
+    # That is the intended behaviour: ΔE_H has no Fe terms, so an Fe candidate is
+    # extrapolation until an Fe-bearing corpus is fit.
+    f_lo, f_hi = rng.get("F", (0, 0))
+    # NOTE: field order below MUST match `struct Surrogate` in runtime/src/core/
+    # surrogate.h exactly (positional initialisation; a one-sided reorder compiles
+    # clean and reads garbage).
     a("static const Surrogate g_surrogate = {")
     a(f"    {len(ESYM_FEATURE_KEYS)}, {len(H2FEATS)}, {len(dirs)},")
     a("    surr_mu, surr_sd, surr_w, surr_ainv, surr_h2_theta,")
     a(f"    {_f(model.ym)}, {_f(model.tier0_nu0_hz)}, {_f(model.lev_q75)}, "
       f"{_f(model.ea_clamp[0])}, {_f(model.ea_clamp[1])},")
     a(f"    {int(n_lo)}, {int(n_hi)}, {int(c_lo)}, {int(c_hi)}, "
-      f"{int(e_lo)}, {int(e_hi)}, surr_dirs,")
+      f"{int(e_lo)}, {int(e_hi)}, {int(f_lo)}, {int(f_hi)}, surr_dirs,")
     a("};")
     a("")
     a(f'const char *const pylatkmc_surrogate_model_version = {_c_str(model.model_version)};')

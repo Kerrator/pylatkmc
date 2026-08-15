@@ -42,6 +42,7 @@ from pylatkmc.ingest.lattice import D4H, IDENTITY, apply_op
 # --------------------------------------------------------------------------- #
 _NI = OccPredicate("SPECIES", frozenset({Occ.NI}))
 _CR = OccPredicate("SPECIES", frozenset({Occ.CR}))
+_FE = OccPredicate("SPECIES", frozenset({Occ.FE}))
 _EMPTY = OccPredicate("EMPTY")
 
 
@@ -206,6 +207,62 @@ def test_ni_near_cr_full_distinct_grey_same() -> None:
     near_cr_grey = replace(near_cr_full, coloring=Coloring.GREY)
     pure_ni_grey = replace(pure_ni_full, coloring=Coloring.GREY)
     assert C.class_id(near_cr_grey) == C.class_id(pure_ni_grey)
+
+
+def test_ni_near_fe_full_distinct_grey_same() -> None:
+    """Fe mirror of the Cr case: distinct in FULL colour, collapsed in GREY."""
+    near_fe_full = _mk(
+        context=(
+            StencilSite((0, 0, 0), _NI),
+            StencilSite((2, 0, 0), _FE),
+            StencilSite((1, 1, 0), _EMPTY),
+        ),
+        coloring=Coloring.FULL,
+    )
+    pure_ni_full = _mk(
+        context=(
+            StencilSite((0, 0, 0), _NI),
+            StencilSite((2, 0, 0), _NI),
+            StencilSite((1, 1, 0), _EMPTY),
+        ),
+        coloring=Coloring.FULL,
+    )
+    assert C.class_id(near_fe_full) != C.class_id(pure_ni_full)
+
+    near_fe_grey = replace(near_fe_full, coloring=Coloring.GREY)
+    pure_ni_grey = replace(pure_ni_full, coloring=Coloring.GREY)
+    assert C.class_id(near_fe_grey) == C.class_id(pure_ni_grey)
+
+
+def test_fe_and_cr_bystanders_are_distinct() -> None:
+    """An Fe bystander and a Cr bystander are DIFFERENT classes in FULL colour.
+
+    The Occ and runtime Species integers disagree on Cr/Fe (Occ.CR=2/Occ.FE=3 vs
+    SP_FE=2/SP_CR=3), so any layer that bridges by integer instead of by NAME
+    collapses or swaps these two. This asserts the identity layer keeps them apart.
+    """
+    with_cr = _mk(context=(StencilSite((0, 0, 0), _NI), StencilSite((2, 0, 0), _CR)))
+    with_fe = _mk(context=(StencilSite((0, 0, 0), _NI), StencilSite((2, 0, 0), _FE)))
+    assert C.class_id(with_cr) != C.class_id(with_fe)
+
+
+def test_fe_mover_distinct_from_cr_mover() -> None:
+    """An Fe-mover hop and the identical Cr-mover hop are different classes."""
+
+    def _mover(occ: Occ) -> object:
+        pred = OccPredicate("SPECIES", frozenset({occ}))
+        return _mk(
+            delta=(
+                DeltaSite((0, 0, 0), occ, Occ.EMPTY),
+                DeltaSite((1, 1, 0), Occ.EMPTY, occ),
+            ),
+            context=(StencilSite((0, 0, 0), pred), StencilSite((1, 1, 0), _EMPTY)),
+            arrows=(Arrow((0, 0, 0), (1, 1, 0), occ),),
+        )
+
+    assert C.class_id(_mover(Occ.FE)) != C.class_id(_mover(Occ.CR))
+    assert C.class_id(_mover(Occ.FE)) != C.class_id(_mover(Occ.NI))
+    assert C.class_id(_mover(Occ.FE)) == C.class_id(_mover(Occ.FE))
 
 
 # --------------------------------------------------------------------------- #
