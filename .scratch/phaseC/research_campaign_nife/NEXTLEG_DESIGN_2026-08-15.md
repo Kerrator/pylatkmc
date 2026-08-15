@@ -59,8 +59,9 @@ exactly: on the 200 leg-1 jobs, all 3 `mover_ok=False` acceptance failures had s
 `mover_rank != 0`, and **0 of 197** rank-0 classes failed it (those 3 also have
 `dra_stored ≈ 0.06 Å` — the recorded mover does not move to the saddle). Candidates are therefore
 screened on `mover_rank == 0` before quota filling. This removes 3 A1 / 1 A2 and, crucially,
-**40 of 62 `C2_0deg`, 24 of 32 `C3`, 12 of 32 `C2_60deg`** pool rows — the concerted archetypes are
-where the stored mover key is unreliable.
+**40 of 62 `C2_0deg`, 24 of 32 `C3`, 12 of 32 `C2_60deg`** pool rows (verification pass: plus
+8 of 22 `C2_90deg`, omitted from the original scan list — 84 concerted rejects in all) — the
+concerted archetypes are where the stored mover key is unreliable.
 
 ## 4 Sizing
 

@@ -3,7 +3,7 @@
 Adapted from research_campaign/rc_fullstate.py (NiCr leg, single run): registers
 each GRADUATED class's searched cluster into ITS OWN production run's trajectory
 frame at the harvest step (pykmc.events first-seen central atom + exact per-atom
-matching), re-searches in the full 9,674-9,679-atom system with ALL atoms free,
+matching), re-searches in the full 9,670-9,679-atom system with ALL atoms free,
 and logs Ea_full alongside the padded-cluster arm for the
 |Ea_cluster - Ea_full| bias measurement.
 

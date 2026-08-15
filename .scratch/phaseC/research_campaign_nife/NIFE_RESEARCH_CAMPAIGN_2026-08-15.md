@@ -14,9 +14,9 @@ physics sanity) — every count reproduced; caveats they surfaced are in §6.
 | measured (`harvested_pair`) NiFe classes | **0** (unstamped by design) | **180** |
 | measured share of corpus flux | 0% | **46.6%** of total · **84.4%** of non-quarantined |
 | pending-research flux share | 55.25% | **8.63%** |
-| agreement (180 graduated) | — | mean \|ΔEa\| **13.4 meV**, median **11.5**, max **49.5** |
+| agreement (180 graduated) | — | mean \|ΔEa\| **13.3 meV**, median **11.5**, max **49.5** |
 
-Signed mean ΔEa = −3.6 meV (re-searched barriers run marginally below harvested; no systematic
+Signed mean ΔEa = −4.0 meV over the 180 graduated (re-searched barriers run marginally below harvested; no systematic
 bias of concern). The NiCr precedent (66/81 at ≤23 meV) transferred: NiFe graduated 180/200 at
 ≤49.5 meV, 90% under 30 meV.
 
@@ -134,8 +134,9 @@ promotion of the graduated candidate is your call.**
 ## 8 Full-state control arm (follow-on slice, executed 2026-08-15)
 
 Mirrors the July NiCr full-state benchmark (`research_campaign/rc_fullstate.py`) on NiFe: 15 of
-the 180 graduated classes (top-10 corpus flux + 5 stratified tail; barriers 0.27–0.66 eV, drawn
-from 10 runs) re-searched in their **full production frames** (9,674–9,679 atoms, all free). Each
+the 180 graduated classes (top-10 corpus flux + a 5-point stratified tail at flux ranks
+11/53/95/137/180; barriers 0.27–0.66 eV, drawn from 9 runs) re-searched in their **full
+production frames** (9,670–9,679 atoms, all free). Each
 stored cluster is registered into its own run's `trajkmc.xyz` frame at the harvest step
 (`pykmc.events` first-seen central atom + cKDTree exact matching; registration max deviation
 ≤ 0.0023 Å) and re-refined from the stored saddle.
@@ -145,7 +146,7 @@ stored cluster is registered into its own run's `trajkmc.xyz` frame at the harve
 | accepted / in-band | **15/15** / 15/15 (0 token flicker; rung-1 sufficed on all 15) |
 | Ea_full − Ea_cluster | **mean +8.6 meV · median +7.3 · range [+2.7, +17.2] — all positive** |
 | Ea_full − Ea_rep | median −1.0 meV; max \|·\| 44.7 meV (within band) |
-| relax_shift_max | ≤ 0.002 Å — the full frame re-minimizes to the stored production state |
+| relax_shift_max | ≤ 0.0024 Å — the full frame re-minimizes to the stored production state |
 
 The padded-cluster arm systematically **under**-estimates the NiFe barrier by ~9 meV (uniform
 sign ⇒ bias, not noise); the NiCr T500 precedent (≤5.9 meV) is the same order. Both are small
