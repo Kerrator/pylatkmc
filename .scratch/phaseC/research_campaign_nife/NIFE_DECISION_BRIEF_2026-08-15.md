@@ -126,3 +126,23 @@ vs Ea_rep. Flux = reachability-corrected expected firings over the 60-run NiFe c
 are modelled (0.90 main strata, lower concerted), not measured. Rate policy and curation status
 are separate axes: 111 of the 180 promoted classes still carry `audit_status='pending'` (§6.7).
 NiCr full-state ≤5.9 meV is a July NiCr T500 measurement — precedent, not a NiFe fact.
+
+---
+
+## Post-brief evidence addendum (2026-08-15, later the same night — affects D1)
+
+The V4 re-verification (`V4_NIFE_REVERIFICATION_2026-08-15.md`, same directory as this brief's
+repo copy) surfaced a fact the D1 evidence above does not contain: **212 of the 936 harvested
+ν₀ pairs (22.6 %) are 1.0e12 Hz placeholders** (`_resolve_nu0_hz` fallback when a reference row
+has no HTST ν₀ — always both directions of a pair, never mixed), i.e. a global constant, which
+is strictly worse than the family aggregate V4 exists to exclude. 10 classes are fully
+placeholder (0.6 % of corpus flux) but **46 partially-contaminated classes carry 70.0 % of
+measured flux**; repairing contaminated members changes summed class rates by median ×0.750,
+min ×0.269. The two worst (5/28 placeholder members, 8.4 %/8.3 % corpus flux each) are the same
+classes that anchored the full-state control arm. The condition is silent in every artifact
+between the reference table and the generated C, and it is not NiFe-specific (NiCr production
+measured set: 26.3 % placeholder). Separately: 110/724 real-HTST ν₀ values exceed the `recover`
+path's `NU0_MAX_HZ = 5e13` bound (max 5.77e13). Neither voids D1's ±50 meV barrier evidence —
+barriers are unaffected — but "promote at harvested ν₀/Ea pairs" now has a known ν₀-quality
+split (724 real HTST / 212 placeholder) that was invisible when D1 was drafted. Closing the V4
+gate properly needs one ~15 s LAMMPS pass (command in the report §"To close the gate").
