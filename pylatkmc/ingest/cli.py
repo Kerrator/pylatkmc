@@ -69,7 +69,18 @@ policy from a reference catalogue's ``harvested_pair`` class_id set::
         --overlay vetoes_migrated.toml \
         --measured-catalogue catalogue_v3_graduated.parquet \
         --measured-catalogue catalogue_v3_qc_veto_stamped.parquet \
+        --require-elements Ni,Cr \
         --conditions "NiCr sweep 29 runs"
+
+Both ``merge`` and ``remap`` census the **element set** of every input catalogue
+(content-derived, so catalogues written before this guard are measured too) and
+**refuse** inputs over incomparable sets — ``{Ni,Cr}`` vs ``{Ni,Fe}`` raises no
+``class_id`` collision, it just concatenates two alloys into an artifact no model
+spec can name (B4, 2026-08-14 readiness review). A strict subset (a run that
+catalogued no solute event) is reported, not refused. ``--allow-element-mismatch``
+opts in deliberately; ``--require-elements Ni,Cr`` additionally asserts what the
+artifact must come out as. Every catalogue records its own set in the Parquet
+metadata key ``pylatkmc.elements``.
 
 ``remap`` — lineage stamp remap across a CANON schema bump (over-snapping memo
 2026-07-29 §8.3). A bump relabels every ``class_id``, so measured/graduated
@@ -97,6 +108,10 @@ import datetime
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # lazy at runtime (module-load DAG, contract 0.2)
+    from .merge import ElementCensus
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -298,6 +313,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "directions can arrive from different runs",
     )
     m.add_argument(
+        "--require-elements",
+        default=None,
+        metavar="Ni,Cr",
+        help="assert the merged artifact is written over EXACTLY this element set "
+        "(content-derived, order-insensitive); refuses otherwise",
+    )
+    m.add_argument(
+        "--allow-element-mismatch",
+        action="store_true",
+        help="opt in to merging catalogues over incomparable element sets (e.g. "
+        "NiCr + NiFe into one ternary-looking artifact); refused by default",
+    )
+    m.add_argument(
         "--conditions",
         default="",
         help="free-text upstream conditions stamp for the output file metadata",
@@ -357,6 +385,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--note",
         default="",
         help="short provenance note recorded in each transferred stamp",
+    )
+    r2.add_argument(
+        "--allow-element-mismatch",
+        action="store_true",
+        help="opt in to remapping between catalogues over incomparable element sets "
+        "(--old and --new must come from the SAME reference table); refused by default",
     )
     r2.add_argument(
         "--conditions",
@@ -676,8 +710,15 @@ def _read_merge_inputs(args: argparse.Namespace) -> list[tuple[str, str]]:
     return pairs
 
 
-def _resolve_measured_class_ids(paths: list[str]) -> tuple[frozenset[str], str | None]:
-    """Measured (``harvested_pair``) class_ids from the first readable reference catalogue."""
+def _resolve_measured_class_ids(
+    paths: list[str],
+) -> tuple[frozenset[str], str | None, list]:
+    """Measured (``harvested_pair``) class_ids from the first readable reference catalogue.
+
+    Returns ``(class_ids, path, classes)``; the classes ride along so the element
+    guard can census the stamp source too — a measured catalogue from another alloy
+    stamps nothing at all, silently (B4).
+    """
     from .event_class import assert_canon_version, read_catalogue_parquet
     from .merge import measured_class_ids_from_catalogue
 
@@ -686,8 +727,46 @@ def _resolve_measured_class_ids(paths: list[str]) -> tuple[frozenset[str], str |
             continue
         classes = read_catalogue_parquet(path)
         assert_canon_version(classes, path)
-        return measured_class_ids_from_catalogue(classes), path
-    return frozenset(), None
+        return measured_class_ids_from_catalogue(classes), path, classes
+    return frozenset(), None, []
+
+
+def _check_elements(
+    per_input: list[tuple[str, list]],
+    *,
+    allow_mismatch: bool,
+    what: str,
+) -> tuple[ElementCensus, int]:
+    """Census the inputs' element sets and decide whether the pass may proceed (B4).
+
+    Returns ``(census, exit_code)``; ``exit_code`` is 0 to proceed, 2 to refuse. The
+    census is printed either way — an allowed mismatch stays loud and lands in the
+    output stamp, never silent.
+    """
+    from .merge import element_census
+
+    census = element_census(per_input)
+    print(census.summary())
+    if census.ok:
+        return census, 0
+    sys.stdout.flush()  # keep "see the census above" true in a 2>&1 capture
+    if allow_mismatch:
+        print(
+            f"WARNING: {what} joins catalogues over incomparable element sets "
+            f"({len(census.conflicts)} conflicting pair(s)); proceeding because "
+            "--allow-element-mismatch was given",
+            file=sys.stderr,
+        )
+        return census, 0
+    print(
+        f"ERROR: {what} refuses incomparable element sets "
+        f"({len(census.conflicts)} conflicting pair(s), see the census above). "
+        "Merging two alloys raises no class_id collision — it concatenates them "
+        "into an artifact no model spec can name (B4). Split the inputs per alloy, "
+        "or pass --allow-element-mismatch to do this deliberately",
+        file=sys.stderr,
+    )
+    return census, 2
 
 
 def _run_merge(args: argparse.Namespace) -> int:
@@ -695,21 +774,39 @@ def _run_merge(args: argparse.Namespace) -> int:
     from .event_class import (
         CATALOGUE_SCHEMA_VERSION,
         assert_canon_version,
+        catalogue_elements,
         read_catalogue_parquet,
         write_catalogue_parquet,
     )
-    from .merge import merge_qcd_catalogues
+    from .merge import format_elements, merge_qcd_catalogues, parse_elements
     from .qc import load_overlay
 
     pairs = _read_merge_inputs(args)
     overlay = load_overlay(args.overlay) if args.overlay else None
-    measured, measured_src = _resolve_measured_class_ids(args.measured_catalogues)
+    measured, measured_src, measured_classes = _resolve_measured_class_ids(args.measured_catalogues)
 
     per_run: list[tuple[str, list]] = []
     for tag, path in sorted(pairs):
         per_run.append((tag, read_catalogue_parquet(path)))
         assert_canon_version(per_run[-1][1], path)
         print(f"  loaded {tag}: {len(per_run[-1][1])} classes  <- {path}")
+
+    # --- B4 element-set guard: refuse before doing the work -------------------------
+    census_inputs = list(per_run)
+    if measured_src is not None:
+        census_inputs.append((f"measured:{Path(measured_src).name}", measured_classes))
+    _census, rc = _check_elements(
+        census_inputs, allow_mismatch=args.allow_element_mismatch, what="merge"
+    )
+    if rc:
+        return rc
+    want_elements: tuple[str, ...] | None = None
+    if args.require_elements is not None:
+        try:  # a typo must fail before the merge work, not after it
+            want_elements = parse_elements(args.require_elements)
+        except ValueError as exc:
+            print(f"ERROR: --require-elements: {exc}", file=sys.stderr)
+            return 2
 
     report = merge_qcd_catalogues(
         per_run,
@@ -728,13 +825,27 @@ def _run_merge(args: argparse.Namespace) -> int:
             f"nonrepresentable={report.stamp.n_unstamped_nonrepresentable} "
             f"measured_src={Path(measured_src).name if measured_src else 'none'}"
         )
+
+    # The artifact's OWN element set (what it is written over), not the input union:
+    # the same value `write_catalogue_parquet` records under `pylatkmc.elements`.
+    out_elements = catalogue_elements(report.classes)
+    if want_elements is not None and out_elements != want_elements:
+        print(
+            f"ERROR: --require-elements [{format_elements(want_elements)}] but the merged "
+            f"catalogue is written over [{format_elements(out_elements)}]",
+            file=sys.stderr,
+        )
+        return 2
+
     stamp = (
         f"{args.conditions.strip()} | MERGE: runs={report.n_runs} "
         f"instances={report.n_input_class_instances} classes={report.n_merged_classes} "
         f"tol={args.tol:g} spread_tol={args.spread_tol:g} overlay={args.overlay or 'none'} "
         f"quarantined={report.qc.total_quarantined} "
         f"status_conflicts={report.status_conflict_count} "
-        f"nonconserving_surviving={report.nonconserving_surviving}"
+        f"nonconserving_surviving={report.nonconserving_surviving} "
+        f"elements={format_elements(out_elements)} "
+        f"element_conflicts={len(_census.conflicts)}"
         f"{stamp_note} "
         f"| schema_version={CATALOGUE_SCHEMA_VERSION} date={datetime.date.today().isoformat()}"
     ).strip(" |")
@@ -759,9 +870,11 @@ def _run_remap(args: argparse.Namespace) -> int:
     from .event_class import (
         CATALOGUE_SCHEMA_VERSION,
         assert_canon_version,
+        catalogue_elements,
         read_catalogue_parquet,
         write_catalogue_parquet,
     )
+    from .merge import format_elements
     from .qc import load_overlay
     from .reftable import discard_ledger_path
     from .remap import apply_stamps, build_lineage, remap_classes, remap_payload
@@ -769,6 +882,15 @@ def _run_remap(args: argparse.Namespace) -> int:
     old = read_catalogue_parquet(args.old_path)
     new = read_catalogue_parquet(args.new_path)
     assert_canon_version(new, args.new_path)
+
+    # --- B4 element-set guard: --old and --new must be the SAME reference table ------
+    _census, rc = _check_elements(
+        [("old:" + Path(args.old_path).name, old), ("new:" + Path(args.new_path).name, new)],
+        allow_mismatch=args.allow_element_mismatch,
+        what="remap",
+    )
+    if rc:
+        return rc
     ledger_path = discard_ledger_path(args.new_path)
     ledger_rows: list[dict] = []
     if ledger_path.is_file():
@@ -786,6 +908,8 @@ def _run_remap(args: argparse.Namespace) -> int:
         f"old={Path(args.old_path).name} new={Path(args.new_path).name} "
         + " ".join(f"{k}={v}" for k, v in counts.items())
         + f" join_conflicts={len(report.join_conflicts)}"
+        f" elements={format_elements(catalogue_elements(stamped))}"
+        f" element_conflicts={len(_census.conflicts)}"
         f" | schema_version={CATALOGUE_SCHEMA_VERSION} date={datetime.date.today().isoformat()}"
     ).strip(" |")
     write_catalogue_parquet(

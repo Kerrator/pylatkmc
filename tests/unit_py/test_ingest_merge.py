@@ -4,13 +4,18 @@ Pure-logic tests — the merge operates on ``EventClass`` lists and needs no ext
 Covers the three merge invariants the probe flagged: idx_ref collision across runs
 (provenance stays disambiguated, no cross-linking), status conflicts (a
 previously-quarantined class surviving merged QC), and the class_id-keyed measured
-stamp migration.
+stamp migration — plus the B4 element-set guard (2026-08-14 readiness review): a
+NiCr + NiFe merge must not succeed silently. The CLI-level guard tests need
+``pyarrow`` (Parquet round-trip) and ``importorskip`` out without it.
 """
 
 from __future__ import annotations
 
+import pytest
+
 from pylatkmc.ingest import event_class as ec
 from pylatkmc.ingest.event_class import (
+    Arrow,
     Coloring,
     DeltaSite,
     DepthKind,
@@ -18,10 +23,14 @@ from pylatkmc.ingest.event_class import (
     EventClass,
     Occ,
     OccPredicate,
+    StencilSite,
+    catalogue_elements,
 )
 from pylatkmc.ingest.merge import (
+    element_census,
     measured_class_ids_from_catalogue,
     merge_qcd_catalogues,
+    parse_elements,
     union_classes,
 )
 from pylatkmc.ingest.qc import (
@@ -44,6 +53,11 @@ def _mk(
     dE_pair_list: tuple[float, ...] = (),
     delta: tuple[DeltaSite, ...] = _ONE_DELTA,
     delta_atoms: int = 0,
+    context: tuple[StencilSite, ...] = (),
+    arrows: tuple[Arrow, ...] = (),
+    anchor_pred: OccPredicate | None = None,
+    coloring: Coloring = Coloring.FULL,
+    canon_version: int = 1,
     backward_class: str | None = None,
     dEnergy: float | None = None,
     self_reverse: bool = False,
@@ -57,22 +71,23 @@ def _mk(
 ) -> EventClass:
     """A minimal but valid EventClass for merge tests."""
     n = len(barriers)
-    cf = (1, 0, 0, 0, 0, (), (), ())
+    cf = (canon_version, 0, 0, 0, 0, (), (), ())
     return EventClass(
         class_id=class_id,
         canonical_form=cf,
         canonical_blob=ec._tlv_encode(cf),
         depth_sig=DepthSig(DepthKind.SURFACE, 0),
-        coloring=Coloring.FULL,
+        coloring=coloring,
         move_shape=0,
         delta=delta,
         delta_atoms=delta_atoms,
-        context=(),
+        context=context,
         saddle_token=(),
         orientation_count=1,
         r_ctx_used=5.0,
         r_id_used=5.0,
-        anchor_pred=OccPredicate("WILDCARD"),
+        anchor_pred=anchor_pred if anchor_pred is not None else OccPredicate("WILDCARD"),
+        arrows=arrows,
         t_ref_K=t_ref_K,
         barriers_eV=barriers,
         nu0_f_list_hz=nu0_f if nu0_f is not None else tuple(1e13 for _ in barriers),
@@ -252,3 +267,242 @@ def test_merge_does_not_mutate_inputs() -> None:
     assert c.audit_status == "quarantined"
     assert c.audit_reason == "orig"
     assert c.nu0_pair_policy == "x"
+
+
+# --------------------------------------------------------------------------- #
+# B4: element-set guard (2026-08-14 ingest-readiness review)                   #
+# --------------------------------------------------------------------------- #
+def _sp(o: Occ) -> OccPredicate:
+    return OccPredicate("SPECIES", frozenset({o}))
+
+
+def _alloy_class(class_id: str, solute: Occ | None, **kw) -> EventClass:
+    """A class carrying Ni + one solute across delta / context / arrows / anchor."""
+    delta = (DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY), DeltaSite((1, 1, 0), Occ.EMPTY, Occ.NI))
+    context = (StencilSite((2, 0, 0), _sp(Occ.NI)), StencilSite((0, 2, 0), OccPredicate("EMPTY")))
+    if solute is not None:
+        context = (*context, StencilSite((0, 0, 2), _sp(solute)))
+    return _mk(class_id, delta=delta, context=context, **kw)
+
+
+def _legacy_class(class_id: str, solute: Occ | None) -> EventClass:
+    """A pre-guard (schema<=3 shaped) class: species only in delta/context, no arrows."""
+    delta = (DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY),)
+    context = ()
+    if solute is not None:
+        delta = (*delta, DeltaSite((1, 1, 0), solute, Occ.EMPTY))
+    return _mk(class_id, delta=delta, context=context, arrows=())
+
+
+def test_catalogue_elements_reads_every_identity_field() -> None:
+    """The element set is recovered from delta, context, anchor_pred AND arrows."""
+    c = _mk(
+        "X",
+        delta=(DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY),),
+        context=(StencilSite((2, 0, 0), _sp(Occ.CR)),),
+        anchor_pred=_sp(Occ.NI),
+        arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.FE),),
+    )
+    assert catalogue_elements([c]) == ("Cr", "Fe", "Ni")
+
+
+def test_catalogue_elements_skips_non_species_codes() -> None:
+    """EMPTY / WILDCARD / OUTSIDE / OCC_ANY carry no element (GREY reports nothing)."""
+    grey = _mk(
+        "G",
+        delta=(DeltaSite((0, 0, 0), Occ.OCC_ANY, Occ.EMPTY),),
+        context=(
+            StencilSite((2, 0, 0), OccPredicate("WILDCARD")),
+            StencilSite((0, 2, 0), OccPredicate("OUTSIDE")),
+            StencilSite((0, 0, 2), OccPredicate("OCC_ANY")),
+        ),
+        coloring=Coloring.GREY,
+    )
+    assert catalogue_elements([grey]) == ()
+
+
+def test_element_census_matched_runs_pass() -> None:
+    """Same-alloy runs agree: no conflict, one group, union = the alloy."""
+    runs = [
+        ("NiCr_T300_1vac", [_alloy_class("a", Occ.CR), _alloy_class("b", Occ.CR)]),
+        ("NiCr_T500_4vac", [_alloy_class("a", Occ.CR)]),
+    ]
+    census = element_census(runs)
+    assert census.ok
+    assert census.conflicts == ()
+    assert census.union == ("Cr", "Ni")
+    assert census.tags_by_elements == ((("Cr", "Ni"), ("NiCr_T300_1vac", "NiCr_T500_4vac")),)
+    assert "Cr,Ni" in census.summary()
+
+
+def test_element_census_refuses_nicr_plus_nife() -> None:
+    """The B4 hole: {Ni,Cr} + {Ni,Fe} is incomparable — flagged, never silent."""
+    census = element_census(
+        [
+            ("NiCr_T300_1vac", [_alloy_class("a", Occ.CR)]),
+            ("NiFe_T300_1vac", [_alloy_class("b", Occ.FE)]),
+        ]
+    )
+    assert not census.ok
+    assert census.conflicts == ((("Cr", "Ni"), ("Fe", "Ni")),)
+    assert census.union == ("Cr", "Fe", "Ni")
+    assert "CONFLICT" in census.summary()
+
+
+def test_element_census_subset_run_is_not_a_conflict() -> None:
+    """A same-alloy run that catalogued no solute event is a SUBSET, not a mismatch."""
+    census = element_census(
+        [
+            ("NiCr_T300_1vac", [_alloy_class("a", Occ.CR)]),
+            ("NiCr_T300_2vac", [_alloy_class("b", None)]),  # no Cr sampled
+        ]
+    )
+    assert census.ok
+    assert census.union == ("Cr", "Ni")
+    assert census.tags_by_elements == (
+        (("Cr", "Ni"), ("NiCr_T300_1vac",)),
+        (("Ni",), ("NiCr_T300_2vac",)),
+    )
+
+
+def test_element_census_legacy_catalogues_are_measured_not_assumed() -> None:
+    """Legacy (pre-guard, no stamp, no arrows) inputs: matched pass, mismatched refuse.
+
+    Nothing on disk carries an element stamp, so the guard must infer from content —
+    two legacy catalogues of different alloys must not be treated as compatible.
+    """
+    matched = element_census(
+        [("r1", [_legacy_class("a", Occ.CR)]), ("r2", [_legacy_class("b", Occ.CR)])]
+    )
+    assert matched.ok and matched.union == ("Cr", "Ni")
+
+    mismatched = element_census(
+        [("r1", [_legacy_class("a", Occ.CR)]), ("r2", [_legacy_class("b", Occ.FE)])]
+    )
+    assert not mismatched.ok
+    assert mismatched.conflicts == ((("Cr", "Ni"), ("Fe", "Ni")),)
+
+
+def test_element_census_speciesless_inputs_are_surfaced_not_refused() -> None:
+    """A GREY (species-blind) input cannot conflict — but it is counted and reported."""
+    grey = _mk("g", delta=(), context=(), coloring=Coloring.GREY)
+    census = element_census([("grey_run", [grey]), ("NiCr", [_alloy_class("a", Occ.CR)])])
+    assert census.ok
+    assert census.speciesless_tags == ("grey_run",)
+    assert "species-blind" in census.summary()
+
+
+def test_element_census_is_order_independent() -> None:
+    """Census output does not depend on input order (determinism invariant)."""
+    a = ("NiCr_A", [_alloy_class("a", Occ.CR)])
+    b = ("NiFe_B", [_alloy_class("b", Occ.FE)])
+    c1, c2 = element_census([a, b]), element_census([b, a])
+    assert c1 == c2
+
+
+def test_parse_elements_normalises_and_rejects_unknown() -> None:
+    """--require-elements parses order-insensitively and rejects a typo loudly."""
+    assert parse_elements("Ni,Cr") == ("Cr", "Ni")
+    assert parse_elements(" Cr , Ni ") == ("Cr", "Ni")
+    with pytest.raises(ValueError, match="unknown element symbol"):
+        parse_elements("Ni,Al")
+
+
+# --------------------------------------------------------------------------- #
+# B4 at the CLI: refuse / override / record (needs pyarrow for the round-trip) #
+# --------------------------------------------------------------------------- #
+def _write_run(path, classes) -> None:
+    """Write a per-run catalogue Parquet (classes must be on the CURRENT canon)."""
+    from pylatkmc.ingest.event_class import write_catalogue_parquet
+
+    write_catalogue_parquet(classes, path)
+
+
+def _cli_run(cid: str, solute: Occ | None) -> EventClass:
+    """An alloy class stamped with the current CANON version (``assert_canon_version``)."""
+    from pylatkmc.ingest.canonical import CANON_SCHEMA_VERSION
+
+    return _alloy_class(cid, solute, canon_version=CANON_SCHEMA_VERSION)
+
+
+def _elements_metadata(path) -> str:
+    import pyarrow.parquet as pq
+
+    from pylatkmc.ingest.event_class import ELEMENTS_METADATA_KEY
+
+    md = pq.read_schema(path).metadata or {}
+    return md[ELEMENTS_METADATA_KEY].decode("utf-8")
+
+
+def test_cli_merge_matched_elements_pass_and_record_the_set(tmp_path, capsys) -> None:
+    """Matched inputs merge, and the artifact records the element set it is over."""
+    pytest.importorskip("pyarrow")
+    from pylatkmc.ingest.cli import main
+
+    a, b = tmp_path / "a.parquet", tmp_path / "b.parquet"
+    _write_run(a, [_cli_run("a", Occ.CR)])
+    _write_run(b, [_cli_run("b", Occ.CR)])
+    out = tmp_path / "merged.parquet"
+    rc = main(["merge", "--in", f"NiCr_A={a}", "--in", f"NiCr_B={b}", "--out", str(out)])
+    assert rc == 0
+    assert _elements_metadata(out) == "Cr,Ni"
+    assert "elements=Cr,Ni element_conflicts=0" in capsys.readouterr().out
+
+
+def test_cli_merge_refuses_mismatched_elements(tmp_path, capsys) -> None:
+    """NiCr + NiFe: refused, nothing written, and the reason is on stderr."""
+    pytest.importorskip("pyarrow")
+    from pylatkmc.ingest.cli import main
+
+    a, b = tmp_path / "nicr.parquet", tmp_path / "nife.parquet"
+    _write_run(a, [_cli_run("a", Occ.CR)])
+    _write_run(b, [_cli_run("b", Occ.FE)])
+    out = tmp_path / "merged.parquet"
+    rc = main(["merge", "--in", f"NiCr={a}", "--in", f"NiFe={b}", "--out", str(out)])
+    assert rc == 2
+    assert not out.exists()
+    assert "refuses incomparable element sets" in capsys.readouterr().err
+
+
+def test_cli_merge_element_mismatch_override_is_explicit_and_loud(tmp_path, capsys) -> None:
+    """--allow-element-mismatch proceeds, warns, and records the ternary set."""
+    pytest.importorskip("pyarrow")
+    from pylatkmc.ingest.cli import main
+
+    a, b = tmp_path / "nicr.parquet", tmp_path / "nife.parquet"
+    _write_run(a, [_cli_run("a", Occ.CR)])
+    _write_run(b, [_cli_run("b", Occ.FE)])
+    out = tmp_path / "merged.parquet"
+    rc = main(
+        [
+            "merge",
+            "--in",
+            f"NiCr={a}",
+            "--in",
+            f"NiFe={b}",
+            "--out",
+            str(out),
+            "--allow-element-mismatch",
+        ]
+    )
+    assert rc == 0
+    assert _elements_metadata(out) == "Cr,Fe,Ni"
+    cap = capsys.readouterr()
+    assert "--allow-element-mismatch was given" in cap.err
+    assert "elements=Cr,Fe,Ni element_conflicts=1" in cap.out
+
+
+def test_cli_merge_require_elements_refuses_wrong_artifact(tmp_path, capsys) -> None:
+    """--require-elements asserts what the artifact comes out as (typo-proof)."""
+    pytest.importorskip("pyarrow")
+    from pylatkmc.ingest.cli import main
+
+    a = tmp_path / "nicr.parquet"
+    _write_run(a, [_cli_run("a", Occ.CR)])
+    out = tmp_path / "merged.parquet"
+    argv = ["merge", "--in", f"NiCr={a}", "--out", str(out)]
+    assert main([*argv, "--require-elements", "Ni,Fe"]) == 2
+    assert not out.exists()
+    assert "--require-elements" in capsys.readouterr().err
+    assert main([*argv, "--require-elements", "Cr,Ni"]) == 0
+    assert out.exists()

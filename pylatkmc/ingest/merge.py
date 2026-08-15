@@ -64,6 +64,15 @@ previously-stamped/graduated reference catalogue; membership is authoritative ev
 of representability, so a measured class is stamped ``harvested_pair`` even if a
 sweep run's snap noise would fail its merged G3.
 
+Element sets are guarded, not assumed
+-------------------------------------
+``class_id`` is content-keyed, so merging two *different alloys* raises no
+collision and no error — it just concatenates them into an artifact no model spec
+can name (B4, 2026-08-14 ingest-readiness review). :func:`element_census` measures
+each input's element set from its class records (so legacy catalogues written
+before this guard are measured, never assumed) and reports incomparable pairs;
+the CLI refuses on a conflict unless the operator opts in explicitly.
+
 ``delta_atoms != 0`` stance (decision, 2026-07-24)
 --------------------------------------------------
 Non-conserving classes (``delta_atoms != 0``) are **counted and surfaced**
@@ -91,6 +100,7 @@ from pylatkmc.ingest.event_class import (
     GateOutcome,
     GateResult,
     aggregate_rate_space,
+    catalogue_elements,
     one_way_flag,
 )
 from pylatkmc.ingest.qc import (
@@ -104,6 +114,116 @@ from pylatkmc.ingest.qc import (
 
 DEFAULT_NU0_FALLBACK_HZ: float = 1.0e12
 """ν0 fallback (Hz) for merged members without a usable prefactor (matches ``build``)."""
+
+
+def format_elements(elements: Sequence[str]) -> str:
+    """Render an element set for a stamp / log line (``"Cr,Ni"``; GREY -> a marker)."""
+    return ",".join(elements) if elements else "<species-blind>"
+
+
+def parse_elements(text: str) -> tuple[str, ...]:
+    """Parse a ``"Ni,Cr"`` CLI expectation into a sorted, validated symbol tuple.
+
+    Raises ``ValueError`` on a symbol ``pylatkmc.ingest`` has no occupancy code for
+    (a typo must never widen or silently narrow an element expectation).
+    """
+    from pylatkmc.ingest.event_class import SYMBOL_TO_OCC
+
+    want = tuple(sorted({s.strip() for s in text.split(",") if s.strip()}))
+    bad = [s for s in want if s not in SYMBOL_TO_OCC]
+    if bad:
+        raise ValueError(
+            f"unknown element symbol(s) {bad}: ingest knows {sorted(SYMBOL_TO_OCC)} "
+            "(extend SYMBOL_TO_OCC per campaign)"
+        )
+    return want
+
+
+@dataclass(frozen=True)
+class ElementCensus:
+    """Which elements each merge input is written over, and whether they agree (B4).
+
+    Element sets are **content-derived** (:func:`~pylatkmc.ingest.event_class.
+    catalogue_elements`), so this works identically on catalogues written before the
+    guard existed — a legacy input is never assumed compatible, it is measured.
+
+    Comparison policy: a strict-**subset** relation is *not* a disagreement. A run of
+    the same alloy that happened to catalogue no solute event contributes a narrower
+    set, and refusing that would reject legitimate corpora (in a 10-run sample of the
+    2026-08-14 corpus every run reported its full binary set, so the subset case is
+    rare — but it is not a defect). What is a defect is an **incomparable** pair
+    (``{Ni,Cr}`` vs ``{Ni,Fe}``): two different alloys, silently concatenated into an
+    artifact no model spec can name — B4 of the 2026-08-14 ingest-readiness review.
+    """
+
+    #: ``(elements, tags)`` per distinct element set, sorted; tags sorted within.
+    tags_by_elements: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]
+    #: Union over every input (the element set the merged artifact would carry).
+    union: tuple[str, ...]
+    #: Pairs of distinct element sets that are incomparable — the refusal condition.
+    conflicts: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...]
+    #: Inputs contributing NO species at all (GREY or empty): a subset of everything,
+    #: so never a conflict — but the guard is blind to them, so they are surfaced.
+    speciesless_tags: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        """True iff no two inputs are written over incomparable element sets."""
+        return not self.conflicts
+
+    def summary(self) -> str:
+        """A compact, multi-line human summary of the element census."""
+        n_inputs = sum(len(tags) for _elems, tags in self.tags_by_elements)
+        lines = [f"element census: union=[{format_elements(self.union)}] over {n_inputs} inputs"]
+        for elems, tags in self.tags_by_elements:
+            shown = ", ".join(tags[:3])
+            more = f" (+{len(tags) - 3} more)" if len(tags) > 3 else ""
+            lines.append(f"  [{format_elements(elems)}] x{len(tags)}: {shown}{more}")
+        if self.speciesless_tags:
+            lines.append(
+                f"  species-blind inputs (guard cannot discriminate): {len(self.speciesless_tags)}"
+            )
+        for a, b in self.conflicts:
+            lines.append(
+                f"  CONFLICT: [{format_elements(a)}] vs [{format_elements(b)}] — "
+                "incomparable element sets (different alloys)"
+            )
+        return "\n".join(lines)
+
+
+def element_census(
+    per_input: Sequence[tuple[str, Sequence[EventClass]]],
+) -> ElementCensus:
+    """Element sets of the merge inputs + the incomparable pairs among them (B4).
+
+    ``per_input`` is ``(tag, classes)`` per catalogue — the per-run inputs, and any
+    other catalogue the pass joins against (e.g. a measured stamp source, whose
+    class_ids would silently stamp nothing if it came from another alloy).
+    Deterministic: every output tuple is sorted, nothing iterates a set/dict order.
+    """
+    by_elements: dict[tuple[str, ...], list[str]] = {}
+    speciesless: list[str] = []
+    for tag, classes in per_input:
+        elems = catalogue_elements(classes)
+        by_elements.setdefault(elems, []).append(tag)
+        if not elems:
+            speciesless.append(tag)
+    distinct = sorted(by_elements)
+    conflicts = tuple(
+        (a, b)
+        for i, a in enumerate(distinct)
+        for b in distinct[i + 1 :]
+        if not (set(a) <= set(b) or set(b) <= set(a))
+    )
+    union: set[str] = set()
+    for elems in distinct:
+        union |= set(elems)
+    return ElementCensus(
+        tags_by_elements=tuple((e, tuple(sorted(by_elements[e]))) for e in distinct),
+        union=tuple(sorted(union)),
+        conflicts=conflicts,
+        speciesless_tags=tuple(sorted(speciesless)),
+    )
 
 
 @dataclass

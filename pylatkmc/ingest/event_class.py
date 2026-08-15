@@ -1741,6 +1741,56 @@ def _event_to_row(ec: EventClass) -> dict[str, Any]:
     }
 
 
+ELEMENTS_METADATA_KEY: bytes = b"pylatkmc.elements"
+"""Parquet key/value metadata key naming a catalogue's element set (B4 guard)."""
+
+
+def catalogue_elements(classes: Sequence[EventClass]) -> tuple[str, ...]:
+    """The species symbols this catalogue's classes are written over, sorted.
+
+    **Content-derived, never a stored stamp**: the set is recovered from the class
+    records themselves — ``delta`` before/after codes, ``SPECIES`` predicates in
+    ``context`` and ``anchor_pred``, and ``arrows`` species. That is what makes it
+    usable as a cross-input guard on catalogues written *before* the guard existed
+    (:data:`ELEMENTS_METADATA_KEY` is a convenience record, not the source of
+    truth), and it needs no schema bump: a schema-v1 catalogue answers exactly as a
+    schema-v5 one does. Non-species codes (``EMPTY`` / ``OCC_ANY`` / ``OUTSIDE``)
+    and ``WILDCARD`` predicates carry no element and are skipped.
+
+    The result is a **lower bound** on the alloy the run was built under: a run
+    whose events never sampled a solute contributes a narrower set (spot-checked on
+    a 10-run sample of the 2026-08-14 corpus: every 5 at% NiCr/NiFe per-run
+    catalogue reports both of its elements, because the identity context covers
+    every site in ``r_ctx``, not just the movers). Callers
+    comparing two catalogues must therefore treat a strict-subset relation as
+    "under-sampled", not "different alloy" — see
+    :func:`pylatkmc.ingest.merge.element_census`. A GREY catalogue collapses all
+    species to ``OCC_ANY`` and so reports ``()``: species-blind by construction, and
+    no inference can recover the alloy from it.
+    """
+    found: set[str] = set()
+    for c in classes:
+        for d in c.delta:
+            for o in (d.before, d.after):
+                sym = OCC_TO_SYMBOL.get(o)
+                if sym is not None:
+                    found.add(sym)
+        for s in c.context:
+            for o in s.pred.species:
+                sym = OCC_TO_SYMBOL.get(o)
+                if sym is not None:
+                    found.add(sym)
+        for o in c.anchor_pred.species:
+            sym = OCC_TO_SYMBOL.get(o)
+            if sym is not None:
+                found.add(sym)
+        for a in c.arrows:
+            sym = OCC_TO_SYMBOL.get(a.species)
+            if sym is not None:
+                found.add(sym)
+    return tuple(sorted(found))
+
+
 def write_catalogue_parquet(
     classes: Sequence[EventClass],
     path: str | Path,
@@ -1752,6 +1802,13 @@ def write_catalogue_parquet(
     ``metadata`` (optional) is attached as file-level (arrow schema) key/value
     metadata — e.g. the ingest-QC conditions stamp under
     ``b"pylatkmc.qc.conditions"``. It never affects the column data.
+
+    Every catalogue additionally records its own element set under
+    :data:`ELEMENTS_METADATA_KEY` (``b"Cr,Ni"``; empty for a GREY/empty catalogue)
+    so an artifact names the alloy it was built under without a full re-scan. It is
+    derived from the rows being written (:func:`catalogue_elements`), so it stays
+    byte-deterministic and can never disagree with the file's contents; a caller
+    passing that key explicitly wins (nothing in-tree does).
     """
     import pyarrow as pa
     import pyarrow.parquet as pq  # type: ignore[import-untyped]
@@ -1762,8 +1819,12 @@ def write_catalogue_parquet(
     columns = {
         field.name: pa.array([row[field.name] for row in rows], type=field.type) for field in schema
     }
+    kv: dict[bytes, bytes] = {
+        ELEMENTS_METADATA_KEY: ",".join(catalogue_elements(ordered)).encode("utf-8")
+    }
     if metadata is not None:
-        schema = schema.with_metadata(dict(metadata))
+        kv.update(metadata)
+    schema = schema.with_metadata(kv)
     table = pa.Table.from_pydict(columns, schema=schema)
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
