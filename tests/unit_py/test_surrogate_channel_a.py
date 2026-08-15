@@ -36,8 +36,12 @@ from pylatkmc.translator_v2 import translate_event_classes
 
 _T_REF = 500.0
 _THRESHOLDS = GateThresholds(
-    emin_event=0.0, emax_event=10.0, backward_emin_event=0.0,
-    snap_tol=0.9, db_tol=0.05, rcut=5.0,
+    emin_event=0.0,
+    emax_event=10.0,
+    backward_emin_event=0.0,
+    snap_tol=0.9,
+    db_tol=0.05,
+    rcut=5.0,
 )
 
 
@@ -48,20 +52,29 @@ def _sp(occ: Occ) -> OccPredicate:
 def _pe(ea: float, nu0: float, **kw: object) -> ProjectedEvent:
     base: dict[str, object] = dict(
         anchor0=(0, 0, 0),
-        delta=(DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY),
-               DeltaSite((1, 1, 0), Occ.EMPTY, Occ.NI)),
+        delta=(DeltaSite((0, 0, 0), Occ.NI, Occ.EMPTY), DeltaSite((1, 1, 0), Occ.EMPTY, Occ.NI)),
         delta_atoms=0,
-        context=(StencilSite((0, 0, 0), _sp(Occ.NI)),
-                 StencilSite((1, 1, 0), OccPredicate("EMPTY"))),
+        context=(
+            StencilSite((0, 0, 0), _sp(Occ.NI)),
+            StencilSite((1, 1, 0), OccPredicate("EMPTY")),
+        ),
         movers=((0, 0, 0),),
         saddle_tokens=(PathToken(0, SaddleKind.BRIDGE, (8, 8)),),
         arrows=(Arrow((0, 0, 0), (1, 1, 0), Occ.NI),),
         depth_sig=DepthSig(DepthKind.BULK_OR_DEEPER, -1),
         coloring=Coloring.FULL,
-        r_ctx_used=5.0, truncated=False,
-        Ea_fwd_eV=ea, nu0_fwd_hz=nu0, k_row=1.0,
-        id_saddle="s", id_final="f", event_id="e", idx_ref=0, idx_backward=-1,
-        move_atom_idx=0, source_row=0,
+        r_ctx_used=5.0,
+        truncated=False,
+        Ea_fwd_eV=ea,
+        nu0_fwd_hz=nu0,
+        k_row=1.0,
+        id_saddle="s",
+        id_final="f",
+        event_id="e",
+        idx_ref=0,
+        idx_backward=-1,
+        move_atom_idx=0,
+        source_row=0,
         proj_report=EventProjReport(0.3, 0.2, 6.0, True),
     )
     base.update(kw)
@@ -107,10 +120,12 @@ def test_per_member_raw_pair_rates() -> None:
 
 
 def test_schema1_aggregate_path_unchanged() -> None:
-    """Without the stamp (schema-1), the single aggregate rate is emitted."""
+    """Without the stamp (schema-1), the single aggregate rate is emitted —
+    behind the explicit ``include_unstamped`` opt-in (unstamped classes are
+    skip-counted by default; see test_unstamped_classes_are_skipped_and_counted)."""
     c = _two_member_class()
     c.nu0_pair_policy = None  # unstamped
-    pats, rep = translate_event_classes([c], phase_c=False)
+    pats, rep = translate_event_classes([c], phase_c=False, include_unstamped=True)
     assert not rep.phase_c and rep.n_members_total == 1
     pat = pats[0]
     assert n_procs_of(pats) == len(pat.orientation_ops)
@@ -146,8 +161,7 @@ def test_provenance_arrays_align_with_classes() -> None:
     # member indices span 0..(n_members-1); each member index appears n_orient times
     n_orient = len(pats[0].orientation_ops)
     members_line = prov.split("v2_proc_member")[1].split("= {")[1].split("};")[0]
-    ints = [int(x) for x in members_line.replace(",", " ").split()
-            if x.lstrip("-").isdigit()]
+    ints = [int(x) for x in members_line.replace(",", " ").split() if x.lstrip("-").isdigit()]
     assert len(ints) == n
     assert ints.count(0) == n_orient and ints.count(1) == n_orient
     # no model baked → v6 is NaN

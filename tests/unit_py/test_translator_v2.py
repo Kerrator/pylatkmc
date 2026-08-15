@@ -53,6 +53,7 @@ from pylatkmc.pattern_codegen import (
 )
 from pylatkmc.rate_expression import KB_EV_PER_K
 from pylatkmc.translator_v2 import (
+    HARVESTED_PAIR_POLICY,
     HZ_PER_PSINV,
     to_runtime_frame,
     translate_event_classes,
@@ -113,9 +114,15 @@ def _mk_pe(**kw: object) -> ProjectedEvent:
 
 
 def _catalogue(events: list[ProjectedEvent]) -> list[ec.EventClass]:
-    return ec.build_class_catalogue(
+    # Fixtures are stamped measured so the default unstamped gate does not
+    # skip them; the gate's own behaviour is locked by
+    # test_unstamped_classes_are_skipped_and_counted.
+    classes = ec.build_class_catalogue(
         events, t_ref_K=_T_REF, thresholds=_THRESHOLDS, nu0_fallback_hz=1.0e13
     )
+    for c in classes:
+        c.nu0_pair_policy = HARVESTED_PAIR_POLICY
+    return classes
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +308,25 @@ def test_pending_research_classes_are_skipped_and_counted() -> None:
     assert report.skipped_pending_research == 1
     assert report.n_translated == 0
     assert "skipped pending-research:  1" in "\n".join(report.summary_lines())
+
+
+def test_unstamped_classes_are_skipped_and_counted() -> None:
+    """An unstamped class (a merge run without a measured set) never bakes
+    silently: skipped + counted by default, emitted only via the explicit
+    ``include_unstamped=True`` legacy opt-in (2026-08-14 ingest pilot G6)."""
+    classes = ec.build_class_catalogue(
+        [_mk_pe()], t_ref_K=_T_REF, thresholds=_THRESHOLDS, nu0_fallback_hz=1.0e13
+    )
+    assert classes[0].nu0_pair_policy is None  # build leaves classes unstamped
+    patterns, report = translate_event_classes(classes)
+    assert patterns == []
+    assert report.skipped_unstamped == 1
+    assert report.n_translated == 0
+    assert "skipped unstamped:         1" in "\n".join(report.summary_lines())
+    patterns, report = translate_event_classes(classes, include_unstamped=True)
+    assert report.skipped_unstamped == 0
+    assert report.n_translated == 1
+    assert len(patterns) == 1
 
 
 def test_policy_literals_locked_to_ingest_qc() -> None:

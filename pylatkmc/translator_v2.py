@@ -153,6 +153,7 @@ class TranslationReport:
     n_oriented_patterns: int = 0
     skipped_quarantined: int = 0
     skipped_pending_research: int = 0
+    skipped_unstamped: int = 0
     skipped_empty_delta: int = 0
     skipped_nonconserving: int = 0
     skipped_token_mismatch: int = 0
@@ -176,6 +177,7 @@ class TranslationReport:
             f"member rate channels:      {self.n_members_total}",
             f"skipped quarantined:       {self.skipped_quarantined}",
             f"skipped pending-research:  {self.skipped_pending_research}",
+            f"skipped unstamped:         {self.skipped_unstamped}",
             f"skipped empty-delta:       {self.skipped_empty_delta}",
             f"skipped non-conserving:    {self.skipped_nonconserving}",
             f"skipped token-mismatch:    {self.skipped_token_mismatch}",
@@ -460,6 +462,7 @@ def translate_event_classes(
     classes: Sequence[EventClass],
     *,
     include_nonconserving: bool = False,
+    include_unstamped: bool = False,
     max_offset: int = 127,
     phase_c: bool = False,
     esym_model: Any = None,
@@ -481,6 +484,14 @@ def translate_event_classes(
     EXCLUDED and counted (``skipped_pending_research``) until the re-search
     agreement gate graduates them — their sites fall through to the Phase C
     surrogate channel + flag registry at runtime.
+
+    UNSTAMPED classes (``nu0_pair_policy`` neither ``"harvested_pair"`` nor
+    ``"pending_research"`` — a merge run without ``--measured-catalogue``
+    leaves ``None``) are likewise EXCLUDED and counted (``skipped_unstamped``)
+    unless ``include_unstamped=True``: baking them would emit procs at
+    unvalidated aggregate rates with no diagnostic (the 2026-08-14 ingest
+    pilot's gate G6). The opt-in restores the legacy schema-1 aggregate path
+    for deliberately unstamped catalogues.
     """
     report = TranslationReport(n_classes_in=len(classes), phase_c=phase_c)
     patterns: list[LatticePattern] = []
@@ -498,6 +509,9 @@ def translate_event_classes(
             continue
         if cls.nu0_pair_policy == PENDING_RESEARCH_POLICY:
             report.skipped_pending_research += 1
+            continue
+        if cls.nu0_pair_policy != HARVESTED_PAIR_POLICY and not include_unstamped:
+            report.skipped_unstamped += 1
             continue
         delta = _delta_rows(cls)
         if not delta:
@@ -582,7 +596,9 @@ def catalogue_is_phase_c(classes: Sequence[EventClass]) -> bool:
 
     The stamp (``nu0_pair_policy == "harvested_pair"``) is written by the
     surrogate-fit / ingest-QC leg; an unstamped (schema-1) catalogue keeps the
-    aggregate rate path unchanged.
+    aggregate rate path — but only via the explicit ``include_unstamped=True``
+    opt-in of :func:`translate_event_classes` (unstamped classes are skipped
+    and counted by default).
     """
     return any(c.nu0_pair_policy == HARVESTED_PAIR_POLICY for c in classes)
 
@@ -591,6 +607,7 @@ def translate_catalogue(
     path: str | Path,
     *,
     include_nonconserving: bool = False,
+    include_unstamped: bool = False,
     esym_model: Any = None,
 ) -> tuple[list[LatticePattern], TranslationReport]:
     """Load an EventClass Parquet catalogue and translate it (convenience).
@@ -603,6 +620,7 @@ def translate_catalogue(
     return translate_event_classes(
         classes,
         include_nonconserving=include_nonconserving,
+        include_unstamped=include_unstamped,
         phase_c=catalogue_is_phase_c(classes),
         esym_model=esym_model,
     )

@@ -117,10 +117,14 @@ and the deleted `.agents/AGENT.md` claim rates are baked-per-T and that a T-mism
   `SP_VACANT` **or** an absent site (stub 255) — harvest-side EMPTY can't distinguish a
   vacancy from vacuum beyond the slab. A **delta** `Vacant` row is strict `SP_VACANT`: the
   site must exist to receive an atom (adatom moves onto non-sites correctly never fire).
-- **v2 translation skips are counted, never silent** (`TranslationReport`): empty-delta,
-  non-conserving (`delta_atoms != 0`, off by default — these would fire as spontaneous
+- **v2 translation skips are counted, never silent** (`TranslationReport`): quarantined,
+  pending-research, **unstamped** (`nu0_pair_policy` not `harvested_pair` — skipped by default;
+  the legacy schema-1 aggregate bake needs the explicit `include_unstamped=True` opt-in, so a
+  merge run without `--measured-catalogue` can never silently bake unvalidated aggregate rates),
+  empty-delta, non-conserving (`delta_atoms != 0`, off by default — these would fire as spontaneous
   atom creation/deletion), token-mismatch, unsupported predicates, offset overflow. On the
-  2026-07-18 production NiCr catalogue: 439 classes → 275 translated / 4392 oriented procs.
+  2026-07-18 production NiCr catalogue (unstamped, so via the opt-in): 439 classes →
+  275 translated / 4392 oriented procs.
   An all-skipped (empty) catalogue emits a compilable stub proclist — the empty rate-table
   branch still carries the `RateConst` typedef the NULL public glue references (both paths).
 - **Phase C is an ADDITIVE, gated third layer on the v2 path** (`pylatkmc/surrogate_codegen.py`
