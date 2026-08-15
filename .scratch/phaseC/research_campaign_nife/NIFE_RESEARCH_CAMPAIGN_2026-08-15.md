@@ -100,7 +100,8 @@ promotion of the graduated candidate is your call.**
 3. **Re-refinement, not independent search.** The driver starts pARTn from the stored saddle
    (as in the NiCr leg), so ΔEa measures padded-cluster/projection/re-relaxation consistency —
    the campaign's stated purpose — not an independent rediscovery of the transition. No
-   independent-search control arm exists in either leg.
+   independent-search control arm exists in either leg. (The 2026-08-15 full-state arm, §8,
+   closes the cluster-vs-full gap for NiFe but is likewise refinement from the stored saddle.)
 4. **delr_sad gate is 2.0 Å vs pyKMC's 0.4** (deliberate, inherited from the July driver): 51% of
    accepted wins drift >0.4 Å, but drift correlates 0.95 with whole-cluster relaxation and −0.21
    with \|ΔEa\| — it tracks the padded cluster settling, not saddle misidentification.
@@ -125,3 +126,28 @@ promotion of the graduated candidate is your call.**
 4. **Tol ruling 3.6** — now worth 44.8% of NiFe corpus flux (§4).
 5. Next legs: stratified archetype/Fe-context searches; B2 (WILDCARD crash) and B3 (Fe surrogate
    categories) remain separate prerequisites for the surrogate channel, not for these measured rates.
+
+## 8 Full-state control arm (follow-on slice, executed 2026-08-15)
+
+Mirrors the July NiCr full-state benchmark (`research_campaign/rc_fullstate.py`) on NiFe: 15 of
+the 180 graduated classes (top-10 corpus flux + 5 stratified tail; barriers 0.27–0.66 eV, drawn
+from 10 runs) re-searched in their **full production frames** (9,674–9,679 atoms, all free). Each
+stored cluster is registered into its own run's `trajkmc.xyz` frame at the harvest step
+(`pykmc.events` first-seen central atom + cKDTree exact matching; registration max deviation
+≤ 0.0023 Å) and re-refined from the stored saddle.
+
+| | result |
+|---|---|
+| accepted / in-band | **15/15** / 15/15 (0 token flicker; rung-1 sufficed on all 15) |
+| Ea_full − Ea_cluster | **mean +8.6 meV · median +7.3 · range [+2.7, +17.2] — all positive** |
+| Ea_full − Ea_rep | median −1.0 meV; max \|·\| 44.7 meV (within band) |
+| relax_shift_max | ≤ 0.002 Å — the full frame re-minimizes to the stored production state |
+
+The padded-cluster arm systematically **under**-estimates the NiFe barrier by ~9 meV (uniform
+sign ⇒ bias, not noise); the NiCr T500 precedent (≤5.9 meV) is the same order. Both are small
+against the ±0.05 eV graduation band. Conditions: same re-refinement protocol as §2.4, delr_sad
+gate 2.0 Å, measured 2026-08-15 on the Linux box. Harness `rc_fullstate.py` (per-run
+frames/events; **adds a min-image back-translation fix** — the July arm's bare `+t` teleports a
+boundary-straddling cluster by a full box length and spuriously fails acceptance; that bug is
+latent in the NiCr arm, whose 15 targets never straddled the boundary). Log:
+`fullstate_log.csv`; per-job state under `jobs_fullstate/` (untracked, like `jobs/`).
