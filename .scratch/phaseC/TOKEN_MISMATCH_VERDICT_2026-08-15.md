@@ -344,3 +344,99 @@ classes that translate today. Flagging it because it is the one visible change i
   `sample_final_resid_NiFe.csv`)
 - Inputs (unmodified): `/data/pylatkmc_ingest/sweep_catalogue_2026-08-14_{pilot,full}/`,
   `~/pykmc/production_NiCrFe/runs/*/reference_table.pickle`
+
+---
+
+## 10. Adversarial verification addendum (2026-08-15, post-commit)
+
+Written after the fix landed as `8f49e18` (so §7's "left UNCOMMITTED" and the §0 header are
+stale). Three independent Opus verifiers ran against this report: a from-scratch re-measurement
+of every load-bearing number, a refutation-oriented review of the fix, and a skeptic on the
+verdict itself. **The core verdict and the fix survive; several framings do not.**
+
+### 10.1 Confirmed exactly (independent re-measurement, fresh code)
+
+All seven numerical pillars reproduce bit-for-bit: the 90,472/90,472 arrows==tokens identity
+(plus: arrow starts are distinct within every class); the 2,253 / 5,014 / 287 raw counts and all
+three quarantine bridges (−77 / −150 / −2); the subset-with-equality-exactly-on-non-mismatch
+biconditional (93,736/93,736, strict); every §2a/§2b bucket in both alloys; zero single-mover
+mismatches; 0/15 flicker-list overlap (also 0 against the FULL class populations and six other
+v3 catalogues on disk); the 0.0512 % flux share, the 23-class count, the 119,931 denominator,
+and both medians. NiCr's 4,864 non-quarantined mismatches are 100 % `pending_research`.
+
+### 10.2 Corrections to this report's numbers
+
+- **§2d**: NiFe `Ni+Ni` matched = **0**, not 7 (the 7 is NiCr-only, and those 7 are
+  UNCLASSIFIED/NC topologies, not chains — which strengthens the mechanism claim).
+- **§6 selection row**: "23 / 2,176 (38 …)" mixes populations. Consistent pairs: **23 classes /
+  30 selections** (non-quarantined, the 0.0512 % basis) or **30 / 38** (all 2,253 mismatches).
+- **§7 collisions**: "106" is not reproducible as stated; measured on the natural runtime key:
+  **130 colliding class pairs with the fix (20 pre-existing + 110 new; 111 recovered classes
+  participate)**. State the key (anchor species + D4h delta image + D4h context image) with the
+  number.
+- **§6 medians** are the non-quarantined subset (whole-corpus: 1.6147 vs 0.9892) — label them.
+- `8f49e18`'s commit message says "0.035 % of corpus flux"; §6 says 0.0512 % of *non-quarantined*
+  flux. Different denominators — label whichever is quoted next.
+
+### 10.3 Framings that did NOT survive
+
+1. **"≈93 % genuine" is a class-count statement that inverts under kinetic weight.** Recovered
+   NiFe flux is concentrated (top 10 classes = 51.4 %, top 100 = 99.1 %), and 43 of the top 100
+   — carrying **73.5 % of ALL recovered flux** — are §2e half-shift artifacts (shortest hop
+   < 0.7 × 1NN), including both §4-E3 exemplars. Honest statement: **~93 % genuine by class
+   count, ~26 % genuine by kinetic weight.** Consequence: the §5 symmetric-residual G3 gate is
+   not an unranked follow-up — it should be a **prerequisite for any bake that actually enables
+   these classes** (any `include_unstamped` promotion or future multi-mover graduation).
+2. **§8.5's sequencing benefit is speculative.** The graduation pipeline is structurally
+   single-mover (`rc_prep.py` takes one `move_atom_idx`; `rc_accept.py:47-57` gates on the
+   argmax mover; every class ever stamped `harvested_pair` in any catalogue is n_arr == 1), so
+   the "suddenly-appearing 5,014-class skip" cannot occur with current tooling. The inverse risk
+   is real: the old skip was a de-facto quarantine of this population; with the fix landed,
+   future multi-mover graduation would bake it silently unless §5 closes first.
+3. **"Kinetically almost irrelevant" over-reads a corpus average.** The 0.0512 % is a
+   T300–T800 average with a strong trend: **0.0006 % (300 K) → 0.1055 % (800 K)**. The recovered
+   Ea distribution is bimodal — 37.4 % of recovered non-quarantined NiFe classes sit below
+   1.0 eV (sub-0.6 eV density is *higher* than the matched population's) — and harvest-side flux
+   (competing against the full off-lattice event set) is not a bound on their weight inside a
+   generated lattice model. The conclusion stands *at the measured conditions*; drop the blanket
+   phrasing.
+4. **The NiFe → NiCr "not urgent" extrapolation is not conservative.** NiCr's recovered-vs-
+   matched median barrier gap is 0.404 eV (NiFe: 0.666 eV) and its concerted population is much
+   larger (2,420 matched 2-mover classes vs 319). Expect NiCr's recovered flux share to exceed
+   NiFe's, plausibly by an order of magnitude. Measure it before repeating §8.6 for NiCr.
+5. **§7's collision reassurance rests on the wrong precedent.** All 20 pre-existing collisions
+   are **same-`action_id` double counts** — saddle-token flicker splitting ONE physical channel
+   into two class rows whose rates then sum (≈5 % inflation in the measured example; up to 2×) —
+   exactly the hazard `canonical.serialize_variant`'s docstring parks. They are not parallel
+   channels. Of the 110 new pairs, 107 are the benign different-action kind (genuine relay ∥
+   direct hop); **2 are new same-action double counts** (recovered+recovered). Only 2 of the 111
+   recovered colliders are half-shift artifacts. Split the two populations when discussing this;
+   the same-action family (22 pairs) is a small pre-existing defect worth its own line item.
+
+### 10.4 Additional visible consequences of enabling the recovered classes (unstated in §7)
+
+- `PYLATKMC_V2_MAX_REACH_IJ` grows **8 → 10** on full NiFe → the runtime's anti-aliasing
+  startup guard (`replica.c` vacuum-gap refusal) tightens; a config that starts today could be
+  refused after an `include_unstamped` bake. (`reach_k` unchanged at 5.)
+- Oriented procs grow **232,000 → 266,768 (+15.0 %)**; AvailSites memory is
+  O(n_procs × n_sites), so that is the cost line for any promotion sizing.
+- Neither binds any shipping model today (`nicr_v2_scratch` is schema-v3, 22 classes).
+
+### 10.5 Test strengthening (applied, uncommitted, alongside this addendum)
+
+The committed regression test asserted only the negative half of its headline claim and its
+ordering assertion restated the implementation. Added to
+`test_same_species_concerted_chain_binds_tokens_via_arrows`: a **direct Phase A binding check**
+(token *i* carries the content of the arrow whose canonical start is *i*-th in crystal lex
+order, arrows identified by role, no reference to the implementation) and the **positive
+context-row assertion** (exactly one context row, an Ni species pin, on the one footprint site
+in neither delta row — frame-robust, no fixture-frame offsets). File-local suite: 26/26 green.
+
+### 10.6 Disposition deltas vs §8
+
+§8.1–8.4 stand (take the fix — its correctness was confirmed at every attack surface; keep the
+flicker track separate; §5 as its own item). Amendments: **promote §5 to a prerequisite of any
+bake that enables the recovered classes** (10.3.1/10.3.2); **treat §8.6's kinetic-irrelevance as
+NiFe-at-measured-conditions only** (10.3.3/10.3.4); **add the 22 same-action double-count pairs
+as a new small defect item** (10.3.5); and record the reach/proc-count costs (10.4) in whatever
+memo carries the promotion decision.

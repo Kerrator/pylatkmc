@@ -465,6 +465,16 @@ def test_same_species_concerted_chain_binds_tokens_via_arrows() -> None:
     assert movers == [to_runtime_frame(o) for o in sorted(a.start for a in cls.arrows)]
     # ...and that is strictly more than the delta-derived set the old code used.
     assert len(movers) > len({d.off for d in cls.delta if d.before is not Occ.EMPTY})
+    # Direct Phase A binding check, independent of the mover derivation: token i
+    # carries the token content of the arrow whose canonical start is i-th in
+    # crystal lex order. Identify each stored arrow by its role — A's arrow ends
+    # on the filled vacancy, B's on the handoff site.
+    starts = sorted(a.start for a in cls.arrows)
+    fill = next(tuple(d.off) for d in cls.delta if d.before is Occ.EMPTY)
+    a_rank = starts.index(next(a.start for a in cls.arrows if tuple(a.end) == fill))
+    tok_a, tok_b = cls.saddle_token[a_rank], cls.saddle_token[1 - a_rank]
+    assert (tok_a.kind, tuple(tok_a.coord_sig)) == (SaddleKind.HOLLOW_FCC, (8, 8))
+    assert (tok_b.kind, tuple(tok_b.coord_sig)) == (SaddleKind.OTHER, (9, 9))
 
     patterns, report = translate_event_classes([cls])
     assert report.skipped_token_mismatch == 0
@@ -475,6 +485,13 @@ def test_same_species_concerted_chain_binds_tokens_via_arrows() -> None:
     (pat,) = patterns
     assert len(pat.delta) == 2
     assert to_runtime_frame(a_off) not in {r.off for r in pat.delta}
+    # ...and the POSITIVE half of that claim, frame-robustly (no fixture-frame
+    # offsets): exactly one context row, an Ni species pin, sitting on the one
+    # footprint site that is in neither delta row.
+    assert [(r.kind, r.species) for r in pat.context] == [("SPECIES", "Ni")]
+    (ctx,) = pat.context
+    assert ctx.off not in {r.off for r in pat.delta}
+    assert len({r.off for r in pat.delta} | {ctx.off}) == 3
 
 
 def test_multimover_transversal_matches_phase_a() -> None:
