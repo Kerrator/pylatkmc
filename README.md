@@ -72,7 +72,8 @@ To inspect the catalogue translation without compiling:
 
 ```bash
 pylatkmc-gen processes models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
-# → 358 Processes across 9 families, Ea_eV range, scatter warnings
+# → 350 Processes across 8 translated families, Ea_eV range, scatter warnings
+#   (adatom_attachment is catalogue-listed but adatom-gated, so it adds none)
 ```
 
 For the full architectural walkthrough see
@@ -107,7 +108,7 @@ For the full architectural walkthrough see
 - **[`docs/CATALOGUE_SCHEMA.md`](docs/CATALOGUE_SCHEMA.md)** — *new.* Every
   CSV in the pyKMC→pylatkmc pipeline: columns, types, formulas, producers,
   and the `nu0_Hz`/`nu0_source` provenance.
-- **[`docs/FAMILY_REGISTRY.md`](docs/FAMILY_REGISTRY.md)** — *new.* The 14
+- **[`docs/FAMILY_REGISTRY.md`](docs/FAMILY_REGISTRY.md)** — *new.* The 15
   FCC families, seed-rule precedence, and how to add/refine one.
 - **[`docs/KMOS_COMPARISON.md`](docs/KMOS_COMPARISON.md)** — what we
   borrowed, what's still kmos-different.

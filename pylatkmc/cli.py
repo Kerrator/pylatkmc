@@ -61,7 +61,12 @@ def cmd_processes(args: argparse.Namespace) -> int:
     from collections import Counter
 
     from .loader import load
-    from .translator import load_family_rate_table, prefactor_coverage, translate_all
+    from .translator import (
+        _ADATOM_GATED_FAMILIES,
+        load_family_rate_table,
+        prefactor_coverage,
+        translate_all,
+    )
 
     spec_path = Path(args.spec).resolve()
     spec = load(spec_path)
@@ -97,7 +102,12 @@ def cmd_processes(args: argparse.Namespace) -> int:
         f"the rest fall back to k0={spec.rate_data.k0_Hz:.2e} Hz"
     )
     for fid, src in sorted(cov.items()):
-        print(f"  {fid:34s} {src}")
+        gated = (
+            "  (adatom-gated, not translated)"
+            if fid in _ADATOM_GATED_FAMILIES
+            else ""
+        )
+        print(f"  {fid:34s} {src}{gated}")
 
     fam_proc_counts = Counter(p.family_id for p in processes)
     print(f"\nTotal Processes: {len(processes)}")

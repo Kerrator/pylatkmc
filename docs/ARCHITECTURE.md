@@ -158,7 +158,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
 }
 ```
 
-For ni_fe_cr_v1's 358 Processes, the tree depth is ~7 levels and
+For ni_fe_cr_v1's 350 Processes, the tree depth is ~7 levels and
 `touchup_a` is ~5000 lines.
 
 ---

@@ -115,7 +115,7 @@ python tools/build_initial_config.py \
 
 # 3. Inspect the catalogue translation
 pylatkmc-gen processes models/nife_ternary/nife_ternary.kmcspec.toml
-# expect: ~360 Processes (catalogue is the same, T differs but counts don't)
+# expect: ~350 Processes (catalogue is the same, T differs but counts don't)
 
 # 4. Build proclist.c
 pylatkmc-gen build models/nife_ternary/nife_ternary.kmcspec.toml

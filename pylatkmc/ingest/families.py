@@ -58,6 +58,20 @@ def _all(*preds: Predicate) -> Predicate:
     return lambda r: all(p(r) for p in preds)
 
 
+def _dz_up(r: pd.Series) -> bool:
+    """True iff move_dz_signed is present, numeric, and strictly positive."""
+    try:
+        return float(r.get("move_dz_signed")) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _not_dz_up(r: pd.Series) -> bool:
+    """Negative, zero, NaN, or missing move_dz_signed (splits attachment
+    from detachment without dropping rows from CSVs predating the column)."""
+    return not _dz_up(r)
+
+
 # ── Environment-rule helpers ────────────────────────────────────────────────
 
 def _bucket_by_n_vac_nn1(r: pd.Series) -> str:
@@ -250,18 +264,59 @@ FAMILY_REGISTRY: list[FCCFamily] = [
         review_notes="Stage 1a exchange_down events.",
     ),
     FCCFamily(
-        family_id="surface_subsurface_exchange_lateral",
-        family_name="Lateral exchange",
-        movement_template="2-atom concerted exchange, large in-plane component",
+        family_id="adatom_attachment",
+        family_name="Adatom attachment",
+        movement_template="single-atom, adatom drops into a surface vacancy, "
+                          "Δz ≈ −1.5 Å, coord 4→7",
         seed_rule=_all(
             _s("motif_family_3d", "surface_subsurface_exchange"),
             _s("move_type_pre_zlayer", "exchange_lateral"),
+            _not_dz_up,
         ),
         environment_rule=_bucket_by_n_vac_nn1,
         priority=0,
         fit_barrier=True,
-        review_notes="Stage 1a exchange_lateral — mover traverses ≥3.5 Å with "
-                     "layer change. 9k events.",
+        review_notes="Renamed from surface_subsurface_exchange_lateral "
+                     "(P2+P3 NiFe audit, 2026-08-14): all 9,390 curated rows "
+                     "are single-atom adatom re-insertions — n_moved==1, "
+                     "disp_top2 ≤ 0.14 Å, coord_mover 4→7, move_dz_signed in "
+                     "[−1.55, −1.44] Å — NOT 2-atom concerted exchanges. The "
+                     "Stage 1a label 'exchange_lateral' is a geometric "
+                     "misnomer (layer change + ≥3.5 Å traverse). "
+                     "mover_depth_initial==0.0 ('surface') is an artifact of "
+                     "building the z-layer basis on adatom-containing "
+                     "configs: the mover starts ABOVE the surface layer. "
+                     "Reverse leg: adatom_detachment (see below). NOT "
+                     "runtime-translated: the v0.3 lattice has no "
+                     "above-surface adatom sites (see translator "
+                     "_ADATOM_GATED_FAMILIES).",
+    ),
+    FCCFamily(
+        family_id="adatom_detachment",
+        family_name="Adatom detachment",
+        movement_template="single-atom, surface atom pops up to an adatom "
+                          "site leaving a vacancy, Δz ≈ +1.5 Å",
+        seed_rule=_all(
+            _s("motif_family_3d", "surface_subsurface_exchange"),
+            _s("move_type_pre_zlayer", "exchange_lateral"),
+            _dz_up,
+        ),
+        environment_rule=_bucket_by_n_vac_nn1,
+        priority=0,
+        fit_barrier=True,
+        review_notes="Reverse leg of adatom_attachment. Present in the raw "
+                     "100Ni reference tables (follow idx_backward from "
+                     "adatom_attachment rows; Ea 1.68–2.78 eV, d 4.1–4.3 Å) "
+                     "but 0 curated rows today: BARRIER_CUTOFF = 1.2 eV "
+                     "(classify_lattice_events_parts/01_imports.py in "
+                     "PyKMC_Analysis) excludes them upstream of family "
+                     "assignment. Registered so the missing leg is an "
+                     "explicit modeling decision, not a silent cap artifact: "
+                     "detachment is ≥6 orders of magnitude slower than "
+                     "attachment at ≤1200 K, so its absence is defensible "
+                     "for surface-diffusion studies, but it is load-bearing "
+                     "for dissolution/roughening — populate via a per-family "
+                     "cap exemption when needed.",
     ),
     FCCFamily(
         family_id="subsurface_migration_axial",
@@ -357,9 +412,28 @@ def validate_registry(df: pd.DataFrame,
     return {"n_rows": len(df), "family_hits": hits}
 
 
+# Legacy ids that may appear in older audit logs, CSVs, or notebooks.
+# canonical_family_id / family_by_id resolve these so historical
+# override_family_id values and pre-rename data keep working.
+LEGACY_FAMILY_ALIASES: dict[str, str] = {
+    "surface_subsurface_exchange_lateral": "adatom_attachment",
+}
+
+
+def canonical_family_id(family_id: str) -> str:
+    """Resolve a possibly-legacy family id to its current registry id.
+
+    Unknown ids pass through unchanged. Every ingest consumer that keys on
+    ``family_id`` strings from external data (assigned CSVs, prefactor CSVs,
+    audit logs) must canonicalize through here, or pre-rename data silently
+    stops matching the registry."""
+    return LEGACY_FAMILY_ALIASES.get(family_id, family_id)
+
+
 def family_by_id(family_id: str,
                  registry: Iterable[FCCFamily] | None = None,
                  ) -> FCCFamily | None:
+    family_id = canonical_family_id(family_id)
     for f in (registry if registry is not None else FAMILY_REGISTRY):
         if f.family_id == family_id:
             return f

@@ -323,7 +323,9 @@ def test_translate_simple_hop_empty_when_no_matching_family() -> None:
 
 
 # ---------------------------------------------------------------------------
-# translate_all — full dispatch across all 12 fit-barrier families
+# translate_all — full dispatch across the 11 runtime-translated families
+# (adatom_attachment / adatom_detachment are fit-barrier families in the
+# registry but adatom-gated out of runtime translation)
 # ---------------------------------------------------------------------------
 
 from pylatkmc.translator import translate_all  # noqa: E402
@@ -342,11 +344,10 @@ def test_translate_all_dispatches_per_family() -> None:
         _row("subsurface_interlayer_hop", "nv1=2", 50, 1.0),  # 8
         _row("surface_subsurface_exchange_up", "nv1=4", 40, 1.0),  # 4
         _row("surface_subsurface_exchange_down", "nv1=4", 40, 0.9),  # 4
-        _row("surface_subsurface_exchange_lateral", "nv1=4", 40, 1.0),  # 8
         _row("subsurface_migration_axial", "nv1=2", 30, 1.0),  # 12
         _row("subsurface_migration_interlayer", "nv1=2", 30, 1.0),  # 8
     ]
-    expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 4 + 4 + 8 + 12 + 8  # = 86
+    expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 4 + 4 + 12 + 8  # = 78
     out = translate_all(rows)
     assert len(out) == expected_total
 
@@ -386,6 +387,25 @@ def test_translate_all_known_skipped_no_warning() -> None:
 
 def test_translate_all_empty_input() -> None:
     assert translate_all([]) == []
+
+
+def test_translate_all_adatom_gated_families_skipped_silently() -> None:
+    """adatom_attachment / adatom_detachment (and the legacy
+    surface_subsurface_exchange_lateral id from pre-rename catalogues) are
+    single-atom adatom moves needing above-surface sites the lattice lacks
+    (P2+P3 NiFe audit, 2026-08-14) — no Processes, no unknown-family
+    warning."""
+    rows = [
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),  # 4
+        _row("adatom_attachment", "nv1=4", 40, 1.0),
+        _row("adatom_detachment", "nv1=4", 5, 2.1),
+        _row("surface_subsurface_exchange_lateral", "nv1=4", 40, 1.0),
+    ]
+    unknown_seen: list[str] = []
+    out = translate_all(rows, on_unknown_family=unknown_seen.append)
+    assert unknown_seen == []
+    assert all(p.family_id == "surface_1NN_inplane" for p in out)
+    assert len(out) == 4
 
 
 # ===========================================================================

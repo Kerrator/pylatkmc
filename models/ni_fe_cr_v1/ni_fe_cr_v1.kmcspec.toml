@@ -89,3 +89,4 @@ family_table    = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classific
 fallback_scalar = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table.csv"
 temperature_K   = 500.0
 k0_Hz           = 1.0e13
+prefactor_style = "htst"

@@ -109,6 +109,122 @@ def test_family_by_id_roundtrip():
     assert family_by_id("does_not_exist") is None
 
 
+def test_family_by_id_resolves_legacy_alias():
+    """Pre-rename audit logs / CSVs say surface_subsurface_exchange_lateral;
+    it must resolve to the renamed adatom_attachment family."""
+    fam = family_by_id("surface_subsurface_exchange_lateral")
+    assert fam is not None
+    assert fam.family_id == "adatom_attachment"
+
+
+# ── Adatom attachment / detachment split (2026-08-14 audit) ────────────────
+
+def _adatom_row(**kwargs) -> pd.Series:
+    base = dict(motif_family_3d="surface_subsurface_exchange",
+                move_type_pre_zlayer="exchange_lateral",
+                direction_family_3d="<111>_interlayer",
+                site_class_3d="surface", n_vac_nn1_initial=2,
+                energy_barrier=0.55)
+    base.update(kwargs)
+    return _row(**base)
+
+
+def test_assign_one_adatom_attachment_negative_dz():
+    out = _assign_one(_adatom_row(idx_ref=10, move_dz_signed=-1.50),
+                      audit={}, registry=FAMILY_REGISTRY)
+    assert out["family_id"] == "adatom_attachment"
+    assert out["assignment_status"] == "accepted"
+
+
+def test_assign_one_adatom_attachment_missing_dz():
+    """CSVs predating the move_dz_signed column must still land on
+    attachment, not fall to unresolved."""
+    out = _assign_one(_adatom_row(idx_ref=11),
+                      audit={}, registry=FAMILY_REGISTRY)
+    assert out["family_id"] == "adatom_attachment"
+
+
+def test_assign_one_adatom_detachment_positive_dz():
+    """Zero curated rows today (BARRIER_CUTOFF excludes them) but the seed
+    must activate if the cap is ever lifted."""
+    out = _assign_one(_adatom_row(idx_ref=12, move_dz_signed=1.50,
+                                  energy_barrier=2.1),
+                      audit={}, registry=FAMILY_REGISTRY)
+    assert out["family_id"] == "adatom_detachment"
+
+
+# ── Legacy-id canonicalization through the rate-table build ────────────────
+
+def _legacy_assigned_df() -> pd.DataFrame:
+    """Minimal stand-in for a PRE-RENAME classified_events_with_families.csv."""
+    return pd.DataFrame([
+        {"family_id": "surface_subsurface_exchange_lateral",
+         "assignment_status": "accepted",
+         "family_bucket_id": "nv1=4", "energy_barrier": 1.00},
+        {"family_id": "surface_subsurface_exchange_lateral",
+         "assignment_status": "accepted",
+         "family_bucket_id": "nv1=4", "energy_barrier": 1.02},
+        {"family_id": "surface_1NN_inplane",
+         "assignment_status": "accepted",
+         "family_bucket_id": "nv1=5", "energy_barrier": 0.70},
+    ])
+
+
+def test_build_family_table_canonicalizes_legacy_ids():
+    """A stage-2 re-run over a pre-rename CSV must not silently drop the
+    9,390-row family (2026-08 review finding)."""
+    tbl = build_family_table(_legacy_assigned_df())
+    att = tbl[(tbl["family_id"] == "adatom_attachment")
+              & (tbl["family_bucket_id"] == "nv1=4")]
+    assert len(att) == 1
+    assert int(att.iloc[0]["n_events"]) == 2
+    assert abs(float(att.iloc[0]["Ea_mean_eV"]) - 1.01) < 1e-9
+    # The legacy id itself must not appear in the output table.
+    assert not (tbl["family_id"] == "surface_subsurface_exchange_lateral").any()
+
+
+def test_build_family_table_warns_on_unclaimed_family_id():
+    df = _legacy_assigned_df()
+    df.loc[len(df)] = {"family_id": "mystery_family",
+                       "assignment_status": "accepted",
+                       "family_bucket_id": "nv1=1", "energy_barrier": 0.5}
+    with pytest.warns(UserWarning, match="mystery_family"):
+        build_family_table(df)
+
+
+def test_nu0_loaders_canonicalize_legacy_ids(tmp_path):
+    """Prefactor CSVs keyed on the legacy id must still join onto the renamed
+    family — nu0_source must stay trajectory_bucket, not degrade to k0
+    (2026-08 review finding)."""
+    from pylatkmc.ingest.build_family_rate_table import (
+        attach_nu0,
+        load_bucket_nu0,
+        load_family_nu0,
+    )
+
+    bucket_csv = tmp_path / "family_prefactors_bucket.csv"
+    bucket_csv.write_text(
+        "family_id,family_bucket_id,nu0_Hz\n"
+        "surface_subsurface_exchange_lateral,nv1=4,7.33e12\n")
+    family_csv = tmp_path / "family_prefactors.csv"
+    family_csv.write_text(
+        "motif,nu0_Hz\nsurface_subsurface_exchange_lateral,7.0e12\n")
+
+    bucket_nu0 = load_bucket_nu0(bucket_csv)
+    family_nu0 = load_family_nu0(family_csv)
+    assert ("adatom_attachment", "nv1=4") in bucket_nu0
+    assert "adatom_attachment" in family_nu0
+
+    tbl = pd.DataFrame([
+        {"family_id": "adatom_attachment", "family_bucket_id": "nv1=4"},
+        {"family_id": "adatom_attachment", "family_bucket_id": "nv1=2"},
+    ])
+    out = attach_nu0(tbl, bucket_nu0, family_nu0)
+    assert out.iloc[0]["nu0_source"] == "trajectory_bucket"
+    assert abs(out.iloc[0]["nu0_Hz"] - 7.33e12) < 1e6
+    assert out.iloc[1]["nu0_source"] == "family"
+
+
 # ── Assignment pipeline ────────────────────────────────────────────────────
 
 def test_assign_one_matches_surface_1NN_inplane():

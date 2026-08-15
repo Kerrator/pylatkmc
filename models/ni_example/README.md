@@ -24,7 +24,7 @@ pyKMC sim (pARTn saddle search)  →  classified_events_with_families.csv (per e
 
 A "family" is a **type of move**; pylatkmc expands one catalogue row into one
 compiled Process per symmetry-equivalent direction, so a handful of families
-becomes a few hundred Processes (358 for this catalogue). The runtime computes
+becomes a few hundred Processes (350 for this catalogue). The runtime computes
 each rate from the baked prefactor + barrier at the run temperature:
 `k = ν₀·exp(−Eₐ/kᴮT)`.
 
@@ -42,13 +42,19 @@ fittable families (those with real events and a defined barrier) are:
 | `subsurface_interlayer_hop` | subsurface↔subsurface ⟨111⟩ interlayer hop | 1.02–1.08 |
 | `surface_subsurface_exchange_up` | concerted 2-atom exchange, +z | 0.96–1.05 |
 | `surface_subsurface_exchange_down` | concerted 2-atom exchange, −z | 0.00–1.01 |
-| `surface_subsurface_exchange_lateral` | concerted 2-atom exchange, in-plane + layer change | ~1.00 |
 | `subsurface_migration_interlayer` | subsurface vacancy migration via ⟨111⟩ displacement | 0.98–1.07 |
 
 Visibility-only / zero-event families (`bulk_1NN_inplane`, `surface_2NN_diagonal`,
 `subsurface_migration_axial`, `concerted_multisite`, `unresolved_multisite`) are
 present in the CSV for provenance but carry no fittable barrier, so
 `pylatkmc-gen` skips them automatically.
+
+The vendored CSV also carries `surface_subsurface_exchange_lateral` rows (~1.00 eV)
+— renamed `adatom_attachment` after the 2026-08-14 audit proved they are
+single-atom adatom re-insertions, not 2-atom exchanges. They need an
+above-surface adatom site the lattice does not have, so the translator skips
+them (old and new id alike; see `translator._ADATOM_GATED_FAMILIES`) and they
+emit no Processes.
 
 Each row's bucket key (e.g. `nv1=1_nv2=0`) records the local vacancy environment
 in which the move was observed; pylatkmc gates the compiled Process on that exact

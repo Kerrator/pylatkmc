@@ -23,12 +23,13 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
-from .families import FAMILY_REGISTRY
+from .families import FAMILY_REGISTRY, canonical_family_id
 
 
 def _barrier_stats(barriers: pd.Series) -> dict:
@@ -64,8 +65,11 @@ def load_family_nu0(path: Path) -> dict[str, float]:
     pf = pd.read_csv(path)
     if "motif" not in pf.columns or "nu0_Hz" not in pf.columns:
         return {}
+    # canonical_family_id: prefactor CSVs are trajectory-recovery artifacts
+    # that may predate a family rename — re-key legacy ids so the nu0 join
+    # keeps matching (else nu0_source silently degrades to k0).
     return {
-        str(m): float(v)
+        canonical_family_id(str(m)): float(v)
         for m, v in zip(pf["motif"], pf["nu0_Hz"], strict=False)
         if pd.notna(v)
     }
@@ -85,8 +89,10 @@ def load_bucket_nu0(path: Path) -> dict[tuple[str, str], float]:
     need = {"family_id", "family_bucket_id", "nu0_Hz"}
     if not need.issubset(pf.columns):
         return {}
+    # canonical_family_id: see load_family_nu0 — legacy-keyed prefactor rows
+    # must keep matching renamed families.
     return {
-        (str(f), str(b)): float(v)
+        (canonical_family_id(str(f)), str(b)): float(v)
         for f, b, v in zip(pf["family_id"], pf["family_bucket_id"], pf["nu0_Hz"], strict=False)
         if pd.notna(v)
     }
@@ -118,6 +124,22 @@ def attach_nu0(
 
 def build_family_table(assigned_df: pd.DataFrame) -> pd.DataFrame:
     accepted = assigned_df[assigned_df["assignment_status"] == "accepted"]
+    # Canonicalize: a pre-rename classified_events_with_families.csv carries
+    # legacy family ids; without this the exact-match grouping below silently
+    # drops every such row from the rate table.
+    accepted = accepted.assign(
+        family_id=accepted["family_id"].map(
+            lambda v: canonical_family_id(v) if isinstance(v, str) else v
+        )
+    )
+    registry_ids = {f.family_id for f in FAMILY_REGISTRY}
+    unclaimed = sorted(set(accepted["family_id"].dropna()) - registry_ids)
+    if unclaimed:
+        warnings.warn(
+            f"{len(unclaimed)} accepted family_id(s) not in FAMILY_REGISTRY — "
+            f"their rows are dropped from the rate table: {unclaimed}",
+            stacklevel=2,
+        )
     rows = []
     for family in FAMILY_REGISTRY:
         fam_accepted = accepted[accepted["family_id"] == family.family_id]

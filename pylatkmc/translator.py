@@ -629,7 +629,6 @@ _FAMILY_DIRECTIONS: dict[str, tuple[CoordOffset, ...]] = {
     "subsurface_interlayer_hop": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
     "surface_subsurface_exchange_up": INTERLAYER_1NN_DIRS_UP,  # 4
     "surface_subsurface_exchange_down": INTERLAYER_1NN_DIRS_DOWN,  # 4
-    "surface_subsurface_exchange_lateral": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,
     "subsurface_migration_axial": BULK_1NN_DIRS,  # 12
     "subsurface_migration_interlayer": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
 }
@@ -644,12 +643,37 @@ _FAMILIES_SKIPPED: frozenset[str] = frozenset(
     }
 )
 
+# Adatom-gated families — deliberately NOT translated until the lattice has
+# above-surface adatom positions + adatom-presence conditions.
+#
+# The P2+P3 NiFe audit (2026-08-14) proved every curated row of the family
+# formerly named surface_subsurface_exchange_lateral (now adatom_attachment)
+# is a single-atom adatom re-insertion: an *above-surface* adatom drops into
+# a surface vacancy (n_moved==1, coord 4→7, dz ≈ −1.5 Å). The v0.3 lattice
+# has no adatom sites, so the old _FAMILY_DIRECTIONS mapping (2-action swap
+# over all 8 interlayer directions at any surface vacancy, no adatom
+# required) fired these as the same class of kinetic artefact described for
+# _ADATOM_REVERSE_FAMILIES below — and with Ea_mean ≈ 1.0 eV the low-Ea
+# floor filter could never catch it. adatom_detachment is the reverse leg
+# (0 catalogue rows today; excluded upstream by the 1.2 eV barrier cap).
+# The legacy id stays here so pre-rename catalogue CSVs skip cleanly
+# instead of warning as unknown.
+_ADATOM_GATED_FAMILIES: frozenset[str] = frozenset(
+    {
+        "adatom_attachment",
+        "adatom_detachment",
+        "surface_subsurface_exchange_lateral",  # legacy id (pre-rename CSVs)
+    }
+)
+
 # Families where the very-low-Ea catalog buckets correspond to adatom-reverse
 # events (an above-surface atom hops back down). These shouldn't fire in a
 # v0.2 lattice that has no above-surface positions: their forward arms
 # (high-Ea exchange-up events) can't fire either, so the reverse arms firing
 # at every surface vacancy is a kinetic artefact. Until we add adatom
 # positions + adatom-presence conditions, drop buckets where Ea < the floor.
+# (Families whose *entire* population is adatom motion are handled
+# structurally instead — see _ADATOM_GATED_FAMILIES above.)
 #
 # Set ADATOM_REVERSE_EA_FLOOR_EV = None (or pass it via translate_all) to
 # include these buckets again — useful once the catalog encodes the
@@ -706,9 +730,12 @@ def translate_all(
 
     Iterates `_FAMILY_DIRECTIONS` and dispatches each to
     translate_simple_hop_family. Unknown family_ids in the catalogue
-    (i.e. families not in `_FAMILY_DIRECTIONS` and not in
-    `_FAMILIES_SKIPPED`) are reported via `on_unknown_family` and
-    skipped.
+    (i.e. families not in `_FAMILY_DIRECTIONS`, `_FAMILIES_SKIPPED`, or
+    `_ADATOM_GATED_FAMILIES`) are reported via `on_unknown_family` and
+    skipped. Adatom-gated families (adatom_attachment / adatom_detachment
+    and the legacy surface_subsurface_exchange_lateral id) are skipped
+    silently: they need above-surface adatom sites the lattice does not
+    have yet.
 
     `adatom_reverse_ea_floor_eV`: drop buckets in
     _ADATOM_REVERSE_FAMILIES whose Ea_mean is below this floor. These
@@ -721,7 +748,11 @@ def translate_all(
     out: list[Process] = []
 
     families_in_catalogue = {r.family_id for r in rows}
-    known = set(_FAMILY_DIRECTIONS.keys()) | _FAMILIES_SKIPPED
+    known = (
+        set(_FAMILY_DIRECTIONS.keys())
+        | _FAMILIES_SKIPPED
+        | _ADATOM_GATED_FAMILIES
+    )
     unknown = families_in_catalogue - known
     for fid in sorted(unknown):
         if on_unknown_family is not None:
