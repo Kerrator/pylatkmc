@@ -47,6 +47,15 @@ def cmd_info(args: argparse.Namespace) -> int:
     print(f"T / k0:          {spec.rate_data.temperature_K} K, {spec.rate_data.k0_Hz:.2e} Hz")
     if spec.rate_data.family_table is not None:
         print(f"family_table:    {spec.rate_data.family_table}")
+    d = spec.dissolution
+    if d is not None and d.enabled:
+        law = (
+            d.rate_law if d.ceiling_Hz is None else f"{d.rate_law} (ceiling {d.ceiling_Hz:.3e} Hz)"
+        )
+        print(
+            f"dissolution:     nu_E {d.nu_E_Hz:.2e} Hz, n in "
+            f"[{d.min_coordination}, {d.max_coordination}], rate_law {law}"
+        )
     return 0
 
 

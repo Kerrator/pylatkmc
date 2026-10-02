@@ -278,8 +278,126 @@ const ApplyFn   *const pylatkmc_apply_table = NULL;
     return preamble + body + public_glue
 
 
+# ---------------------------------------------------------------------------
+# Dissolution rate law ([dissolution].rate_law).
+#
+# The default law ("clamped") is emitted by _PROCLIST_H_TEMPLATE verbatim, so
+# its proclist.h stays byte-identical to the pre-rate_law codegen. The
+# "tafel_ceiling" law is emitted BESIDE it: the rendered default header is
+# rewritten at three exact anchors (header comment, ceiling #define, the
+# rateconst_eval block). Each anchor must occur exactly once, so a future edit
+# of the template that moves an anchor fails loudly instead of silently
+# emitting the clamped law under a tafel_ceiling tag. The RateConst typedef is
+# never touched (one source, same 24-byte layout under every law).
+# ---------------------------------------------------------------------------
+
+_RATE_LAW_DEFAULT = "clamped"
+
+# Anchor 1: the header comment gains a law tag before this line.
+_H_ANCHOR_LAW_COMMENT = " * Public interface: just enough symbols for the runtime backbone\n"
+
+# Anchor 2: the ceiling #define is inserted after the kB #define line.
+_H_ANCHOR_KB_DEFINE = "#define PYLATKMC_KB_EV_PER_K {kb_ev_per_k:.10e}\n"
+
+# Anchor 3: the default (clamped) rateconst_eval block, as rendered from
+# _PROCLIST_H_TEMPLATE (single braces after .format()).
+_H_RATECONST_EVAL_CLAMPED = """\
+/* Evaluate one Process's rate (Hz) at temperature T_K (Kelvin) and applied
+ * overpotential phi_eV (eV). This is the single place the runtime un-bakes a
+ * rate from a prefactor.
+ *
+ * For an electrochemical dissolution Process, the overpotential lowers the
+ * baked bare barrier: k = prefactor * exp(-(Ea - phi) / (kB*T)), clamped at a
+ * barrierless floor (Ea - phi >= 0). Non-electrochemical Processes ignore phi,
+ * recovering the plain Arrhenius rate (so existing models are unaffected when
+ * phi = 0). */
+static inline double rateconst_eval(RateConst rc, double T_K, double phi_eV) {
+    double Ea = rc.Ea_eV - (rc.is_electrochemical ? phi_eV : 0.0);
+    if (Ea < 0.0) Ea = 0.0;
+    return rc.prefactor_Hz * exp(-Ea / (PYLATKMC_KB_EV_PER_K * T_K));
+}
+"""
+
+_H_RATECONST_EVAL_TAFEL_CEILING = """\
+/* Evaluate one Process's rate (Hz) at temperature T_K (Kelvin) and applied
+ * overpotential phi_eV (eV). This is the single place the runtime un-bakes a
+ * rate from a prefactor.
+ *
+ * Dissolution rate law "tafel_ceiling" ([dissolution].rate_law): for an
+ * electrochemical dissolution Process the overpotential lowers the baked bare
+ * barrier with NO barrierless floor, and the rate is capped at
+ * PYLATKMC_DISSOLUTION_CEILING_HZ:
+ *     k = min(ceiling, prefactor * exp(-(Ea - phi) / (kB*T))).
+ * Non-electrochemical Processes ignore phi and keep the plain Arrhenius rate
+ * with the same Ea >= 0 floor as the default "clamped" law (bit-identical
+ * hop rates under either law). */
+static inline double rateconst_eval(RateConst rc, double T_K, double phi_eV) {
+    if (rc.is_electrochemical) {
+        double k = rc.prefactor_Hz * exp(-(rc.Ea_eV - phi_eV) / (PYLATKMC_KB_EV_PER_K * T_K));
+        return (k < PYLATKMC_DISSOLUTION_CEILING_HZ) ? k : PYLATKMC_DISSOLUTION_CEILING_HZ;
+    }
+    double Ea = rc.Ea_eV;
+    if (Ea < 0.0) Ea = 0.0;
+    return rc.prefactor_Hz * exp(-Ea / (PYLATKMC_KB_EV_PER_K * T_K));
+}
+"""
+
+
+def _replace_once(text: str, old: str, new: str, what: str) -> str:
+    n = text.count(old)
+    if n != 1:
+        raise RuntimeError(
+            f"proclist.h rate-law emission: anchor for {what} found {n} times "
+            f"(expected exactly 1); _PROCLIST_H_TEMPLATE drifted from the "
+            f"rate-law anchors in codegen.py"
+        )
+    return text.replace(old, new)
+
+
+def dissolution_rate_law(spec: ModelSpec) -> tuple[str, float | None]:
+    """The ``(rate_law, ceiling_Hz)`` the generated ``rateconst_eval`` applies.
+
+    ``("clamped", None)`` when the spec has no ``[dissolution]`` block.
+    """
+    d = spec.dissolution
+    if d is None:
+        return _RATE_LAW_DEFAULT, None
+    return d.rate_law, d.ceiling_Hz
+
+
 def _build_proclist_h(spec: ModelSpec) -> str:
-    return _PROCLIST_H_TEMPLATE.format(spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K)
+    header = _PROCLIST_H_TEMPLATE.format(spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K)
+    rate_law, ceiling_Hz = dissolution_rate_law(spec)
+    if rate_law == _RATE_LAW_DEFAULT:
+        return header  # byte-identical to the pre-rate_law codegen
+    if rate_law != "tafel_ceiling" or ceiling_Hz is None:
+        raise ValueError(f"unsupported dissolution rate_law {rate_law!r} (ceiling {ceiling_Hz!r})")
+    return _apply_tafel_ceiling_law(header, ceiling_Hz)
+
+
+def _apply_tafel_ceiling_law(header: str, ceiling_Hz: float) -> str:
+    """Rewrite a rendered default proclist.h to the ``tafel_ceiling`` law."""
+    ceiling_lit = repr(float(ceiling_Hz))  # shortest round-trip literal, valid C
+    law_comment = (
+        " * Dissolution rate law: tafel_ceiling ([dissolution].rate_law in the spec;\n"
+        f" * ceiling_Hz = {ceiling_lit}). Electrochemical Processes run\n"
+        " * k = min(PYLATKMC_DISSOLUTION_CEILING_HZ, prefactor*exp(-(Ea - phi)/(kB*T)))\n"
+        " * with no barrierless floor; see rateconst_eval() below.\n"
+        " *\n"
+    )
+    header = _replace_once(
+        header, _H_ANCHOR_LAW_COMMENT, law_comment + _H_ANCHOR_LAW_COMMENT, "header comment"
+    )
+    kb_define = _H_ANCHOR_KB_DEFINE.format(kb_ev_per_k=KB_EV_PER_K)
+    ceiling_define = (
+        "\n/* Dissolution rate ceiling (Hz) for rate_law = tafel_ceiling. GENERATED from\n"
+        " * [dissolution].ceiling_Hz in the spec. */\n"
+        f"#define PYLATKMC_DISSOLUTION_CEILING_HZ {ceiling_lit}\n"
+    )
+    header = _replace_once(header, kb_define, kb_define + ceiling_define, "kB #define")
+    return _replace_once(
+        header, _H_RATECONST_EVAL_CLAMPED, _H_RATECONST_EVAL_TAFEL_CEILING, "rateconst_eval"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -309,8 +427,11 @@ def _build_dissolution_processes(
     every occupied species pair has a per-bond energy, and translate the
     analytical dissolution family into Processes.
 
-    The spec fields (nu_E_Hz, min/max_coordination) are authoritative over the
-    ε table's [meta]; the table is consulted only for the per-bond ε values.
+    The spec fields (nu_E_Hz, min/max_coordination, rate_law, ceiling_Hz) are
+    authoritative over the ε table's [meta]; the table is consulted only for
+    the per-bond ε values. The rate law only affects the diagnostic
+    ``Process.rate_constant`` (the phi = 0 rate, which is <= nu_E under both
+    laws); the emitted rate table is law-independent.
     """
     table = load_params(diss_spec.epsilon_table)
     params = DissolutionParams(
@@ -319,6 +440,8 @@ def _build_dissolution_processes(
         phi_eV=diss_spec.default_phi_eV,
         min_coordination=diss_spec.min_coordination,
         max_coordination=diss_spec.max_coordination,
+        rate_law=diss_spec.rate_law,
+        ceiling_Hz=diss_spec.ceiling_Hz,
     )
     occupied = [s for s in spec.species if s != "Vacant"]
     missing = sorted(
@@ -378,6 +501,11 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
     if spec.dissolution is not None and spec.dissolution.enabled:
         diss = _build_dissolution_processes(spec, spec.dissolution)
         print(f"pylatkmc-gen: + {len(diss)} dissolution Processes")
+        if spec.dissolution.rate_law != _RATE_LAW_DEFAULT:
+            print(
+                f"pylatkmc-gen: dissolution rate_law = {spec.dissolution.rate_law} "
+                f"(ceiling_Hz = {spec.dissolution.ceiling_Hz!r})"
+            )
         processes = processes + diss
 
     written: list[Path] = []

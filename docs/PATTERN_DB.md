@@ -229,8 +229,34 @@ static const ApplyFn apply_table[N_PROCS] = {
 ```
 
 `emit_rate_table` produces a `RateConst` array indexed by `P_<name>`,
-with `rate` baked at codegen time as
-`k0_Hz * exp(-Ea_eV / (kB * T_K))`.
+storing `{prefactor_Hz, Ea_eV, is_electrochemical}`; the rate is NOT baked —
+the runtime evaluates `rateconst_eval(rc, T, phi)` (generated into
+`proclist.h`) at startup from `physics.temperature_K` /
+`physics.overpotential_phi_eV`.
+
+### Dissolution rate law (`[dissolution].rate_law`)
+
+For electrochemical (dissolution) Processes `rateconst_eval` applies one of two
+laws, chosen in the spec (`E_bare` = the baked `Ea_eV`, `ν_E` = the baked
+prefactor, `φ` = the runtime overpotential):
+
+| `rate_law` | Rate | Notes |
+|---|---|---|
+| `"clamped"` (default) | `ν_E · exp(−max(E_bare − φ, 0)/kT)` | barrier floored at 0 ⇒ k ≤ ν_E; every eligible atom with `E_bare ≤ φ` runs at exactly ν_E. Output byte-identical to the pre-`rate_law` codegen. |
+| `"tafel_ceiling"` | `min(ceiling_Hz, ν_E · exp((φ − E_bare)/kT))` | no floor; capped at `ceiling_Hz` (required, finite, `> nu_E_Hz`). Emits `#define PYLATKMC_DISSOLUTION_CEILING_HZ` and tags the `proclist.h` header comment. |
+
+```toml
+[dissolution]
+rate_law   = "tafel_ceiling"   # default "clamped"; ceiling_Hz forbidden then
+ceiling_Hz = 1.0e13
+```
+
+Only `proclist.h` changes with the law; `proclist.c` (rate table, decision tree,
+apply functions) is law-independent, and hop (non-electrochemical) rates are
+bit-identical under both laws. `dissolution_rate.py` mirrors both laws for the
+diagnostic `Process.rate_constant`. The runtime INI override
+`physics.dissolution_prefactor_Hz` still replaces `ν_E` before `rateconst_eval`
+under either law (it is not a rate-law switch).
 
 `compile_decision_tree(processes, "touchup_a")` is the per-anchor entry
 point. The runtime calls it once per active site per step.

@@ -14,6 +14,7 @@ its invariants.
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Literal
 
@@ -149,6 +150,18 @@ class DissolutionSpec(BaseModel):
     baked from ``epsilon_table`` (a per-bond ε table; see
     ``pylatkmc.dissolution_rate``); the overpotential term is applied at runtime
     via ``physics.overpotential_phi_eV`` so one binary runs at any potential.
+
+    ``rate_law`` selects the electrochemical rate law the generated C
+    ``rateconst_eval`` applies (``proclist.h``):
+
+    - ``"clamped"`` (default) — ``k = nu_E * exp(-max(E_bare - phi, 0)/(kB*T))``:
+      the barrier is floored at 0, so no Process exceeds ``nu_E``. The emitted
+      ``proclist.{c,h}`` are byte-identical to the pre-``rate_law`` codegen.
+    - ``"tafel_ceiling"`` — ``k = min(ceiling_Hz, nu_E * exp((phi - E_bare)/(kB*T)))``:
+      no barrier floor (the Tafel branch continues past ``phi = E_bare``) and
+      the rate is capped at ``ceiling_Hz`` (required, finite, ``> nu_E_Hz``).
+
+    Non-electrochemical (hop) Processes are evaluated identically under both.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -160,6 +173,8 @@ class DissolutionSpec(BaseModel):
     min_coordination: int = Field(default=3, ge=0)
     max_coordination: int = Field(default=9, gt=0)
     shell: Literal["1nn", "2nn"] = "1nn"
+    rate_law: Literal["clamped", "tafel_ceiling"] = "clamped"
+    ceiling_Hz: float | None = None  # required iff rate_law == "tafel_ceiling"
 
     @model_validator(mode="after")
     def _coord_range_ok(self) -> DissolutionSpec:
@@ -167,6 +182,23 @@ class DissolutionSpec(BaseModel):
             raise ValueError(
                 f"min_coordination ({self.min_coordination}) must not exceed "
                 f"max_coordination ({self.max_coordination})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _rate_law_ok(self) -> DissolutionSpec:
+        if self.rate_law == "tafel_ceiling":
+            if self.ceiling_Hz is None:
+                raise ValueError("rate_law = 'tafel_ceiling' requires ceiling_Hz")
+            if not math.isfinite(self.ceiling_Hz) or self.ceiling_Hz <= self.nu_E_Hz:
+                raise ValueError(
+                    f"ceiling_Hz ({self.ceiling_Hz!r}) must be finite and > nu_E_Hz "
+                    f"({self.nu_E_Hz!r}) for rate_law = 'tafel_ceiling'"
+                )
+        elif self.ceiling_Hz is not None:
+            raise ValueError(
+                f"ceiling_Hz ({self.ceiling_Hz!r}) is only valid with "
+                f"rate_law = 'tafel_ceiling' (got rate_law = {self.rate_law!r})"
             )
         return self
 

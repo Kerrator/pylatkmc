@@ -112,6 +112,80 @@ def test_phi_clamps_barrierless() -> None:
     assert k == pytest.approx(1.0e4)
 
 
+# --------------------------------------------------------------------------
+# rate_law = "tafel_ceiling": k = min(ceiling, nu_E * exp((phi - E_bare)/kT))
+# Pub-3 Tier-1 w9 numbers (T 623 K, phi 3.30, eps Fe-Fe 0.33388 / Fe-Ni
+# 0.36357, nu_E 1e4, ceiling 1e13).
+# --------------------------------------------------------------------------
+
+
+def _tier1_params(rate_law: str = "tafel_ceiling") -> dr.DissolutionParams:
+    return dr.DissolutionParams(
+        epsilon={("Fe", "Fe"): 0.33388, ("Fe", "Ni"): 0.36357, ("Ni", "Ni"): 0.36357},
+        nu_E_Hz=1.0e4,
+        min_coordination=1,
+        max_coordination=9,
+        rate_law=rate_law,
+        ceiling_Hz=1.0e13 if rate_law == "tafel_ceiling" else None,
+    )
+
+
+def test_tafel_ceiling_n5_all_fe_at_ceiling() -> None:
+    k = dr.dissolution_rate(_tier1_params(), "Fe", {"Fe": 5}, T_K=623.0, phi_eV=3.30)
+    assert k == 1.0e13  # unclamped Tafel would be ~1.55e17
+
+
+def test_tafel_ceiling_n8_all_ni() -> None:
+    k = dr.dissolution_rate(_tier1_params(), "Fe", {"Ni": 8}, T_K=623.0, phi_eV=3.30)
+    assert k == pytest.approx(1.4675e7, rel=1e-3)  # numbers-sheet "1.47e7"
+    assert k == pytest.approx(
+        1.0e4 * math.exp((3.30 - 8 * 0.36357) / (dr.KB_EV_PER_K * 623.0)), rel=1e-12
+    )
+
+
+def test_tafel_ceiling_n9_all_ni() -> None:
+    k = dr.dissolution_rate(_tier1_params(), "Fe", {"Ni": 9}, T_K=623.0, phi_eV=3.30)
+    assert k == pytest.approx(1.6806e4, rel=1e-3)  # numbers-sheet "1.68e4"
+    assert k == pytest.approx(
+        1.0e4 * math.exp((3.30 - 9 * 0.36357) / (dr.KB_EV_PER_K * 623.0)), rel=1e-12
+    )
+
+
+def test_clamped_tier1_window_is_flat_at_nu_e() -> None:
+    """Default law at phi 3.30: every n <= 9 Fe sits at exactly nu_E (the w9 clamp)."""
+    p = _tier1_params("clamped")
+    for hist in ({"Fe": 5}, {"Ni": 8}, {"Ni": 9}, {"Fe": 9}):
+        assert dr.dissolution_rate(p, "Fe", hist, T_K=623.0, phi_eV=3.30) == 1.0e4
+
+
+def test_tafel_ceiling_equals_clamped_below_barrier() -> None:
+    """Where E_bare > phi the two laws coincide (the floor never binds)."""
+    pt, pc = _tier1_params(), _tier1_params("clamped")
+    for hist in ({"Ni": 8}, {"Fe": 9}, {"Fe": 3, "Ni": 6}):
+        kt = dr.dissolution_rate(pt, "Fe", hist, T_K=623.0, phi_eV=2.50)
+        kc = dr.dissolution_rate(pc, "Fe", hist, T_K=623.0, phi_eV=2.50)
+        if dr.e_bare(pt, "Fe", hist) >= 2.50:
+            assert kt == kc
+
+
+def test_tafel_ceiling_overflow_caps() -> None:
+    """A huge phi overflows exp(); the law must return the ceiling, not raise."""
+    k = dr.dissolution_rate(_tier1_params(), "Fe", {"Fe": 1}, T_K=10.0, phi_eV=100.0)
+    assert k == 1.0e13
+
+
+def test_tafel_ceiling_requires_ceiling() -> None:
+    p = dr.DissolutionParams(epsilon={("Fe", "Fe"): 0.3}, rate_law="tafel_ceiling")
+    with pytest.raises(ValueError):
+        dr.dissolution_rate(p, "Fe", {"Fe": 3}, T_K=623.0, phi_eV=1.0)
+
+
+def test_unknown_rate_law_raises() -> None:
+    p = dr.DissolutionParams(epsilon={("Fe", "Fe"): 0.3}, rate_law="tafel")
+    with pytest.raises(ValueError):
+        dr.dissolution_rate(p, "Fe", {"Fe": 3}, T_K=623.0, phi_eV=1.0)
+
+
 def test_bad_temperature_raises() -> None:
     p = _inline_params()
     with pytest.raises(ValueError):

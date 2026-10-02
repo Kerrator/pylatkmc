@@ -33,6 +33,15 @@ All notable changes to pylatkmc are documented here, following
   - Tests: `test_dissolution_rate.py`, `test_dissolution_translate.py`, and a
     build+run `test_dissolution_smoke.py` (verifies a dissolution fires, a
     vacancy is created, and the first-event rate scales as `exp(Phi/kT)`).
+- **Configurable dissolution rate law** (`[dissolution].rate_law`). `"clamped"`
+  (default) keeps the barrierless floor (`k <= nu_E`) and regenerates
+  `proclist.{c,h}` byte-identically to the pre-slot codegen; `"tafel_ceiling"`
+  + `ceiling_Hz` emits `k = min(ceiling_Hz, nu_E*exp((Phi - E_bare)/(kB*T)))`
+  for electrochemical Processes (no floor), via a
+  `PYLATKMC_DISSOLUTION_CEILING_HZ` define and a rewritten `rateconst_eval` in
+  `proclist.h` only. Mirrored in `dissolution_rate.py`; `RateConst` layout and
+  runtime C unchanged. Tests: `test_dissolution_rate_law.py` (validator,
+  default-law golden vs pin 5cf8fb5, C<->Python agreement via ctypes).
 
 Candidates for v0.4 (none committed):
 
