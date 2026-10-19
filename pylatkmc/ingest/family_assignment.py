@@ -2,7 +2,8 @@
 
 Inputs:
   * classified_events.csv   — raw classifier output (56 columns)
-  * audit_log.csv           — per-event verdicts from event_viewer
+  * audit_log.csv           — per-event verdicts from PyKMC_Analysis's event
+                              viewer (per-user; ``--no-audit`` to skip)
   * FAMILY_REGISTRY         — declarative seed + env rules (families.py)
 
 Output: classified_events_with_families.csv with 7 new columns documenting
@@ -20,11 +21,12 @@ The assignment order is:
   5. No match → ``unresolved`` (collected into the report's
      ``unresolved_signatures`` for registry iteration).
 
-The audit log is produced by ``Analysis/event_viewer/`` — the family and
-bucket overrides come from the dropdowns next to the verdict radio.
+The audit log is produced by PyKMC_Analysis's ``Analysis/event_viewer/`` —
+the family and bucket overrides come from the dropdowns next to the verdict
+radio.
 
 Run with:
-    python family_assignment.py \\
+    python -m pylatkmc.ingest.family_assignment \\
         --events      lattice_event_classification/classified_events.csv \\
         --audit       lattice_event_classification/audit_log.csv \\
         --output      lattice_event_classification/classified_events_with_families.csv \\
@@ -305,21 +307,30 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--events", type=Path,
                     default=Path("lattice_event_classification/classified_events.csv"))
-    ap.add_argument("--audit",  type=Path,
-                    default=Path("lattice_event_classification/audit_log.csv"))
+    audit_src = ap.add_mutually_exclusive_group(required=True)
+    audit_src.add_argument("--audit", type=Path,
+                           help="audit_log.csv of human verdicts (per-user state)")
+    audit_src.add_argument("--no-audit", action="store_true",
+                           help="apply no human verdicts")
     ap.add_argument("--output", type=Path,
                     default=Path("lattice_event_classification/classified_events_with_families.csv"))
     ap.add_argument("--report", type=Path,
                     default=Path("lattice_event_classification/family_assignment_report.json"))
     args = ap.parse_args()
+    if args.audit is not None and not args.audit.is_file():
+        ap.error(f"--audit file not found: {args.audit}")
 
     print(f"[family_assignment] reading {args.events}")
     df = pd.read_csv(args.events)
     print(f"  {len(df)} rows")
 
-    print(f"[family_assignment] reading {args.audit}")
-    audit = load_audit(args.audit)
-    print(f"  {len(audit)} audit entries")
+    if args.audit is not None:
+        print(f"[family_assignment] reading {args.audit}")
+        audit = load_audit(args.audit)
+        print(f"  {len(audit)} audit entries")
+    else:
+        print("[family_assignment] --no-audit: applying no human verdicts")
+        audit = {}
 
     print("[family_assignment] assigning families ...")
     out = assign_events(df, audit)

@@ -39,10 +39,14 @@ prefactors); **the core never imports it**. Install via `pip install -e ".[inges
 | Model | What | Regenerates in a bare clone? |
 |---|---|---|
 | `ni_example` | self-contained pure-Ni demo; **vendors** its catalogue in `data/` | **yes** — start here |
-| `ni_fe_cr_v1` | production Ni-Fe-Cr | no — `[rate_data].family_table` resolves to `../../../apps/PyKMC_Analysis/…`, an outer workspace **outside this repo** |
-| `ni_dissolution_demo` | electrochemical dissolution demo; reuses `ni_fe_cr_v1`'s catalogue for hops + an analytical `[dissolution]` family from a local `epsilon_table.toml` | no (same outer catalogue); the dissolution family is analytical |
+| `ni_fe_cr_v1` | production Ni-Fe-Cr | **yes** — vendors `data/rate_lookup_table_family.csv`, a byte-identical copy of `ni_example`'s pure-Ni table (no Fe/Cr rows yet) |
+| `ni_dissolution_demo` | electrochemical dissolution demo; reuses `ni_fe_cr_v1`'s catalogue for hops + an analytical `[dissolution]` family from a local `epsilon_table.toml` | **yes** — `family_table` points at `../ni_fe_cr_v1/data/` |
 
-All three still **compile** standalone from their committed `generated/` proclist.
+All three also **compile** standalone from their committed `generated/` proclist. The catalogue
+producer, [PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), is a separate public repo
+whose outputs (`rate_lookup_table_family.csv`, `audit_log.csv`, …) are git-ignored, per-user files;
+never point a spec at a sibling checkout — copy a refreshed table into `models/<m>/data/` and commit
+it with `generated/`.
 
 ## Rates are evaluated at RUNTIME, not baked (the biggest trap)
 
@@ -66,8 +70,8 @@ and the deleted `.agents/AGENT.md` claim rates are baked-per-T and that a T-mism
   sorts — never `hash()`/set/dict iteration order. A regression test diffs two seeds.
 - **`generated/proclist.{c,h}` is committed; CI links it and never regenerates/diffs it.** Any
   emitter change that alters output requires regenerating **every** model's proclist and committing
-  it. Only `ni_example` regenerates without the outer-workspace catalogue — if you can't regenerate
-  the others, flag the mismatch; don't ship a partial set.
+  it. Every model regenerates from its vendored `data/` table, so there is no excuse for a
+  partial set.
 - **`ShellCondition` is an exact-count gate with a `-1` sentinel.** A coord that resolves to an
   absent/stub site leaves the count at `-1`, which matches no count (incl. 0), so the Process
   **silently never fires** — looks like "rate too low," not "gate never matched."
@@ -116,8 +120,11 @@ ruff check pylatkmc/ tests/ tools/ && mypy pylatkmc/     # ruff = hard gate; myp
   field order is stale; `initconfig.c` is authoritative).
 - `tests/unit_py/` is the only suite a bare `pytest`/CI runs. ctypes tests skip without `cc`;
   compile-gate tests skip without cmake/MPI; many tests skip on missing toolchain/data/personal
-  paths — **a green run with many skips means little**. `tests/ingest/` needs `[ingest]` extras +
-  `PYKMC_KMC_ROOT` and is **not** collected by default. mypy is advisory in CI (`continue-on-error`).
+  paths — **a green run with many skips means little**. `tests/ingest/` needs `[ingest]` extras and
+  is **not** collected by default; its two live-catalogue tests read `PYKMC_ANALYSIS_OUTPUT_DIR`
+  (legacy: `PYKMC_KMC_ROOT` = a workspace with `apps/PyKMC_Analysis/`) and skip when the files are
+  absent. `ingest.build_curated_catalogue` / `family_assignment` require `--audit PATH` or
+  `--no-audit` (no default audit log). mypy is advisory in CI (`continue-on-error`).
 
 ## Where procedures and depth live
 

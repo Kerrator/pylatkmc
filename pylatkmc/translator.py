@@ -44,10 +44,9 @@ A future M-A++ phase can split into per-arrangement Processes when
 intra-bucket Ea scatter is wide.
 
 References:
-- The family registry:
-  `apps/PyKMC_Analysis/Analysis/families.py:118+`
-- The family rate table format:
-  `apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv`
+- The family registry: `pylatkmc/ingest/families.py` (`FAMILY_REGISTRY`)
+- The family rate table format: `docs/CATALOGUE_SCHEMA.md`; example:
+  `models/ni_example/data/rate_lookup_table_family.csv`
 """
 
 from __future__ import annotations
@@ -324,7 +323,7 @@ def _shell_conditions_from_bucket_key(
     Process, anchored at the **mover** (`mover_coord` = the direction
     coord of the hop). The catalogue's `n_vac_nn1_initial` /
     `n_vac_nn2_initial` are computed at the mover's position upstream
-    (see `apps/PyKMC_Analysis/Analysis/tools/fix_catalogue_nvac.py:
+    (see PyKMC_Analysis `Analysis/tools/fix_catalogue_nvac.py:
     corrected_nvac_nn1`).
 
     Bucket-key axes recognised:

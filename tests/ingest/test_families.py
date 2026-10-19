@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-from _paths import AUDIT_CSV, CLASSIFICATION_DIR
+from _paths import require_output
 
 from pylatkmc.ingest.build_family_rate_table import build_family_table
 from pylatkmc.ingest.families import (
@@ -306,7 +306,7 @@ def test_rate_table_excludes_audit_excluded(mini_df):
 
 def test_rate_table_has_no_event_id_columns():
     """Regression: the curated family table must not key on event indices."""
-    tbl_df = pd.read_csv(CLASSIFICATION_DIR / "rate_lookup_table_family.csv")
+    tbl_df = pd.read_csv(require_output("rate_lookup_table_family.csv"))
     forbidden = {"idx_ref", "ref_event", "row_idx", "event_idx"}
     assert forbidden.isdisjoint(tbl_df.columns), (
         f"event-ID column leaked into curated table: "
@@ -351,7 +351,7 @@ def test_load_audit_missing_file(tmp_path):
 def test_load_audit_real_file():
     """Sanity: the real audit_log.csv loads and produces dict keys matching
     the documented (composition, nvac, temp, idx_ref) tuple."""
-    audit = load_audit(AUDIT_CSV)
+    audit = load_audit(require_output("audit_log.csv"))
     assert len(audit) > 0
     # Every key should be the 4-tuple, values should have "verdict"
     for key, val in list(audit.items())[:3]:

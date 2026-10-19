@@ -44,12 +44,11 @@ jobs:
 
       - name: Smoke-check CMake build (uses committed proclist.{c,h})
         run: |
-          # The curated FCC family rate CSV lives in the upstream
-          # PyKMC_Analysis repo and is not part of pylatkmc. We rely on
-          # the committed `models/ni_fe_cr_v1/generated/proclist.{c,h}`
-          # produced at v0.3.0 release time (regen-determinism is gated
-          # locally). CI's job is to ensure CMake links the committed
-          # generated C against the static runtime backbone cleanly.
+          # Builds the committed `models/ni_fe_cr_v1/generated/proclist.{c,h}`
+          # (regenerable from the vendored models/ni_fe_cr_v1/data/ table;
+          # regen-determinism is gated locally). CI's job is to ensure CMake
+          # links the committed generated C against the static runtime
+          # backbone cleanly.
           test -f models/ni_fe_cr_v1/generated/proclist.c
           test -f models/ni_fe_cr_v1/generated/proclist.h
           cmake -B build -DMODEL=ni_fe_cr_v1

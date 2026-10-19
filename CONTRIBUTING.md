@@ -55,7 +55,9 @@ plumbing):
 1. Create `models/<name>/<name>.kmcspec.toml` (use
    `models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml` as a template). At
    minimum: `name`, `species`, `shells`, `rate_data.family_table`,
-   `rate_data.temperature_K`, `rate_data.k0_Hz`.
+   `rate_data.temperature_K`, `rate_data.k0_Hz`. Vendor the family
+   table under `models/<name>/data/` so the model regenerates from a
+   bare clone (a test rejects spec paths outside the repo).
 2. (Optional) Inspect what the catalogue translator produces:
    ```bash
    pylatkmc-gen processes models/<name>/<name>.kmcspec.toml

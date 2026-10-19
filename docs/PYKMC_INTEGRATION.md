@@ -35,16 +35,18 @@ pyKMC simulations
                     └── rate_lookup_table_family.csv  ← pylatkmc consumes this
 ```
 
-The aggregation lives in
-`apps/PyKMC_Analysis/Analysis/lattice_event_classification/` (in the
-workspace meta-repo, not in pylatkmc itself).
+Classification lives in [PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), a separate public
+repo; family assignment and aggregation live in `pylatkmc.ingest`
+(see [`INGEST_PIPELINE.md`](INGEST_PIPELINE.md)). PyKMC_Analysis writes
+its outputs to `PYKMC_ANALYSIS_OUTPUT_DIR` as git-ignored, per-user
+files, so each model vendors the table it consumes under `data/`.
 
 ## Curating the catalogue
 
 Each pyKMC event has rich provenance (saddle/min1/min2 positions,
 energies, atomic environment hash). The classification pipeline:
 
-1. **Family registry.** `apps/PyKMC_Analysis/Analysis/families.py`
+1. **Family registry.** `pylatkmc/ingest/families.py` (`FAMILY_REGISTRY`)
    defines ~14 canonical event types (`surface_1NN_inplane`,
    `subsurface_2NN_diagonal`, `surface_subsurface_exchange_*`,
    `concerted_multisite`, etc.) with seed-rules + environment-rules
@@ -82,14 +84,16 @@ cutoff_mult = 1.45    # 2NN cutoff is 1.45 * a/√2
 axes = []             # v0.2: no rate-cube key axes; the pattern-DB has its own structure
 
 [rate_data]
-family_table = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv"
+family_table = "data/rate_lookup_table_family.csv"   # vendored in the repo
 temperature_K = 500.0
 k0_Hz = 1.0e13
 ```
 
 The `family_table` path is resolved relative to the `.kmcspec.toml`
-file. Pull the CSV from the upstream Analysis pipeline, point the
-spec at it, and `pylatkmc-gen build <spec>` does the rest.
+file. Copy the CSV from your PyKMC_Analysis outputs into the model's
+`data/` (`cp "$PYKMC_ANALYSIS_OUTPUT_DIR/rate_lookup_table_family.csv"
+models/<m>/data/`), commit it, and `pylatkmc-gen build <spec>` does the
+rest.
 
 ## Building a new alloy model from scratch
 
@@ -100,6 +104,7 @@ family catalogue, but at T=900 K instead of 500 K.
 # 1. Make the model directory and spec
 mkdir -p models/nife_ternary
 cp models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml models/nife_ternary/nife_ternary.kmcspec.toml
+cp -r models/ni_fe_cr_v1/data models/nife_ternary/   # the vendored family table
 # Edit:
 #   name = "nife_ternary"
 #   temperature_K = 900.0
@@ -180,6 +185,6 @@ v0.2 single-vacancy MSD agrees with the v0.1 cube baseline to within
 - [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) — worked-example trace from
   catalogue row to fired event.
 - pyKMC: `pyKMC-develop/` in the workspace meta-repo.
-- Family registry: `apps/PyKMC_Analysis/Analysis/families.py`.
-- Catalogue CSV:
-  `apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv`.
+- Family registry: `pylatkmc/ingest/families.py`.
+- Catalogue CSV: `models/<m>/data/rate_lookup_table_family.csv` (vendored);
+  produced from [PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis) outputs by `pylatkmc.ingest`.

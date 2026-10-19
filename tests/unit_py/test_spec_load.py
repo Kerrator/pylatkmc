@@ -83,10 +83,10 @@ def test_counted_species_per_shell() -> None:
 
 def test_paths_resolved_to_absolute() -> None:
     spec = load(EXAMPLE_SPEC)
-    # primary path is required; resolves through spec dir -> must be absolute.
-    assert spec.rate_data.primary.is_absolute()
-    # Must point at the curated catalogue.
-    assert spec.rate_data.primary.name == "classified_events_with_families.csv"
+    # family_table resolves through the spec dir -> must be absolute.
+    assert spec.rate_data.family_table.is_absolute()
+    # Must point at the curated family catalogue.
+    assert spec.rate_data.family_table.name == "rate_lookup_table_family.csv"
 
 
 # ------------------------------------------------------------------

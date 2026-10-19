@@ -33,7 +33,7 @@ anchor, Ni → V at +x.
 
 ## Stage 1 — pyKMC produces the catalogue row
 
-Upstream (in `apps/PyKMC_Analysis/Analysis/`), pyKMC simulations
+Upstream (in [PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), a separate repo), pyKMC simulations
 produce `classified_events_with_families.csv`. After aggregation into
 `rate_lookup_table_family.csv`, the row for our event looks like:
 
