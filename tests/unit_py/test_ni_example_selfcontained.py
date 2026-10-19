@@ -1,10 +1,10 @@
-"""The ni_example model must stay fully self-contained.
+"""Every model must stay self-contained; ni_example is the reference case.
 
-Unlike the other models (which point their rate_data at the external
-apps/PyKMC_Analysis catalogue), ni_example vendors its family table under
-models/ni_example/data/ so a standalone pylatkmc clone can REGENERATE it. These
-tests guard that property: every rate_data path resolves inside the repo, and
-the model regenerates + compiles using only the vendored CSV.
+Each model vendors its family table under models/<m>/data/ (ni_dissolution_demo
+reuses ni_fe_cr_v1's), so a standalone pylatkmc clone with no PyKMC_Analysis
+checkout can REGENERATE it. These tests guard that property: every spec data
+path resolves inside the repo, and ni_example regenerates + compiles using only
+the vendored CSV.
 """
 
 from __future__ import annotations
@@ -26,18 +26,24 @@ def _have(tool: str) -> bool:
     return shutil.which(tool) is not None
 
 
-def test_all_rate_data_paths_are_in_repo() -> None:
-    """No rate_data path may point outside the pylatkmc repo (e.g. ../../apps)."""
-    spec = load(SPEC)
+ALL_SPECS = sorted((REPO_ROOT / "models").glob("*/*.kmcspec.toml"))
+
+
+@pytest.mark.parametrize("spec_path", ALL_SPECS, ids=lambda p: p.parent.name)
+def test_all_rate_data_paths_are_in_repo(spec_path: Path) -> None:
+    """No spec data path may point outside the pylatkmc repo (e.g. ../../apps)."""
+    spec = load(spec_path)
     rd = spec.rate_data
-    for name in ("primary", "family_table", "fallback_scalar"):
-        p = getattr(rd, name)
+    paths = {name: getattr(rd, name) for name in ("primary", "family_table", "fallback_scalar")}
+    if spec.dissolution is not None:
+        paths["dissolution.epsilon_table"] = spec.dissolution.epsilon_table
+    for name, p in paths.items():
         if p is None:
             continue
         resolved = Path(p).resolve()
         assert REPO_ROOT in resolved.parents, (
-            f"rate_data.{name} = {resolved} is OUTSIDE the repo {REPO_ROOT}; "
-            "ni_example must stay self-contained (vendor it under data/)."
+            f"{name} = {resolved} is OUTSIDE the repo {REPO_ROOT}; "
+            "models must stay self-contained (vendor it under data/)."
         )
     # family_table must exist locally; the per-event `primary` is optional/omitted.
     assert rd.family_table is not None and Path(rd.family_table).is_file()

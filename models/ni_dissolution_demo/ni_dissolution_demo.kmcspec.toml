@@ -68,10 +68,9 @@ shell = "nn2"
 match = "Cr"
 max   = 5
 
+# Hops reuse ni_fe_cr_v1's vendored family table (in-repo; see that spec).
 [rate_data]
-primary         = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/classified_events_with_families.csv"
-family_table    = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv"
-fallback_scalar = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table.csv"
+family_table    = "../ni_fe_cr_v1/data/rate_lookup_table_family.csv"
 temperature_K   = 500.0
 k0_Hz           = 1.0e13
 prefactor_style = "htst"

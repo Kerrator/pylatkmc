@@ -220,7 +220,7 @@ kmos ships a Qt-based GUI process editor (`kmos edit`), good for
 hand-authoring and visualising small models. pylatkmc is CLI-only;
 visual inspection of the catalogue and emitted Processes is via
 `pylatkmc-gen processes <spec>` (text summary) and the upstream
-`apps/PyKMC_Analysis/Analysis/event_viewer/` Dash app for the
+[PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis) `Analysis/event_viewer/` Dash app for the
 catalogue itself.
 
 ### XML model serialisation

@@ -82,11 +82,16 @@ max   = 5
 # ------------------------------------------------------------------
 # Training data and physics parameters. Paths are relative to this
 # spec file's directory; the loader resolves them at load time.
+#
+# The family table is VENDORED under data/ so a bare clone regenerates this
+# model. It is a snapshot of the curated pure-Ni (100Ni) catalogue built by
+# PyKMC_Analysis (https://github.com/Kerrator/PyKMC_Analysis); no Fe/Cr rows
+# yet. To refresh it from your own classification outputs:
+#   cp "$PYKMC_ANALYSIS_OUTPUT_DIR/rate_lookup_table_family.csv" data/
+# then `pylatkmc-gen build` and commit data/ with generated/.
 # ------------------------------------------------------------------
 [rate_data]
-primary         = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/classified_events_with_families.csv"
-family_table    = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv"
-fallback_scalar = "../../../apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table.csv"
+family_table    = "data/rate_lookup_table_family.csv"
 temperature_K   = 500.0
 k0_Hz           = 1.0e13
 prefactor_style = "htst"

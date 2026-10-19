@@ -299,6 +299,13 @@ def _resolve_family_csv(spec: ModelSpec, spec_path: Path | None) -> Path:
     csv = Path(csv)
     if not csv.is_absolute() and spec_path is not None:
         csv = (spec_path.parent / csv).resolve()
+    if not csv.is_file():
+        raise FileNotFoundError(
+            f"Spec {spec.name!r}: rate_data.family_table not found at {csv}. "
+            f"Vendor the curated rate_lookup_table_family.csv under the model's "
+            f"data/ directory (as models/ni_example does) or point family_table "
+            f"at an existing file."
+        )
     return csv
 
 

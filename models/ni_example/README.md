@@ -4,10 +4,9 @@ A small, fully **self-contained** model for trying pylatkmc end to end: a single
 vacancy diffusing on an FCC Ni(100) slab, with the move catalogue **learned from
 real off-lattice pyKMC data** that is vendored right here in the repo.
 
-Unlike the other models (whose specs point at the external `apps/PyKMC_Analysis`
-catalogue), this one ships its training table under [`data/`](data/), so a fresh
-clone of *just* pylatkmc can **regenerate** it with `pylatkmc-gen build` — no
-sibling directories required.
+It ships its training table under [`data/`](data/), so a fresh clone of *just*
+pylatkmc can **regenerate** it with `pylatkmc-gen build` — no sibling directories
+required. (The other models vendor theirs the same way.)
 
 ## What "training on pyKMC data" means here
 

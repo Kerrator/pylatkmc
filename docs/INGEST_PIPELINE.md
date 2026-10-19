@@ -1,8 +1,8 @@
 # Ingest pipeline runbook
 
 End-to-end: from pyKMC simulation output to a compiled, HTST-rated pylatkmc model. All steps
-live in `pylatkmc.ingest` (the moved bridge) except the classifier + audit UI, which stay in
-`apps/PyKMC_Analysis`. Install the extra first:
+live in `pylatkmc.ingest` (the moved bridge) except the classifier + audit UI, which live in
+[PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), a separate public repo. Install the extra first:
 
 ```bash
 pip install -e ".[ingest]"   # pandas, scipy, ase  (+ LAMMPS/pARTn/IRA/pyKMC on PATH for HTST)
@@ -19,7 +19,7 @@ flowchart LR
     accTitle: Ingest pipeline stages
     accDescr: Classify events, assign families with audit, recover per-bucket Vineyard prefactors from trajectories with canonical fallback, build the rate table, then generate and run the pylatkmc model.
 
-    s1["1 · classify<br/>(apps/)"]
+    s1["1 · classify<br/>(PyKMC_Analysis)"]
     s2["2 · families + audit"]
     s3["3 · ν₀ recovery<br/>(trajectory + canonical)"]
     s4["4 · rate table"]
@@ -35,11 +35,12 @@ flowchart LR
     class s5 o
 ```
 
-### 1 · Classify (analysis repo — stays in `apps/`)
+### 1 · Classify (PyKMC_Analysis repo)
 
 Turn per-sim `reference_table.pickle` into `classified_events.csv`. Run the classification
-notebook / parts in `apps/PyKMC_Analysis/Analysis/classify_lattice_events*`. Human audit (the Dash
-`event_viewer`) writes `audit_log.csv`. *(Runtime: minutes; one-off per dataset.)*
+parts in PyKMC_Analysis's `Analysis/classify_lattice_events_parts/`; outputs land in
+`PYKMC_ANALYSIS_OUTPUT_DIR`. Human audit (the Dash `event_viewer`) writes a per-user
+`audit_log.csv` there. *(Runtime: minutes; one-off per dataset.)*
 
 ### 2 · Families + audit · 4 · Rate table — one pass
 
@@ -53,7 +54,9 @@ python -m pylatkmc.ingest.build_curated_catalogue \
     --prefactors        .../family_prefactors.csv
 ```
 
-Assigns families (audit-aware) and aggregates barriers per `(family_id, family_bucket_id)`, joining
+`--audit` is required; pass `--no-audit` instead if you have no audit log (every event is then
+seeded by the registry). Assigns families (audit-aware) and aggregates barriers per
+`(family_id, family_bucket_id)`, joining
 ν₀ with **per-bucket → per-family → k0** precedence (`nu0_source` column records which). *(Seconds.)*
 
 > Stage-by-stage equivalents remain: `python -m pylatkmc.ingest.family_assignment` then

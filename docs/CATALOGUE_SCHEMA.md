@@ -3,7 +3,9 @@
 This is the single reference for every CSV that flows from pyKMC simulation output into a
 compiled pylatkmc model. Each table lists the file's **producer**, **consumer**, and the
 load-bearing columns (type · meaning · provenance). The full chain lives in `pylatkmc.ingest`
-(the moved bridge) plus the analysis-side classifier that stays in `apps/PyKMC_Analysis`.
+(the moved bridge) plus the analysis-side classifier and audit viewer in
+[PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), a separate public repo. Its outputs are git-ignored, per-user files
+(directory: `PYKMC_ANALYSIS_OUTPUT_DIR`); pylatkmc models vendor the rate table they consume.
 
 ---
 
@@ -69,7 +71,7 @@ computed directly on it (frozen-boundary partial Hessian); the trajectory provid
 
 ## 📄 `classified_events.csv` → `classified_events_with_families.csv`
 
-Produced by the analysis classifier (`apps/.../classify_lattice_events`), then annotated with
+Produced by the PyKMC_Analysis classifier (`Analysis/classify_lattice_events_parts`), then annotated with
 family assignment by `pylatkmc.ingest.family_assignment` (audit-aware). 65 columns; the
 load-bearing groups:
 
@@ -146,8 +148,8 @@ translator change.
 | File | Producer | Module |
 | --- | --- | --- |
 | `reference_table.pickle` | pyKMC run | `pykmc.event_table` |
-| `classified_events.csv` | classifier | `apps/.../classify_lattice_events` |
-| `audit_log.csv` | event viewer | `apps/.../event_viewer` |
+| `classified_events.csv` | classifier | PyKMC_Analysis `Analysis/classify_lattice_events_parts` |
+| `audit_log.csv` (per-user, optional) | event viewer | PyKMC_Analysis `Analysis/event_viewer` |
 | `classified_events_with_families.csv` | family assignment | `pylatkmc.ingest.family_assignment` |
 | `family_prefactors_bucket.csv`, `recovery_audit.csv` | trajectory recovery | `pylatkmc.ingest.trajectory_recovery` |
 | `family_prefactors.csv` | canonical slabs / roll-up | `pylatkmc.ingest.htst.canonical_kappa`, `trajectory_recovery` |

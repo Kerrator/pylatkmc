@@ -36,10 +36,11 @@ the v0.2 → v0.3 migration story.
 - Python ≥ 3.10
 - A C compiler (gcc / clang) and CMake ≥ 3.20
 - OpenMPI ≥ 4.x (or any MPI 3.1-compatible implementation)
-- A curated rate-table CSV (FCC family catalogue) — produced by the
-  upstream pyKMC analysis pipeline, e.g.
-  `apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv`
-  in the workspace meta-repo.
+- A curated rate-table CSV (FCC family catalogue). The bundled models
+  vendor theirs under `models/<m>/data/`, so a bare clone regenerates
+  every model. New tables come from the pyKMC analysis pipeline in
+  [PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), a separate public repo, plus
+  `pylatkmc.ingest` (see [`docs/INGEST_PIPELINE.md`](docs/INGEST_PIPELINE.md)).
 
 ## Quickstart
 

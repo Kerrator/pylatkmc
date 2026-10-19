@@ -1,6 +1,6 @@
 """Harmonic Transition State Theory (Vineyard ν₀ + Sharia & Henkelman κ_RPA).
 
-See `apps/PyKMC_Analysis/Analysis/HTST.md` for the comprehensive reference.
+See `docs/INGEST_PIPELINE.md` (stage 3, ν₀ recovery) for how these are run.
 
 Modules:
     kappa_rpa         — pure-NumPy κ + Vineyard math (LAMMPS-free)
