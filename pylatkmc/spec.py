@@ -249,6 +249,25 @@ class ModelSpec(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _v2_path_has_no_dissolution(self) -> ModelSpec:
+        # codegen._generate_v2 emits no dissolution Processes, so an enabled
+        # [dissolution] block on the v2 path would build and run as pure
+        # diffusion with no error. Refuse it until v2 support lands.
+        if (
+            self.rate_data.event_class_table is not None
+            and self.dissolution is not None
+            and self.dissolution.enabled
+        ):
+            raise ValueError(
+                "[dissolution] enabled = true is not supported with "
+                "[rate_data].event_class_table: the v2 codegen path emits no "
+                "dissolution Processes (v2-dissolution/01). Use the v0.3 "
+                "family_table path, or set enabled = false until v2 dissolution "
+                "support lands (v2-dissolution/02)."
+            )
+        return self
+
     # --------------------------------------------------------------
     # Derived quantities used by the generator and rate builder.
     # --------------------------------------------------------------
