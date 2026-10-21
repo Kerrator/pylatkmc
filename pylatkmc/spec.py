@@ -38,7 +38,7 @@ class Shell(BaseModel):
     distance. For FCC: 1NN ~ 1.0, 2NN ~ sqrt(2) ~ 1.414.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str
     cutoff_mult: float = Field(gt=0.0, le=3.0)
@@ -66,7 +66,7 @@ class KeyAxis(BaseModel):
     and do not appear in ModelSpec.key.axes; user-specified axes start at 2.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str
     kind: Literal["enum", "count"]
@@ -101,7 +101,7 @@ class Key(BaseModel):
     """Ordered list of user-specified key axes. The permanent axes site_class
     (3 values) and direction (5 values) are prepended implicitly at codegen."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     axes: list[KeyAxis]
 
@@ -121,7 +121,7 @@ class Key(BaseModel):
 class RateData(BaseModel):
     """Paths to the training data and the physics parameters."""
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     primary: Path | None = None  # classified_events_with_families.csv; never opened by
     # codegen (only family_table is read), so a self-contained model may omit it and
@@ -162,7 +162,7 @@ class DissolutionSpec(BaseModel):
     via ``physics.overpotential_phi_eV`` so one binary runs at any potential.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     enabled: bool = False
     epsilon_table: Path  # epsilon_table.toml; resolved relative to the spec dir
@@ -189,7 +189,7 @@ class ModelSpec(BaseModel):
     codegen and rate builder do is a pure function of this struct.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     name: str
     lattice: Literal["fcc"] = "fcc"  # scope-locked to FCC in this iteration

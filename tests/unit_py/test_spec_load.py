@@ -23,6 +23,7 @@ from pylatkmc.spec import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]  # pylatkmc/
 EXAMPLE_SPEC = REPO_ROOT / "models" / "ni_fe_cr_v1" / "ni_fe_cr_v1.kmcspec.toml"
+DISSOLUTION_SPEC = REPO_ROOT / "models" / "ni_dissolution_demo" / "ni_dissolution_demo.kmcspec.toml"
 
 
 # ------------------------------------------------------------------
@@ -88,6 +89,61 @@ def test_paths_resolved_to_absolute() -> None:
     assert spec.rate_data.primary.is_absolute()
     # Must point at the curated catalogue.
     assert spec.rate_data.primary.name == "classified_events_with_families.csv"
+
+
+@pytest.mark.parametrize(
+    "spec_path", sorted(REPO_ROOT.glob("models/*/*.kmcspec.toml")), ids=lambda p: p.parent.name
+)
+def test_committed_spec_loads(spec_path: Path) -> None:
+    load(spec_path)
+
+
+# ------------------------------------------------------------------
+# Unknown keys fail loudly. A typo used to load silently: a misspelled
+# [dissolution] dropped the whole block, and rate_law on a branch without
+# the law axis gave the clamped law. Each edit adds a key (or renames an
+# optional one) so the spec stays otherwise valid.
+# ------------------------------------------------------------------
+@pytest.mark.parametrize(
+    ("old", "new", "bad_key"),
+    [
+        pytest.param(
+            'lattice = "fcc"', 'lattice = "fcc"\nlattce = "fcc"', "lattce", id="top-level"
+        ),
+        pytest.param(
+            "[dissolution]\nenabled", "[dissolutoin]\nenabled", "dissolutoin", id="top-level-table"
+        ),
+        pytest.param(
+            'species = ["Vacant", "Ni", "Fe", "Cr"]',
+            'species = ["Vacant", "Ni", "Fe", "Cr"]\n\n[key]\nmode = "cube"',
+            "mode",
+            id="key",
+        ),
+        pytest.param(
+            "cutoff_mult = 1.05", "cutoff_mult = 1.05\ncutoff_mul = 1.5", "cutoff_mul", id="shells"
+        ),
+        pytest.param("skip_vacant = true", "skip_vacnt = true", "skip_vacnt", id="key.axes"),
+        pytest.param(
+            "temperature_K   = 500.0",
+            "temperature_K   = 500.0\ntempearture_K = 900.0",
+            "tempearture_K",
+            id="rate_data",
+        ),
+        pytest.param(
+            "nu_E_Hz          = 1.0e4",
+            "nu_E_Hz          = 1.0e4\nnu_E_hz = 1.0e5",
+            "nu_E_hz",
+            id="dissolution",
+        ),
+    ],
+)
+def test_unknown_spec_key_rejected(tmp_path: Path, old: str, new: str, bad_key: str) -> None:
+    text = DISSOLUTION_SPEC.read_text()
+    assert text.count(old) == 1
+    probe = tmp_path / "probe.kmcspec.toml"
+    probe.write_text(text.replace(old, new))
+    with pytest.raises(ValidationError, match=rf"{bad_key}\n\s+Extra inputs are not permitted"):
+        load(probe)
 
 
 # ------------------------------------------------------------------
