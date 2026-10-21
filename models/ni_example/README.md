@@ -23,7 +23,7 @@ pyKMC sim (pARTn saddle search)  →  classified_events_with_families.csv (per e
 
 A "family" is a **type of move**; pylatkmc expands one catalogue row into one
 compiled Process per symmetry-equivalent direction, so a handful of families
-becomes a few hundred Processes (350 for this catalogue). The runtime computes
+becomes a few hundred Processes (318 for this catalogue). The runtime computes
 each rate from the baked prefactor + barrier at the run temperature:
 `k = ν₀·exp(−Eₐ/kᴮT)`.
 
@@ -39,8 +39,8 @@ fittable families (those with real events and a defined barrier) are:
 | `subsurface_2NN_diagonal` | subsurface ⟨100⟩ 2NN diagonal hop | ~0.96 |
 | `surface_interlayer_hop` | surface→subsurface ⟨111⟩ interlayer hop | 0.00–0.18 |
 | `subsurface_interlayer_hop` | subsurface↔subsurface ⟨111⟩ interlayer hop | 1.02–1.08 |
-| `surface_subsurface_exchange_up` | concerted 2-atom exchange, +z | 0.96–1.05 |
-| `surface_subsurface_exchange_down` | concerted 2-atom exchange, −z | 0.00–1.01 |
+| `surface_subsurface_exchange_up` | concerted 2-atom exchange, +z — **gated, not translated** (below) | 0.96–1.05 |
+| `surface_subsurface_exchange_down` | concerted 2-atom exchange, −z — **gated, not translated** (below) | 0.00–1.01 |
 | `subsurface_migration_interlayer` | subsurface vacancy migration via ⟨111⟩ displacement | 0.98–1.07 |
 
 Visibility-only / zero-event families (`bulk_1NN_inplane`, `surface_2NN_diagonal`,
@@ -54,6 +54,11 @@ single-atom adatom re-insertions, not 2-atom exchanges. They need an
 above-surface adatom site the lattice does not have, so the translator skips
 them (old and new id alike; see `translator._ADATOM_GATED_FAMILIES`) and they
 emit no Processes.
+
+`surface_subsurface_exchange_up`/`_down` are the opposite case: genuine 2-atom exchanges (both
+movers hop a full 1NN distance). The translator's 2-action swap moves one atom, so it would fire
+them as single-atom hops at the exchange's barrier; they are gated as well
+(`translator._MULTI_MOVER_GATED_FAMILIES`) and emit no Processes.
 
 Each row's bucket key (e.g. `nv1=1_nv2=0`) records the local vacancy environment
 in which the move was observed; pylatkmc gates the compiled Process on that exact

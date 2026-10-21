@@ -93,8 +93,9 @@ Process(
 
 Three more Processes are emitted for the same bucket (`NC_NN1_MX`,
 `NC_NN1_PY`, `NC_NN1_MY`); all share the same rate. For 56 buckets ×
-8 translated fit-barrier families, ~350 total Processes are produced
-(the adatom-gated `adatom_attachment` family adds none — see
+6 translated fit-barrier families, 318 total Processes are produced
+(the gated `adatom_attachment` and `surface_subsurface_exchange_up`/`_down`
+families add none — see
 `docs/FAMILY_REGISTRY.md`).
 
 Inspect:
@@ -102,7 +103,7 @@ Inspect:
 ```bash
 $ pylatkmc-gen processes models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
 …
-Total Processes: 350
+Total Processes: 318
 Processes per family:
   bulk_1NN_inplane                            48 Processes
   subsurface_1NN_inplane                     192 Processes
@@ -127,7 +128,7 @@ enum {
     …
     P_surface_1nn_inplane__nv1_1_nv2_2__nn1_px__ni,    // ← our process
     …
-    N_PROCS                                            // = 350
+    N_PROCS                                            // = 318
 };
 ```
 
@@ -448,7 +449,7 @@ via MPI_Gather and writes:
   "n_failed": 0,
   "base_seed": 42,
   "temperature_K": 500.000,
-  "n_procs": 350,
+  "n_procs": 318,
   "n_steps_mean": 100000.0,
   "total_time_s_mean": 4.039998173e-08,
   "mean_msd_A2_mean":  6.792775e+05,

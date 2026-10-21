@@ -352,38 +352,6 @@ enum {
     P_surface_interlayer_hop__li_0_nv1_8__nn1_down_pm__ni,
     P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni,
     P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni,
-    P_surface_subsurface_exchange_down__nv1_1__nn1_down_pp__ni,
-    P_surface_subsurface_exchange_down__nv1_1__nn1_down_pm__ni,
-    P_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni,
-    P_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni,
-    P_surface_subsurface_exchange_down__nv1_2__nn1_down_pp__ni,
-    P_surface_subsurface_exchange_down__nv1_2__nn1_down_pm__ni,
-    P_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni,
-    P_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni,
-    P_surface_subsurface_exchange_down__nv1_3__nn1_down_pp__ni,
-    P_surface_subsurface_exchange_down__nv1_3__nn1_down_pm__ni,
-    P_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni,
-    P_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni,
-    P_surface_subsurface_exchange_down__nv1_4__nn1_down_pp__ni,
-    P_surface_subsurface_exchange_down__nv1_4__nn1_down_pm__ni,
-    P_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni,
-    P_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni,
-    P_surface_subsurface_exchange_down__nv1_5__nn1_down_pp__ni,
-    P_surface_subsurface_exchange_down__nv1_5__nn1_down_pm__ni,
-    P_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni,
-    P_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni,
-    P_surface_subsurface_exchange_up__nv1_1__nn1_up_pp__ni,
-    P_surface_subsurface_exchange_up__nv1_1__nn1_up_pm__ni,
-    P_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni,
-    P_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni,
-    P_surface_subsurface_exchange_up__nv1_2__nn1_up_pp__ni,
-    P_surface_subsurface_exchange_up__nv1_2__nn1_up_pm__ni,
-    P_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni,
-    P_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni,
-    P_surface_subsurface_exchange_up__nv1_3__nn1_up_pp__ni,
-    P_surface_subsurface_exchange_up__nv1_3__nn1_up_pm__ni,
-    P_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni,
-    P_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni,
     P_dissolution__ni__ni3,
     P_dissolution__ni__ni2_fe1,
     P_dissolution__ni__ni2_cr1,
@@ -1338,38 +1306,6 @@ static const RateConst rate_table[N_PROCS] = {
     [P_surface_interlayer_hop__li_0_nv1_8__nn1_down_pm__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000717, .is_electrochemical = 0, ._pad = 0 },
     [P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000717, .is_electrochemical = 0, ._pad = 0 },
     [P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000717, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_pp__ni] = { .prefactor_Hz = 3.9944002653e+13, .Ea_eV = 1.004997, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_pm__ni] = { .prefactor_Hz = 3.9944002653e+13, .Ea_eV = 1.004997, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni] = { .prefactor_Hz = 3.9944002653e+13, .Ea_eV = 1.004997, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni] = { .prefactor_Hz = 3.9944002653e+13, .Ea_eV = 1.004997, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_pp__ni] = { .prefactor_Hz = 4.4777194169e+13, .Ea_eV = 0.918759, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_pm__ni] = { .prefactor_Hz = 4.4777194169e+13, .Ea_eV = 0.918759, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni] = { .prefactor_Hz = 4.4777194169e+13, .Ea_eV = 0.918759, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni] = { .prefactor_Hz = 4.4777194169e+13, .Ea_eV = 0.918759, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_pp__ni] = { .prefactor_Hz = 1.2255951728e+12, .Ea_eV = 0.820454, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_pm__ni] = { .prefactor_Hz = 1.2255951728e+12, .Ea_eV = 0.820454, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni] = { .prefactor_Hz = 1.2255951728e+12, .Ea_eV = 0.820454, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni] = { .prefactor_Hz = 1.2255951728e+12, .Ea_eV = 0.820454, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_pp__ni] = { .prefactor_Hz = 2.1959910367e+13, .Ea_eV = 0.486225, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_pm__ni] = { .prefactor_Hz = 2.1959910367e+13, .Ea_eV = 0.486225, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni] = { .prefactor_Hz = 2.1959910367e+13, .Ea_eV = 0.486225, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni] = { .prefactor_Hz = 2.1959910367e+13, .Ea_eV = 0.486225, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_pp__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000671, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_pm__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000671, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000671, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni] = { .prefactor_Hz = 1.0000000000e+13, .Ea_eV = 0.000671, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_pp__ni] = { .prefactor_Hz = 3.8854713005e+13, .Ea_eV = 1.018036, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_pm__ni] = { .prefactor_Hz = 3.8854713005e+13, .Ea_eV = 1.018036, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni] = { .prefactor_Hz = 3.8854713005e+13, .Ea_eV = 1.018036, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni] = { .prefactor_Hz = 3.8854713005e+13, .Ea_eV = 1.018036, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_pp__ni] = { .prefactor_Hz = 3.5638321863e+13, .Ea_eV = 0.960672, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_pm__ni] = { .prefactor_Hz = 3.5638321863e+13, .Ea_eV = 0.960672, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni] = { .prefactor_Hz = 3.5638321863e+13, .Ea_eV = 0.960672, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni] = { .prefactor_Hz = 3.5638321863e+13, .Ea_eV = 0.960672, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_pp__ni] = { .prefactor_Hz = 4.6923837126e+13, .Ea_eV = 1.046595, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_pm__ni] = { .prefactor_Hz = 4.6923837126e+13, .Ea_eV = 1.046595, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni] = { .prefactor_Hz = 4.6923837126e+13, .Ea_eV = 1.046595, .is_electrochemical = 0, ._pad = 0 },
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni] = { .prefactor_Hz = 4.6923837126e+13, .Ea_eV = 1.046595, .is_electrochemical = 0, ._pad = 0 },
     [P_dissolution__ni__ni3] = { .prefactor_Hz = 1.0000000000e+04, .Ea_eV = 0.600000, .is_electrochemical = 1, ._pad = 0 },
     [P_dissolution__ni__ni2_fe1] = { .prefactor_Hz = 1.0000000000e+04, .Ea_eV = 0.580000, .is_electrochemical = 1, ._pad = 0 },
     [P_dissolution__ni__ni2_cr1] = { .prefactor_Hz = 1.0000000000e+04, .Ea_eV = 0.634000, .is_electrochemical = 1, ._pad = 0 },
@@ -5180,326 +5116,6 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm_
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
         { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_pp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_pm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
-    };
-    (void)state_apply_actions(st, acts, 2, SP_VACANT);
-    return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
-}
-
-static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni(State *st, const Lattice *lat, int site) {
-    (void)lat;
-    StateAction acts[2] = {
-        { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -11494,38 +11110,6 @@ static const ApplyFn apply_table[N_PROCS] = {
     [P_surface_interlayer_hop__li_0_nv1_8__nn1_down_pm__ni] = apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_pm__ni,
     [P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni] = apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni,
     [P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni] = apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni,
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_pp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_pp__ni,
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_pm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_pm__ni,
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni,
-    [P_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni,
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_pp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_pp__ni,
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_pm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_pm__ni,
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni,
-    [P_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni,
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_pp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_pp__ni,
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_pm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_pm__ni,
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni,
-    [P_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni,
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_pp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_pp__ni,
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_pm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_pm__ni,
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni,
-    [P_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni,
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_pp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_pp__ni,
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_pm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_pm__ni,
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni] = apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni,
-    [P_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni] = apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni,
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_pp__ni] = apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_pp__ni,
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_pm__ni] = apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_pm__ni,
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni] = apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni,
-    [P_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni] = apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni,
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_pp__ni] = apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_pp__ni,
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_pm__ni] = apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_pm__ni,
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni] = apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni,
-    [P_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni] = apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni,
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_pp__ni] = apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_pp__ni,
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_pm__ni] = apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_pm__ni,
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni] = apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni,
-    [P_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni] = apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni,
     [P_dissolution__ni__ni3] = apply_actions_dissolution__ni__ni3,
     [P_dissolution__ni__ni2_fe1] = apply_actions_dissolution__ni__ni2_fe1,
     [P_dissolution__ni__ni2_cr1] = apply_actions_dissolution__ni__ni2_cr1,
@@ -13192,11 +12776,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_down_pp == 6) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_pp__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_pp == 7) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_pp__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_pp == 8) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pp == 1) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pp == 2) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pp == 3) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pp == 4) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pp == 5) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_pp__ni, site);
                     }
                     break;
                 default: break;
@@ -13249,11 +12828,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_down_pm == 6) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_pm__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_pm == 7) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_pm__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_pm == 8) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pm == 1) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pm == 2) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pm == 3) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pm == 4) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_pm == 5) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_pm__ni, site);
                     }
                     break;
                 default: break;
@@ -13306,11 +12880,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_down_mp == 6) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_mp__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_mp == 7) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_mp__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_mp == 8) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mp == 1) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mp == 2) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mp == 3) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mp == 4) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mp == 5) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_mp__ni, site);
                     }
                     break;
                 default: break;
@@ -13363,11 +12932,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_down_mm == 6) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_6__nn1_down_mm__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_mm == 7) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_7__nn1_down_mm__ni, site);
                         if (nr_1nn_vacant_at_nn1_down_mm == 8) avail_sites_add(as, P_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mm == 1) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_1__nn1_down_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mm == 2) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_2__nn1_down_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mm == 3) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_3__nn1_down_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mm == 4) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_4__nn1_down_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_down_mm == 5) avail_sites_add(as, P_surface_subsurface_exchange_down__nv1_5__nn1_down_mm__ni, site);
                     }
                     break;
                 default: break;
@@ -13416,9 +12980,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_up_pp == 3) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_pp__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_pp == 4) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_pp__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_pp == 5) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_pp == 1) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_pp == 2) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_pp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_pp == 3) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_pp__ni, site);
                     }
                     break;
                 default: break;
@@ -13467,9 +13028,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_up_pm == 3) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_pm__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_pm == 4) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_pm__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_pm == 5) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_pm == 1) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_pm == 2) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_pm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_pm == 3) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_pm__ni, site);
                     }
                     break;
                 default: break;
@@ -13518,9 +13076,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_up_mp == 3) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_mp__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_mp == 4) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_mp__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_mp == 5) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_mp == 1) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_mp == 2) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_mp__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_mp == 3) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_mp__ni, site);
                     }
                     break;
                 default: break;
@@ -13569,9 +13124,6 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         if (nr_1nn_vacant_at_nn1_up_mm == 3) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_3__nn1_up_mm__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_mm == 4) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_4__nn1_up_mm__ni, site);
                         if (nr_1nn_vacant_at_nn1_up_mm == 5) avail_sites_add(as, P_subsurface_migration_interlayer__nv1_5__nn1_up_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_mm == 1) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_1__nn1_up_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_mm == 2) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_2__nn1_up_mm__ni, site);
-                        if (nr_1nn_vacant_at_nn1_up_mm == 3) avail_sites_add(as, P_surface_subsurface_exchange_up__nv1_3__nn1_up_mm__ni, site);
                     }
                     break;
                 default: break;
