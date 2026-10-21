@@ -13,12 +13,23 @@ per-bond energies ``eps`` are anchored to DFT (Ke & Taylor 2020): a
 eV/bond``. The canonical parameter table and its provenance live in
 ``apps/PyKMC_Analysis/Analysis/dissolution/epsilon_table.toml``.
 
-This module is duplicated BYTE-FOR-BYTE in:
+This module is duplicated in:
   - pylatkmc/pylatkmc/dissolution_rate.py    (used at codegen time)
   - pyKMC-develop/pykmc/dissolution_rate.py  (used at runtime)
 A test in each package asserts the two copies agree on a fixed grid. It is
 pure-stdlib (``math`` only at the hot path) so it imports cleanly in both
 packages with no extra dependency. Do NOT add engine imports here.
+
+The pylatkmc copy additionally carries the optional ``rate_law`` /
+``ceiling_Hz`` fields (mirroring ``[dissolution].rate_law`` in the spec and the
+generated C ``rateconst_eval``). The default ``rate_law = "clamped"`` is
+numerically identical to the pre-``rate_law`` module, so the cross-package grid
+(default law) still agrees with an un-updated pyKMC copy; the two files are no
+longer byte-identical.
+
+Rate laws (``E = E_bare - phi``):
+  - ``"clamped"`` (default):  k = nu_E * exp(-max(E, 0) / (kB*T))   (k <= nu_E)
+  - ``"tafel_ceiling"``:      k = min(ceiling_Hz, nu_E * exp(-E / (kB*T)))
 """
 
 from __future__ import annotations
@@ -60,6 +71,11 @@ class DissolutionParams:
     max_coordination, min_coordination : int
         The MESOSIM gate -- only atoms with min..max occupied nearest
         neighbours dissolve.
+    rate_law : str
+        ``"clamped"`` (default; barrier floored at 0, so k <= nu_E) or
+        ``"tafel_ceiling"`` (no floor; k capped at ``ceiling_Hz``).
+    ceiling_Hz : float | None
+        Rate ceiling (Hz) for ``rate_law == "tafel_ceiling"``; unused otherwise.
 
     """
 
@@ -68,6 +84,8 @@ class DissolutionParams:
     phi_eV: float = 0.0
     max_coordination: int = 9
     min_coordination: int = 3
+    rate_law: str = "clamped"
+    ceiling_Hz: float | None = None
 
 
 def eps(params: DissolutionParams, a: str, b: str) -> float:
@@ -109,13 +127,28 @@ def dissolution_rate(
 ) -> float:
     """Erlebacher dissolution rate ``k = nu_E * exp(-(E_bare - phi)/(kB*T))``.
 
-    ``phi_eV`` overrides ``params.phi_eV`` when given. The effective barrier is
-    clamped at 0 (barrierless dissolution at high overpotential).
+    ``phi_eV`` overrides ``params.phi_eV`` when given. Under the default
+    ``rate_law = "clamped"`` the effective barrier is clamped at 0
+    (barrierless dissolution at high overpotential, k <= nu_E). Under
+    ``"tafel_ceiling"`` the barrier is NOT floored and the rate is capped at
+    ``params.ceiling_Hz`` -- the same arithmetic as the generated C
+    ``rateconst_eval`` for that law.
     """
     if not (T_K > 0):
         raise ValueError(f"T_K must be positive; got {T_K}")
     phi = params.phi_eV if phi_eV is None else phi_eV
     barrier = e_bare(params, mover, neighbour_hist) - phi
+    if params.rate_law == "tafel_ceiling":
+        ceiling = params.ceiling_Hz
+        if ceiling is None:
+            raise ValueError("rate_law 'tafel_ceiling' requires ceiling_Hz")
+        try:
+            k = params.nu_E_Hz * math.exp(-barrier / (KB_EV_PER_K * T_K))
+        except OverflowError:  # C exp() returns +inf here; min() then caps it
+            k = math.inf
+        return float(k if k < ceiling else ceiling)
+    if params.rate_law != "clamped":
+        raise ValueError(f"unknown rate_law {params.rate_law!r}")
     if barrier < 0.0:
         barrier = 0.0
     return float(params.nu_E_Hz * math.exp(-barrier / (KB_EV_PER_K * T_K)))
