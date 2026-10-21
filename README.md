@@ -73,8 +73,9 @@ To inspect the catalogue translation without compiling:
 
 ```bash
 pylatkmc-gen processes models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
-# → 350 Processes across 8 translated families, Ea_eV range, scatter warnings
-#   (adatom_attachment is catalogue-listed but adatom-gated, so it adds none)
+# → 318 Processes across 6 translated families, Ea_eV range, scatter warnings
+#   (adatom_attachment and surface_subsurface_exchange_up/_down are
+#   catalogue-listed but gated, so they add none)
 ```
 
 For the full architectural walkthrough see

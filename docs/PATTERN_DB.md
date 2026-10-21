@@ -201,8 +201,9 @@ INTERLAYER_1NN_DIRS_DOWN = (NC_NN1_DOWN_PP, NC_NN1_DOWN_PM, NC_NN1_DOWN_MP, NC_N
 ```
 
 Production catalogue (`rate_lookup_table_family.csv`, 56 family-bucket
-rows × 8 translated fit-barrier families) → 350 Processes for ni_fe_cr_v1
-at T=500K (`adatom_attachment` is adatom-gated and adds none).
+rows × 6 translated fit-barrier families) → 318 Processes for ni_fe_cr_v1
+at T=500K (`adatom_attachment` and `surface_subsurface_exchange_up`/`_down` are
+gated and add none).
 
 ## Codegen: list[Process] → proclist.c
 
@@ -340,7 +341,7 @@ Add: `k = n[p]++; site_at[k] = s; slot_of[s] = k;`
 Del: take the entry's slot `k`, swap in the last entry, decrement.
 
 Direct port of kmos's Fortran `avail_sites(proc, k, switch)` array.
-Memory: ~12 MB for (n_procs=350, n_sites=4096); fine for v0.2.
+Memory: ~12 MB for (n_procs=318, n_sites=4096); fine for v0.2.
 
 ### state_apply_actions — atomic multi-site mutation
 
@@ -389,7 +390,7 @@ Smoke run on `ni_fe_cr_v1` (8×8×3 slab, 1 surface vacancy, T=500 K,
 
 ```
 mean_msd_A2 = 6.79e5 Å²    (cube baseline 7.79e5 Å² — within 13%)
-n_procs = 358   (validation run predates the 2026-08 adatom gating; regenerated proclists emit 350)
+n_procs = 358   (validation run predates the 2026-08 adatom and 2026-10 exchange gating; regenerated proclists emit 318)
 total_time_s ≈ 4.0e-08
 all 162 unit tests pass
 ```
