@@ -13,9 +13,12 @@ counts → `family_bucket_id` such as `nv1=2_nv2=0`), a `priority` (lower checke
 
 ---
 
-## 📚 The 14 families
+## 📚 The 15 families
 
-12 are `fit_barrier = True` (rate-fit + HTST ν₀); 2 are visibility-only.
+13 are `fit_barrier = True` (rate-fit + HTST ν₀); 2 are visibility-only. Of the
+13, two (`adatom_attachment`, `adatom_detachment`) are **adatom-gated** — rate-fit
+in the catalogue but deliberately not translated into runtime Processes until the
+lattice has above-surface adatom sites (`translator._ADATOM_GATED_FAMILIES`).
 
 | Family | fit | Mechanism | ν₀ source (2026-06) |
 | --- | :-: | --- | --- |
@@ -28,7 +31,8 @@ counts → `family_bucket_id` such as `nv1=2_nv2=0`), a `priority` (lower checke
 | `subsurface_interlayer_hop` | ✅ | ⟨111⟩ interlayer hop, mover at subsurface (~423 ev). | trajectory |
 | `surface_subsurface_exchange_up` | ✅ | **2-atom concerted exchange**, +z. | trajectory |
 | `surface_subsurface_exchange_down` | ✅ | 2-atom exchange, −z. | trajectory |
-| `surface_subsurface_exchange_lateral` | ✅ | 2-atom exchange, large in-plane (≥3.5 Å) + layer change. | trajectory |
+| `adatom_attachment` | ✅ | **Single-atom adatom re-insertion** into a surface vacancy (Δz ≈ −1.5 Å, coord 4→7). Renamed from `surface_subsurface_exchange_lateral` after the 2026-08-14 P2+P3 NiFe audit proved all 9,390 rows are 1-atom moves, not 2-atom exchanges. Adatom-gated at runtime. | trajectory |
+| `adatom_detachment` | ✅ | Reverse leg (surface atom → adatom + vacancy, Ea 1.68–2.78 eV). 0 curated rows — excluded by the 1.2 eV barrier cap; declared so the exclusion is explicit. Adatom-gated at runtime. | — (no rows) |
 | `subsurface_migration_axial` | ✅ | Subsurface vacancy migration, pure-z (rare, ~6 ev). | k0 fallback |
 | `subsurface_migration_interlayer` | ✅ | Subsurface vacancy migration, ⟨111⟩ (~6.1k ev). | trajectory (partial) |
 | `concerted_multisite` | ❌ | `n_moved ≥ 3`, no single-mover mechanism. | — (excluded) |
@@ -37,6 +41,13 @@ counts → `family_bucket_id` such as `nv1=2_nv2=0`), a `priority` (lower checke
 The 2-atom exchange + migration families are exactly the ones a hand-built canonical slab cannot
 easily express — they get their ν₀ from `trajectory_recovery` (real concerted geometries). See
 `CATALOGUE_SCHEMA.md` for the ν₀ provenance column and `docs/INGEST_PIPELINE.md` for the runbook.
+
+> **2026-08 rename.** `surface_subsurface_exchange_lateral` → `adatom_attachment`
+> (+ new `adatom_detachment`). Pre-rename catalogues and audit logs keep working:
+> `family_by_id` resolves the legacy id via `LEGACY_FAMILY_ALIASES`, and the
+> translator skips the legacy id silently alongside the new ids
+> (`_ADATOM_GATED_FAMILIES`). `surface_subsurface_exchange_up`/`_down` were
+> re-verified as genuine 2-atom exchanges and are unchanged.
 
 ---
 

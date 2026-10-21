@@ -3,7 +3,7 @@
 This is the single entry point for the pyKMC→pylatkmc bridge's offline step. It
 composes the two stages that were historically separate scripts:
 
-    classified_events.csv  +  audit_log.csv
+    classified_events.csv  +  audit_log.csv (optional, per-user)
         │
         ├─ family_assignment.assign_events  ─→  classified_events_with_families.csv
         │
@@ -20,6 +20,11 @@ replaces the manual two-step invocation and keeps the two outputs consistent.
         --out-rate     .../rate_lookup_table_family.csv \
         --prefactors-bucket .../family_prefactors_bucket.csv \
         --prefactors        .../family_prefactors.csv
+
+``--audit`` is required: pass the audit log of human verdicts written by the
+PyKMC_Analysis event viewer, or ``--no-audit`` to seed every event from the
+registry alone. A named audit file that does not exist is an error, never a
+silent "no verdicts".
 
 The individual `family_assignment` / `build_family_rate_table` CLIs remain for
 stage-by-stage use; this orchestrator just calls their library functions.
@@ -48,7 +53,7 @@ _LEC = Path("lattice_event_classification")
 
 def build_curated_catalogue(
     events_csv: Path,
-    audit_csv: Path,
+    audit_csv: Path | None,
     out_events_csv: Path,
     out_rate_csv: Path,
     prefactors_bucket_csv: Path,
@@ -63,9 +68,10 @@ def build_curated_catalogue(
     rate-space columns (``k_rate_mean_psinv``, ``Ea_rep_eV``, ``nu0_geo_psinv``,
     ``T_ref_K``). The nu0 maps are loaded once and threaded into both the rate-space
     aggregation and the ``nu0_Hz`` column so they stay consistent.
+    ``audit_csv=None`` applies no human verdicts.
     """
     events = pd.read_csv(events_csv)
-    audit = load_audit(audit_csv)
+    audit = load_audit(audit_csv) if audit_csv is not None else {}
     assigned = assign_events(events, audit)
     out_events_csv.parent.mkdir(parents=True, exist_ok=True)
     assigned.to_csv(out_events_csv, index=False)
@@ -86,7 +92,11 @@ def build_curated_catalogue(
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--events", type=Path, default=_LEC / "classified_events.csv")
-    ap.add_argument("--audit", type=Path, default=_LEC / "audit_log.csv")
+    audit_src = ap.add_mutually_exclusive_group(required=True)
+    audit_src.add_argument("--audit", type=Path,
+                           help="audit_log.csv of human verdicts (per-user state)")
+    audit_src.add_argument("--no-audit", action="store_true",
+                           help="apply no human verdicts")
     ap.add_argument("--out-events", type=Path, default=_LEC / "classified_events_with_families.csv")
     ap.add_argument("--out-rate", type=Path, default=_LEC / "rate_lookup_table_family.csv")
     ap.add_argument("--report", type=Path, default=_LEC / "family_assignment_report.json")
@@ -95,8 +105,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--t-ref", type=float, default=DEFAULT_T_REF_K,
                     help="reference temperature (K) for the rate-space columns (campaign: 500)")
     args = ap.parse_args(argv)
+    if args.audit is not None and not args.audit.is_file():
+        ap.error(f"--audit file not found: {args.audit}")
 
-    print(f"[curated-catalogue] events={args.events}  audit={args.audit}  T_ref={args.t_ref} K")
+    print(
+        f"[curated-catalogue] events={args.events}  audit={args.audit or 'none'}  "
+        f"T_ref={args.t_ref} K"
+    )
     assigned, tbl = build_curated_catalogue(
         args.events, args.audit, args.out_events, args.out_rate,
         args.prefactors_bucket, args.prefactors, args.report,

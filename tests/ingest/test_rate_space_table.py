@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 
 import pandas as pd
-from _paths import CLASSIFICATION_DIR
+from _paths import require_output
 
 from pylatkmc.ingest.build_family_rate_table import DEFAULT_K0_HZ, build_family_table
 from pylatkmc.rate_expression import KB_EV_PER_K
@@ -88,12 +88,7 @@ def test_rate_space_columns_real_classified_csv() -> None:
     """Run build_family_table on the real classified CSV when present; skip otherwise."""
     import pytest
 
-    csv = CLASSIFICATION_DIR / "classified_events_with_families.csv"
-    if not csv.is_file():
-        pytest.skip(
-            "apps/PyKMC_Analysis classified_events_with_families.csv not found; "
-            "set PYKMC_KMC_ROOT to run the real-data rate-space check."
-        )
+    csv = require_output("classified_events_with_families.csv")
     t_ref = 500.0
     df = pd.read_csv(csv)
     if "assignment_status" not in df.columns:

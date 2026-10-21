@@ -66,12 +66,28 @@ def _parse_nv1(proc_name: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _binary_is_stale() -> bool:
+    """proc_ids from the binary are decoded against the CURRENT proclist.c
+    enum; a binary built before a proclist regeneration decodes to the wrong
+    names (any mid-enum removal shifts every later id), so the assertions
+    below would silently check the wrong processes. Skip instead."""
+    try:
+        return BINARY.stat().st_mtime < PROCLIST.stat().st_mtime
+    except OSError:
+        return True
+
+
 @pytest.mark.skipif(
     not BINARY.is_file()
     or not CONFIG.is_file()
     or not PROCLIST.is_file()
     or not Path(MPIRUN).is_file(),
     reason="binary, config, proclist, or mpirun not available",
+)
+@pytest.mark.skipif(
+    BINARY.is_file() and PROCLIST.is_file() and _binary_is_stale(),
+    reason="build/pylatkmc_ni_fe_cr_v1 is older than generated/proclist.c — "
+           "rebuild before trusting proc-id → name decoding",
 )
 def test_one_vac_never_fires_high_nv1_buckets(tmp_path: Path) -> None:
     """Run a short 5k-step trajectory on a 1-vac config and assert no

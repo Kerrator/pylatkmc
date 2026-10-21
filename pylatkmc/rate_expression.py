@@ -40,8 +40,8 @@ It is **pure-Python, NumPy-only**. No I/O.
 References:
 - kmos's OTF rate-expression machinery: `kmos-main/kmos/io/__init__.py`
   (search for `otf_rate`, `evaluate_rate`)
-- The curated catalogue's family table:
-  `apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv`
+- The curated catalogue's family table: `docs/CATALOGUE_SCHEMA.md`; example:
+  `models/ni_example/data/rate_lookup_table_family.csv`
 """
 
 from __future__ import annotations

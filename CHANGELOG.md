@@ -34,6 +34,23 @@ All notable changes to pylatkmc are documented here, following
     build+run `test_dissolution_smoke.py` (verifies a dissolution fires, a
     vacancy is created, and the first-event rate scales as `exp(Phi/kT)`).
 
+### Changed
+
+- **No coupling to a sibling PyKMC_Analysis checkout.** PyKMC_Analysis is now a
+  separate public repo (<https://github.com/Kerrator/PyKMC_Analysis>) whose
+  classification outputs and `audit_log.csv` are git-ignored, per-user files.
+  - `ni_fe_cr_v1` vendors its family table under `data/` (byte-identical to the
+    table it read before, so its `generated/` proclist is unchanged);
+    `ni_dissolution_demo` reuses it. Both drop the never-read `primary` and
+    `fallback_scalar` paths. Every model now regenerates from a bare clone, and a
+    test rejects spec data paths outside the repo. A missing `family_table` now
+    raises a `FileNotFoundError` that names the path and the fix.
+  - `pylatkmc.ingest.build_curated_catalogue` and `family_assignment` no longer
+    default to an `audit_log.csv`: pass `--audit PATH` or `--no-audit`; a named
+    audit file that does not exist is an error.
+  - `tests/ingest` reads live outputs from `PYKMC_ANALYSIS_OUTPUT_DIR` (legacy
+    `PYKMC_KMC_ROOT` still works) and skips when the files are absent.
+
 Candidates for v0.4 (none committed):
 
 - Bystander runtime support — implement count-tuple expansion in

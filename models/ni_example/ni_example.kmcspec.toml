@@ -1,8 +1,8 @@
 # ni_example — a SELF-CONTAINED pure-Ni teaching model.
 #
-# Unlike the other models, this one vendors its training data (data/) so it
-# REGENERATES standalone: a fresh clone of pylatkmc (with no apps/ sibling) can
-# run `pylatkmc-gen build` on this spec without any external files. See README.md.
+# It vendors its training data (data/) so it REGENERATES standalone: a fresh
+# clone of pylatkmc can run `pylatkmc-gen build` on this spec without any
+# external files. See README.md.
 #
 # The rate table is the real, curated pure-Ni (100Ni) FCC family catalogue
 # produced by the off-lattice pyKMC pipeline (pARTn saddle search -> classified

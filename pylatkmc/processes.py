@@ -204,7 +204,7 @@ class ShellCondition(BaseModel):
         The site whose shell we count over. Typically the mover atom
         (the direction Coord of the Process), since the catalogue's
         nv1/nv2 are computed at `coord_mover_initial` upstream
-        (see `apps/PyKMC_Analysis/Analysis/tools/fix_catalogue_nvac.py`).
+        (see PyKMC_Analysis `Analysis/tools/fix_catalogue_nvac.py`).
     shell : "1nn" | "2nn"
         Which CSR shell of the coord site to walk. v0.3 only supports
         these two; richer shells are a future extension.

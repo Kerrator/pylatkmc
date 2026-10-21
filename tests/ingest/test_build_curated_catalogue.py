@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import pytest
 
-from pylatkmc.ingest.build_curated_catalogue import build_curated_catalogue
+from pylatkmc.ingest.build_curated_catalogue import build_curated_catalogue, main
 
 
 def _mini_events() -> pd.DataFrame:
@@ -62,3 +63,43 @@ def test_orchestrator_runs_and_writes_both_outputs(tmp_path):
     assert hit["nu0_Hz"].iloc[0] == 1.58e13
     # report is valid JSON
     json.loads(report.read_text())
+
+
+def _cli_args(tmp_path):
+    """Minimal on-disk inputs for the CLI; returns the shared argv prefix."""
+    ev = tmp_path / "classified_events.csv"
+    _mini_events().to_csv(ev, index=False)
+    bucket = tmp_path / "fp_bucket.csv"
+    pd.DataFrame(columns=["family_id", "family_bucket_id", "T_K", "nu0_Hz"]).to_csv(
+        bucket, index=False)
+    family = tmp_path / "fp.csv"
+    pd.DataFrame(columns=["motif", "nu0_Hz"]).to_csv(family, index=False)
+    return [
+        "--events", str(ev),
+        "--out-events", str(tmp_path / "with_families.csv"),
+        "--out-rate", str(tmp_path / "rate.csv"),
+        "--report", str(tmp_path / "report.json"),
+        "--prefactors-bucket", str(bucket),
+        "--prefactors", str(family),
+    ]
+
+
+def test_cli_requires_an_audit_choice(tmp_path):
+    """No silent default audit log: --audit PATH or --no-audit is mandatory."""
+    with pytest.raises(SystemExit) as exc:
+        main(_cli_args(tmp_path))
+    assert exc.value.code == 2
+
+
+def test_cli_rejects_missing_audit_file(tmp_path):
+    """A named audit file that doesn't exist is an error, not 'no verdicts'."""
+    with pytest.raises(SystemExit) as exc:
+        main([*_cli_args(tmp_path), "--audit", str(tmp_path / "missing.csv")])
+    assert exc.value.code == 2
+
+
+def test_cli_no_audit_builds_both_outputs(tmp_path):
+    assert main([*_cli_args(tmp_path), "--no-audit"]) == 0
+    assigned = pd.read_csv(tmp_path / "with_families.csv")
+    assert (assigned["assignment_status"] == "accepted").all()
+    assert (tmp_path / "rate.csv").is_file()

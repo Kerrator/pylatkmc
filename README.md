@@ -36,10 +36,11 @@ the v0.2 → v0.3 migration story.
 - Python ≥ 3.10
 - A C compiler (gcc / clang) and CMake ≥ 3.20
 - OpenMPI ≥ 4.x (or any MPI 3.1-compatible implementation)
-- A curated rate-table CSV (FCC family catalogue) — produced by the
-  upstream pyKMC analysis pipeline, e.g.
-  `apps/PyKMC_Analysis/Analysis/lattice_event_classification/rate_lookup_table_family.csv`
-  in the workspace meta-repo.
+- A curated rate-table CSV (FCC family catalogue). The bundled models
+  vendor theirs under `models/<m>/data/`, so a bare clone regenerates
+  every model. New tables come from the pyKMC analysis pipeline in
+  [PyKMC_Analysis](https://github.com/Kerrator/PyKMC_Analysis), a separate public repo, plus
+  `pylatkmc.ingest` (see [`docs/INGEST_PIPELINE.md`](docs/INGEST_PIPELINE.md)).
 
 ## Quickstart
 
@@ -72,7 +73,8 @@ To inspect the catalogue translation without compiling:
 
 ```bash
 pylatkmc-gen processes models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
-# → 358 Processes across 9 families, Ea_eV range, scatter warnings
+# → 350 Processes across 8 translated families, Ea_eV range, scatter warnings
+#   (adatom_attachment is catalogue-listed but adatom-gated, so it adds none)
 ```
 
 For the full architectural walkthrough see
@@ -107,7 +109,7 @@ For the full architectural walkthrough see
 - **[`docs/CATALOGUE_SCHEMA.md`](docs/CATALOGUE_SCHEMA.md)** — *new.* Every
   CSV in the pyKMC→pylatkmc pipeline: columns, types, formulas, producers,
   and the `nu0_Hz`/`nu0_source` provenance.
-- **[`docs/FAMILY_REGISTRY.md`](docs/FAMILY_REGISTRY.md)** — *new.* The 14
+- **[`docs/FAMILY_REGISTRY.md`](docs/FAMILY_REGISTRY.md)** — *new.* The 15
   FCC families, seed-rule precedence, and how to add/refine one.
 - **[`docs/KMOS_COMPARISON.md`](docs/KMOS_COMPARISON.md)** — what we
   borrowed, what's still kmos-different.
