@@ -13,6 +13,7 @@ from pydantic import ValidationError
 from pylatkmc import load
 from pylatkmc.spec import (
     MAX_CUBE_ENTRIES,
+    DissolutionSpec,
     Key,
     KeyAxis,
     ModelSpec,
@@ -178,6 +179,35 @@ def test_cube_size_cap_enforced() -> None:
                 ),
             )
         )  # type: ignore[arg-type]
+
+
+def _v2_spec_with_dissolution(enabled: bool) -> dict[str, object]:
+    return _minimal_spec(
+        rate_data=RateData(
+            event_class_table=Path("/tmp/catalogue.parquet"),
+            temperature_K=500.0,
+            k0_Hz=1e13,
+        ),
+        dissolution=DissolutionSpec(enabled=enabled, epsilon_table=Path("/tmp/eps.toml")),
+    )
+
+
+def test_v2_path_refuses_enabled_dissolution() -> None:
+    # The v2 codegen emits no dissolution Processes, so this combination used
+    # to build rc 0 and run as pure diffusion (v2-dissolution/01).
+    with pytest.raises(ValidationError, match="v2-dissolution/01"):
+        ModelSpec(**_v2_spec_with_dissolution(enabled=True))  # type: ignore[arg-type]
+
+
+def test_v2_path_accepts_disabled_dissolution() -> None:
+    spec = ModelSpec(**_v2_spec_with_dissolution(enabled=False))  # type: ignore[arg-type]
+    assert spec.dissolution is not None and not spec.dissolution.enabled
+
+
+@pytest.mark.parametrize("model", ["nife_v2_scratch", "nicr_v2_scratch"])
+def test_committed_v2_specs_load(model: str) -> None:
+    spec = load(REPO_ROOT / "models" / model / f"{model}.kmcspec.toml")
+    assert spec.rate_data.event_class_table is not None
 
 
 def test_missing_spec_file_raises() -> None:
