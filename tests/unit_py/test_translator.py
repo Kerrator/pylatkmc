@@ -323,9 +323,10 @@ def test_translate_simple_hop_empty_when_no_matching_family() -> None:
 
 
 # ---------------------------------------------------------------------------
-# translate_all — full dispatch across the 11 runtime-translated families
-# (adatom_attachment / adatom_detachment are fit-barrier families in the
-# registry but adatom-gated out of runtime translation)
+# translate_all — full dispatch across the 9 runtime-translated families
+# (adatom_attachment / adatom_detachment and surface_subsurface_exchange_up /
+# _down are fit-barrier families in the registry but gated out of runtime
+# translation)
 # ---------------------------------------------------------------------------
 
 from pylatkmc.translator import translate_all  # noqa: E402
@@ -342,12 +343,10 @@ def test_translate_all_dispatches_per_family() -> None:
         _row("subsurface_2NN_diagonal", "nv1=3", 50, 0.95),  # 6
         _row("surface_interlayer_hop", "li=0_nv1=4", 30, 1.1),  # 4
         _row("subsurface_interlayer_hop", "nv1=2", 50, 1.0),  # 8
-        _row("surface_subsurface_exchange_up", "nv1=4", 40, 1.0),  # 4
-        _row("surface_subsurface_exchange_down", "nv1=4", 40, 0.9),  # 4
         _row("subsurface_migration_axial", "nv1=2", 30, 1.0),  # 12
         _row("subsurface_migration_interlayer", "nv1=2", 30, 1.0),  # 8
     ]
-    expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 4 + 4 + 12 + 8  # = 78
+    expected_total = 4 + 12 + 12 + 4 + 6 + 4 + 8 + 12 + 8  # = 70
     out = translate_all(rows)
     assert len(out) == expected_total
 
@@ -389,12 +388,12 @@ def test_translate_all_empty_input() -> None:
     assert translate_all([]) == []
 
 
-def test_translate_all_adatom_gated_families_skipped_silently() -> None:
+def test_translate_all_adatom_gated_families_skipped_and_reported() -> None:
     """adatom_attachment / adatom_detachment (and the legacy
     surface_subsurface_exchange_lateral id from pre-rename catalogues) are
     single-atom adatom moves needing above-surface sites the lattice lacks
     (P2+P3 NiFe audit, 2026-08-14) — no Processes, no unknown-family
-    warning."""
+    warning, but each is reported as gated."""
     rows = [
         _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),  # 4
         _row("adatom_attachment", "nv1=4", 40, 1.0),
@@ -402,10 +401,47 @@ def test_translate_all_adatom_gated_families_skipped_silently() -> None:
         _row("surface_subsurface_exchange_lateral", "nv1=4", 40, 1.0),
     ]
     unknown_seen: list[str] = []
-    out = translate_all(rows, on_unknown_family=unknown_seen.append)
+    gated_seen: list[str] = []
+    out = translate_all(
+        rows,
+        on_unknown_family=unknown_seen.append,
+        on_gated_family=lambda fid, nb, ne: gated_seen.append(fid),
+    )
+    assert unknown_seen == []
+    assert gated_seen == [
+        "adatom_attachment",
+        "adatom_detachment",
+        "surface_subsurface_exchange_lateral",
+    ]
+    assert all(p.family_id == "surface_1NN_inplane" for p in out)
+    assert len(out) == 4
+
+
+def test_translate_all_multi_mover_exchange_families_gated_and_reported() -> None:
+    """surface_subsurface_exchange_up / _down move TWO atoms a full 1NN hop
+    (n_moved == 2, second mover ~2.37 Å), which the 2-action swap cannot
+    express — no Processes, no unknown-family warning, and each gated family
+    is reported with its bucket and event counts."""
+    rows = [
+        _row("surface_1NN_inplane", "nv1=0_nv2=0", 100, 0.6),  # 4
+        _row("surface_subsurface_exchange_up", "nv1=1", 40, 1.0),
+        _row("surface_subsurface_exchange_up", "nv1=2", 60, 0.96),
+        _row("surface_subsurface_exchange_down", "nv1=5", 10, 0.0006),
+    ]
+    unknown_seen: list[str] = []
+    gated_seen: list[tuple[str, int, int]] = []
+    out = translate_all(
+        rows,
+        on_unknown_family=unknown_seen.append,
+        on_gated_family=lambda fid, nb, ne: gated_seen.append((fid, nb, ne)),
+    )
     assert unknown_seen == []
     assert all(p.family_id == "surface_1NN_inplane" for p in out)
     assert len(out) == 4
+    assert gated_seen == [
+        ("surface_subsurface_exchange_down", 1, 10),
+        ("surface_subsurface_exchange_up", 2, 100),
+    ]
 
 
 # ===========================================================================

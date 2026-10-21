@@ -379,6 +379,9 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
         T_K=spec.rate_data.temperature_K,
         style=spec.rate_data.prefactor_style,
         on_unknown_family=lambda f: print(f"pylatkmc-gen: skipping unknown family {f!r}"),
+        on_gated_family=lambda f, nb, ne: print(
+            f"pylatkmc-gen: skipping gated family {f!r} ({nb} buckets, {ne} catalogue events)"
+        ),
     )
 
     # Append the analytical electrochemical dissolution family (if enabled).

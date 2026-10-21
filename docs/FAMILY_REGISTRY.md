@@ -18,7 +18,11 @@ counts → `family_bucket_id` such as `nv1=2_nv2=0`), a `priority` (lower checke
 13 are `fit_barrier = True` (rate-fit + HTST ν₀); 2 are visibility-only. Of the
 13, two (`adatom_attachment`, `adatom_detachment`) are **adatom-gated** — rate-fit
 in the catalogue but deliberately not translated into runtime Processes until the
-lattice has above-surface adatom sites (`translator._ADATOM_GATED_FAMILIES`).
+lattice has above-surface adatom sites (`translator._ADATOM_GATED_FAMILIES`). Two more
+(`surface_subsurface_exchange_up`, `_down`) are **multi-mover-gated**: genuine 2-atom exchanges
+that the v0.3 2-action swap cannot express, so they emit no Processes either
+(`translator._MULTI_MOVER_GATED_FAMILIES`). `pylatkmc-gen build` prints each gated family it
+skips, with its bucket and event counts.
 
 | Family | fit | Mechanism | ν₀ source (2026-06) |
 | --- | :-: | --- | --- |
@@ -29,8 +33,8 @@ lattice has above-surface adatom sites (`translator._ADATOM_GATED_FAMILIES`).
 | `subsurface_2NN_diagonal` | ✅ | ⟨100⟩ diagonal hop, subsurface. | trajectory |
 | `surface_interlayer_hop` | ✅ | ⟨111⟩ interlayer single-atom hop, mover at surface (~424 ev). | trajectory |
 | `subsurface_interlayer_hop` | ✅ | ⟨111⟩ interlayer hop, mover at subsurface (~423 ev). | trajectory |
-| `surface_subsurface_exchange_up` | ✅ | **2-atom concerted exchange**, +z. | trajectory |
-| `surface_subsurface_exchange_down` | ✅ | 2-atom exchange, −z. | trajectory |
+| `surface_subsurface_exchange_up` | ✅ | **2-atom concerted exchange**, +z (`n_moved` = 2; second mover hops ~2.38 Å). Multi-mover-gated at runtime. | trajectory |
+| `surface_subsurface_exchange_down` | ✅ | 2-atom exchange, −z (`n_moved` = 2; second mover hops ~2.37 Å). Multi-mover-gated at runtime. | trajectory |
 | `adatom_attachment` | ✅ | **Single-atom adatom re-insertion** into a surface vacancy (Δz ≈ −1.5 Å, coord 4→7). Renamed from `surface_subsurface_exchange_lateral` after the 2026-08-14 P2+P3 NiFe audit proved all 9,390 rows are 1-atom moves, not 2-atom exchanges. Adatom-gated at runtime. | trajectory |
 | `adatom_detachment` | ✅ | Reverse leg (surface atom → adatom + vacancy, Ea 1.68–2.78 eV). 0 curated rows — excluded by the 1.2 eV barrier cap; declared so the exclusion is explicit. Adatom-gated at runtime. | — (no rows) |
 | `subsurface_migration_axial` | ✅ | Subsurface vacancy migration, pure-z (rare, ~6 ev). | k0 fallback |
@@ -48,6 +52,11 @@ easily express — they get their ν₀ from `trajectory_recovery` (real concert
 > translator skips the legacy id silently alongside the new ids
 > (`_ADATOM_GATED_FAMILIES`). `surface_subsurface_exchange_up`/`_down` were
 > re-verified as genuine 2-atom exchanges and are unchanged.
+>
+> **2026-10 gating.** Being genuine 2-atom exchanges is exactly why
+> `surface_subsurface_exchange_up`/`_down` are now gated too. The v0.3 translator emitted them
+> as single-atom interlayer hops at the exchange's barrier and ν₀, and the family CSV has no
+> second-mover geometry to do better. True exchanges are left to the species-resolved path.
 
 ---
 

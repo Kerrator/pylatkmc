@@ -21,7 +21,7 @@ Translation strategy per family:
 | `subsurface_2NN_diagonal` | same | nv1×6 (6 bulk 2NN) |
 | `surface_interlayer_hop` | one per (bucket × interlayer direction) | nv1×4 (4 cross-layer 1NN) |
 | `subsurface_interlayer_hop` | same | nv1×8 |
-| `surface_subsurface_exchange_*` | 2-action Process per direction | small |
+| `surface_subsurface_exchange_up/_down` | gated — 2-mover events the 2-action swap can't express | 0 |
 | `subsurface_migration_*` | 2-action Process per direction | small |
 | `concerted_multisite` | per-row positional events (deferred) | 0 in v2 (fit_barrier=False) |
 | `unresolved_multisite` | skip (visibility-only) | 0 |
@@ -626,8 +626,6 @@ _FAMILY_DIRECTIONS: dict[str, tuple[CoordOffset, ...]] = {
     "subsurface_2NN_diagonal": BULK_2NN_DIRS,  # 6
     "surface_interlayer_hop": INTERLAYER_1NN_DIRS_DOWN,  # 4 (surface→subsurface)
     "subsurface_interlayer_hop": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
-    "surface_subsurface_exchange_up": INTERLAYER_1NN_DIRS_UP,  # 4
-    "surface_subsurface_exchange_down": INTERLAYER_1NN_DIRS_DOWN,  # 4
     "subsurface_migration_axial": BULK_1NN_DIRS,  # 12
     "subsurface_migration_interlayer": INTERLAYER_1NN_DIRS_UP + INTERLAYER_1NN_DIRS_DOWN,  # 8
 }
@@ -662,6 +660,23 @@ _ADATOM_GATED_FAMILIES: frozenset[str] = frozenset(
         "adatom_attachment",
         "adatom_detachment",
         "surface_subsurface_exchange_lateral",  # legacy id (pre-rename CSVs)
+    }
+)
+
+# Multi-mover-gated families — deliberately NOT translated on the v0.3 path.
+#
+# Unlike the lateral family above, every curated exchange_up / _down row is a
+# genuine 2-mover event: both top movers hop a full 1NN distance (n_moved==2,
+# second mover ≈ 2.37 Å; 2026-10-21 check of the 81,277-row pure-Ni corpus).
+# _emit_simple_2action_hop moves one atom, so the old _FAMILY_DIRECTIONS
+# entries fired single-atom interlayer hops at the exchange's barrier and ν₀
+# (incl. a near-barrierless exchange_down nv1=5 bucket). The family CSV
+# carries no second-mover geometry, so a faithful multi-action Process can't
+# be built from it; true exchanges are left to the species-resolved path.
+_MULTI_MOVER_GATED_FAMILIES: frozenset[str] = frozenset(
+    {
+        "surface_subsurface_exchange_up",
+        "surface_subsurface_exchange_down",
     }
 )
 
@@ -724,17 +739,22 @@ def translate_all(
     on_unknown_family: Callable[[str], None] | None = None,
     adatom_reverse_ea_floor_eV: float | None = ADATOM_REVERSE_EA_FLOOR_EV,
     bucket_exclusions: set[tuple[str, str]] | None = None,
+    on_gated_family: Callable[[str, int, int], None] | None = None,
 ) -> list[Process]:
     """Translate every supported family in the catalogue into Processes.
 
     Iterates `_FAMILY_DIRECTIONS` and dispatches each to
     translate_simple_hop_family. Unknown family_ids in the catalogue
-    (i.e. families not in `_FAMILY_DIRECTIONS`, `_FAMILIES_SKIPPED`, or
-    `_ADATOM_GATED_FAMILIES`) are reported via `on_unknown_family` and
-    skipped. Adatom-gated families (adatom_attachment / adatom_detachment
-    and the legacy surface_subsurface_exchange_lateral id) are skipped
-    silently: they need above-surface adatom sites the lattice does not
-    have yet.
+    (i.e. families not in `_FAMILY_DIRECTIONS`, `_FAMILIES_SKIPPED`,
+    `_ADATOM_GATED_FAMILIES`, or `_MULTI_MOVER_GATED_FAMILIES`) are
+    reported via `on_unknown_family` and skipped. Gated families are
+    skipped and each one present in the catalogue is reported via
+    `on_gated_family(family_id, n_buckets, n_events)`: adatom-gated ones
+    (adatom_attachment / adatom_detachment and the legacy
+    surface_subsurface_exchange_lateral id) need above-surface adatom
+    sites the lattice does not have yet; multi-mover-gated ones
+    (surface_subsurface_exchange_up / _down) move two atoms, which the
+    2-action swap cannot express.
 
     `adatom_reverse_ea_floor_eV`: drop buckets in
     _ADATOM_REVERSE_FAMILIES whose Ea_mean is below this floor. These
@@ -747,15 +767,16 @@ def translate_all(
     out: list[Process] = []
 
     families_in_catalogue = {r.family_id for r in rows}
-    known = (
-        set(_FAMILY_DIRECTIONS.keys())
-        | _FAMILIES_SKIPPED
-        | _ADATOM_GATED_FAMILIES
-    )
+    gated = _ADATOM_GATED_FAMILIES | _MULTI_MOVER_GATED_FAMILIES
+    known = set(_FAMILY_DIRECTIONS.keys()) | _FAMILIES_SKIPPED | gated
     unknown = families_in_catalogue - known
     for fid in sorted(unknown):
         if on_unknown_family is not None:
             on_unknown_family(fid)
+    if on_gated_family is not None:
+        for fid in sorted(families_in_catalogue & gated):
+            fam_rows = [r for r in rows if r.family_id == fid]
+            on_gated_family(fid, len(fam_rows), sum(r.n_events for r in fam_rows))
 
     # Filter rows by the adatom-reverse Ea floor before dispatching.
     if adatom_reverse_ea_floor_eV is not None:

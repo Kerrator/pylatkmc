@@ -36,6 +36,15 @@ All notable changes to pylatkmc are documented here, following
 
 ### Changed
 
+- **`surface_subsurface_exchange_up`/`_down` are gated out of v0.3 translation.** Every
+  curated row is a genuine 2-mover event (`n_moved` = 2, second mover ~2.37 Å). The 2-action
+  swap fired them as single-atom interlayer hops at the exchange's barrier and ν₀, including a
+  near-barrierless `exchange_down nv1=5` bucket. They join the new
+  `translator._MULTI_MOVER_GATED_FAMILIES`. `translate_all` gains
+  `on_gated_family(family_id, n_buckets, n_events)`, and `pylatkmc-gen build` prints every gated
+  family it skips, the adatom-gated ones included (previously silent). All three models
+  regenerate: 350 → 318 Processes. Model kinetics change; `ni_example`'s MSD/Arrhenius
+  cross-check predates this.
 - **No coupling to a sibling PyKMC_Analysis checkout.** PyKMC_Analysis is now a
   separate public repo (<https://github.com/Kerrator/PyKMC_Analysis>) whose
   classification outputs and `audit_log.csv` are git-ignored, per-user files.

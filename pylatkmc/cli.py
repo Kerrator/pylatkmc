@@ -63,6 +63,7 @@ def cmd_processes(args: argparse.Namespace) -> int:
     from .loader import load
     from .translator import (
         _ADATOM_GATED_FAMILIES,
+        _MULTI_MOVER_GATED_FAMILIES,
         load_family_rate_table,
         prefactor_coverage,
         translate_all,
@@ -105,6 +106,8 @@ def cmd_processes(args: argparse.Namespace) -> int:
         gated = (
             "  (adatom-gated, not translated)"
             if fid in _ADATOM_GATED_FAMILIES
+            else "  (multi-mover-gated, not translated)"
+            if fid in _MULTI_MOVER_GATED_FAMILIES
             else ""
         )
         print(f"  {fid:34s} {src}{gated}")
