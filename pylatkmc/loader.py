@@ -41,13 +41,20 @@ def load(path: str | Path) -> ModelSpec:
             d_raw["epsilon_table"] = (spec_path.parent / d_raw["epsilon_table"]).resolve()
         dissolution = DissolutionSpec(**d_raw)
 
+    # Unknown top-level and [key] keys are passed through, not dropped, so the
+    # models' extra="forbid" rejects a typo (e.g. [dissolutoin]) instead of
+    # silently loading a spec without it.
+    key_raw: dict[str, Any] = dict(raw["key"])
+    key_raw["axes"] = [KeyAxis(**a) for a in key_raw["axes"]]
     spec = ModelSpec(
-        name=raw["name"],
-        lattice=raw.get("lattice", "fcc"),
-        species=list(raw["species"]),
-        shells=[Shell(**s) for s in raw["shells"]],
-        key=Key(axes=[KeyAxis(**a) for a in raw["key"]["axes"]]),
-        rate_data=RateData(**rd_raw),
-        dissolution=dissolution,
+        **{
+            **raw,
+            "lattice": raw.get("lattice", "fcc"),
+            "species": list(raw["species"]),
+            "shells": [Shell(**s) for s in raw["shells"]],
+            "key": Key(**key_raw),
+            "rate_data": RateData(**rd_raw),
+            "dissolution": dissolution,
+        }
     )
     return spec
