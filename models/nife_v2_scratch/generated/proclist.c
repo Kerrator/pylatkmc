@@ -15019,7 +15019,8 @@ static const RateConst rate_table[N_PROCS] = {
 /* ---- v2 data-driven pattern tables (EventClass catalogue) ----
  *
  * Each pattern stores its canonical-frame rows ONCE; each process is a
- * (pattern, D4h op) pair and the matcher rotates offsets on the fly.
+ * (pattern, member, D4h op) triple and the matcher rotates offsets on
+ * the fly, once per (pattern, op).
  * Offsets are integer FCC cells (a/2 units) relative to the pattern
  * anchor, resolved through the runtime's integer site grid
  * (lattice_site_at_ijk). Absent sites resolve to the stub index
@@ -15031,9 +15032,11 @@ static const RateConst rate_table[N_PROCS] = {
 typedef struct { int8_t di, dj, dk; uint8_t before, after; } V2DeltaRow;
 typedef struct { int8_t di, dj, dk; uint8_t pred; } V2CtxRow;
 typedef struct {
-    int32_t delta_begin, delta_n, ctx_begin, ctx_n;
-    int8_t  v_origin_row, v_dest_row;   /* MSD bookkeeping; -1 = n/a */
-    uint8_t anchor_sp, _pad;
+    int32_t  delta_begin, delta_n, ctx_begin, ctx_n;
+    int32_t  proc_begin, proc_n;        /* procs: member-major, then op */
+    uint16_t op_mask;                   /* bit g: V2_OPS[g] is an orientation */
+    int8_t   v_origin_row, v_dest_row;  /* MSD bookkeeping; -1 = n/a */
+    uint8_t  anchor_sp, _pad;
 } V2Pattern;
 typedef struct { int32_t pat; uint8_t op; uint8_t _pad[3]; } V2Proc;
 
@@ -20128,186 +20131,186 @@ static const V2CtxRow v2_ctx_rows[40140] = {
 };
 
 static const V2Pattern v2_patterns[180] = {
-    {0,2,0,223,0,1,SP_VACANT,0}, /* v2_03fc321ed858 */
-    {2,2,223,223,0,1,SP_VACANT,0}, /* v2_083c32927dbf */
-    {4,2,446,223,0,1,SP_VACANT,0}, /* v2_0c0d0e808b22 */
-    {6,2,669,223,0,1,SP_VACANT,0}, /* v2_0d06d975d9c4 */
-    {8,2,892,223,0,1,SP_VACANT,0}, /* v2_0f04377268b2 */
-    {10,2,1115,223,0,1,SP_VACANT,0}, /* v2_0f237b6b4e5f */
-    {12,2,1338,223,0,1,SP_VACANT,0}, /* v2_108311fe3d00 */
-    {14,2,1561,223,0,1,SP_VACANT,0}, /* v2_1255cba7c6ae */
-    {16,2,1784,223,0,1,SP_VACANT,0}, /* v2_129cbe7fb1eb */
-    {18,2,2007,223,0,1,SP_VACANT,0}, /* v2_15dc62ba3073 */
-    {20,2,2230,223,0,1,SP_VACANT,0}, /* v2_18eed7b4e1c5 */
-    {22,2,2453,223,0,1,SP_VACANT,0}, /* v2_18ffec260b71 */
-    {24,2,2676,223,0,1,SP_VACANT,0}, /* v2_19141a81e7f1 */
-    {26,2,2899,223,0,1,SP_VACANT,0}, /* v2_1995fa903841 */
-    {28,2,3122,223,0,1,SP_VACANT,0}, /* v2_1aab94afb8fe */
-    {30,2,3345,223,0,1,SP_VACANT,0}, /* v2_1c2694db7757 */
-    {32,2,3568,223,0,1,SP_VACANT,0}, /* v2_1e102a522acb */
-    {34,2,3791,223,0,1,SP_VACANT,0}, /* v2_1edeb41f3ffd */
-    {36,2,4014,223,0,1,SP_VACANT,0}, /* v2_208e8c2838b7 */
-    {38,2,4237,223,0,1,SP_VACANT,0}, /* v2_2151580d4607 */
-    {40,2,4460,223,0,1,SP_VACANT,0}, /* v2_21c4d07744a8 */
-    {42,2,4683,223,0,1,SP_VACANT,0}, /* v2_224385a7bc23 */
-    {44,2,4906,223,0,1,SP_VACANT,0}, /* v2_2a78c2ca9afe */
-    {46,2,5129,223,0,1,SP_VACANT,0}, /* v2_2b7e9941b707 */
-    {48,2,5352,223,0,1,SP_VACANT,0}, /* v2_2cc3a7e728d3 */
-    {50,2,5575,223,0,1,SP_VACANT,0}, /* v2_2e4ef65f40c1 */
-    {52,2,5798,223,0,1,SP_VACANT,0}, /* v2_2eb32c901575 */
-    {54,2,6021,223,0,1,SP_VACANT,0}, /* v2_2ebc5d482e51 */
-    {56,2,6244,223,0,1,SP_VACANT,0}, /* v2_31294b6fd7f2 */
-    {58,2,6467,223,0,1,SP_VACANT,0}, /* v2_332256ad5257 */
-    {60,2,6690,223,0,1,SP_VACANT,0}, /* v2_34cc794bdcb6 */
-    {62,2,6913,223,0,1,SP_VACANT,0}, /* v2_350f950fa5ec */
-    {64,2,7136,223,0,1,SP_VACANT,0}, /* v2_39a8d77af80a */
-    {66,2,7359,223,0,1,SP_VACANT,0}, /* v2_39e337157f3e */
-    {68,2,7582,223,0,1,SP_VACANT,0}, /* v2_3b97e057e186 */
-    {70,2,7805,223,0,1,SP_VACANT,0}, /* v2_3bfe69aab139 */
-    {72,2,8028,223,0,1,SP_VACANT,0}, /* v2_3c68cf7fab04 */
-    {74,2,8251,223,0,1,SP_VACANT,0}, /* v2_3d9160772530 */
-    {76,2,8474,223,0,1,SP_VACANT,0}, /* v2_3d98a30b45c1 */
-    {78,2,8697,223,0,1,SP_VACANT,0}, /* v2_3e066e1fdcff */
-    {80,2,8920,223,0,1,SP_VACANT,0}, /* v2_3f5525946db9 */
-    {82,2,9143,223,0,1,SP_VACANT,0}, /* v2_41ab56e07af1 */
-    {84,2,9366,223,0,1,SP_VACANT,0}, /* v2_42876b77315d */
-    {86,2,9589,223,0,1,SP_VACANT,0}, /* v2_43ca8d657100 */
-    {88,2,9812,223,0,1,SP_VACANT,0}, /* v2_451e9c210266 */
-    {90,2,10035,223,0,1,SP_VACANT,0}, /* v2_458b2b2fd9e9 */
-    {92,2,10258,223,0,1,SP_VACANT,0}, /* v2_459856208b24 */
-    {94,2,10481,223,0,1,SP_VACANT,0}, /* v2_497cc0a7c508 */
-    {96,2,10704,223,0,1,SP_VACANT,0}, /* v2_4aefeb1b4163 */
-    {98,2,10927,223,0,1,SP_VACANT,0}, /* v2_4c1d3b572d17 */
-    {100,2,11150,223,0,1,SP_VACANT,0}, /* v2_4c562bfa05ee */
-    {102,2,11373,223,0,1,SP_VACANT,0}, /* v2_505f23b6e238 */
-    {104,2,11596,223,0,1,SP_VACANT,0}, /* v2_507913396d0b */
-    {106,2,11819,223,0,1,SP_VACANT,0}, /* v2_536f669ca73b */
-    {108,2,12042,223,0,1,SP_VACANT,0}, /* v2_5493ee087ffc */
-    {110,2,12265,223,0,1,SP_VACANT,0}, /* v2_562a533097d2 */
-    {112,2,12488,223,0,1,SP_VACANT,0}, /* v2_56deea505c48 */
-    {114,2,12711,223,0,1,SP_VACANT,0}, /* v2_572c2837296c */
-    {116,2,12934,223,0,1,SP_VACANT,0}, /* v2_597e93767b14 */
-    {118,2,13157,223,0,1,SP_VACANT,0}, /* v2_59fb22adcd6d */
-    {120,2,13380,223,0,1,SP_VACANT,0}, /* v2_5a59cd142d31 */
-    {122,2,13603,223,0,1,SP_VACANT,0}, /* v2_5ca4775213af */
-    {124,2,13826,223,0,1,SP_VACANT,0}, /* v2_5cb99912a626 */
-    {126,2,14049,223,0,1,SP_VACANT,0}, /* v2_5de71c74e6b3 */
-    {128,2,14272,223,0,1,SP_VACANT,0}, /* v2_5f4e8f112af9 */
-    {130,2,14495,223,0,1,SP_VACANT,0}, /* v2_61d48ec8ee88 */
-    {132,2,14718,223,0,1,SP_VACANT,0}, /* v2_63096f77f2d3 */
-    {134,2,14941,223,0,1,SP_VACANT,0}, /* v2_65055342f4e0 */
-    {136,2,15164,223,0,1,SP_VACANT,0}, /* v2_69fea41fc1fd */
-    {138,2,15387,223,0,1,SP_VACANT,0}, /* v2_6a5431b516be */
-    {140,2,15610,223,0,1,SP_VACANT,0}, /* v2_6c87c170efee */
-    {142,2,15833,223,0,1,SP_VACANT,0}, /* v2_6cd32d5dd6e8 */
-    {144,2,16056,223,0,1,SP_VACANT,0}, /* v2_6d6baac136de */
-    {146,2,16279,223,0,1,SP_VACANT,0}, /* v2_6e3fe6950ca5 */
-    {148,2,16502,223,0,1,SP_VACANT,0}, /* v2_6e7076b9c0f0 */
-    {150,2,16725,223,0,1,SP_VACANT,0}, /* v2_6eb0ec7ea3e5 */
-    {152,2,16948,223,0,1,SP_VACANT,0}, /* v2_7563334aa134 */
-    {154,2,17171,223,0,1,SP_VACANT,0}, /* v2_759abdf4e274 */
-    {156,2,17394,223,0,1,SP_VACANT,0}, /* v2_76c388587a0b */
-    {158,2,17617,223,0,1,SP_VACANT,0}, /* v2_77a2cf2e7808 */
-    {160,2,17840,223,0,1,SP_VACANT,0}, /* v2_7e0119fd4108 */
-    {162,2,18063,223,0,1,SP_VACANT,0}, /* v2_7e1cc2bd7f9e */
-    {164,2,18286,223,0,1,SP_VACANT,0}, /* v2_80dfe64600de */
-    {166,2,18509,223,0,1,SP_VACANT,0}, /* v2_812b128bbb80 */
-    {168,2,18732,223,0,1,SP_VACANT,0}, /* v2_812eea01a882 */
-    {170,2,18955,223,0,1,SP_VACANT,0}, /* v2_81b21b9cc72a */
-    {172,2,19178,223,0,1,SP_VACANT,0}, /* v2_8547c6ca528d */
-    {174,2,19401,223,0,1,SP_VACANT,0}, /* v2_86f7b182e4ce */
-    {176,2,19624,223,0,1,SP_VACANT,0}, /* v2_8753e75d8693 */
-    {178,2,19847,223,0,1,SP_VACANT,0}, /* v2_8b6a8895fe60 */
-    {180,2,20070,223,0,1,SP_VACANT,0}, /* v2_8b93d6d55316 */
-    {182,2,20293,223,0,1,SP_VACANT,0}, /* v2_8b9d5125c6cb */
-    {184,2,20516,223,0,1,SP_VACANT,0}, /* v2_8ba6ea62e321 */
-    {186,2,20739,223,0,1,SP_VACANT,0}, /* v2_8fdfa2b36b52 */
-    {188,2,20962,223,0,1,SP_VACANT,0}, /* v2_8ff696c0d14c */
-    {190,2,21185,223,0,1,SP_VACANT,0}, /* v2_9017c14f26fb */
-    {192,2,21408,223,0,1,SP_VACANT,0}, /* v2_924894c2ee5e */
-    {194,2,21631,223,0,1,SP_VACANT,0}, /* v2_925348170914 */
-    {196,2,21854,223,0,1,SP_VACANT,0}, /* v2_92fdc51921c6 */
-    {198,2,22077,223,0,1,SP_VACANT,0}, /* v2_95c126064e08 */
-    {200,2,22300,223,0,1,SP_VACANT,0}, /* v2_95fb9fa5327c */
-    {202,2,22523,223,0,1,SP_VACANT,0}, /* v2_9644be8cdebf */
-    {204,2,22746,223,0,1,SP_VACANT,0}, /* v2_97af393306e4 */
-    {206,2,22969,223,0,1,SP_VACANT,0}, /* v2_98148dd32ea0 */
-    {208,2,23192,223,0,1,SP_VACANT,0}, /* v2_9aa283632c6d */
-    {210,2,23415,223,0,1,SP_VACANT,0}, /* v2_9c347a4542b6 */
-    {212,2,23638,223,0,1,SP_VACANT,0}, /* v2_9c98da04ac19 */
-    {214,2,23861,223,0,1,SP_VACANT,0}, /* v2_9c99c095da7b */
-    {216,2,24084,223,0,1,SP_VACANT,0}, /* v2_9cd82370e14c */
-    {218,2,24307,223,0,1,SP_VACANT,0}, /* v2_9d4e0683fefe */
-    {220,2,24530,223,0,1,SP_VACANT,0}, /* v2_9fff396bd41e */
-    {222,2,24753,223,0,1,SP_VACANT,0}, /* v2_a0def239485f */
-    {224,2,24976,223,0,1,SP_VACANT,0}, /* v2_a149c6a99837 */
-    {226,2,25199,223,0,1,SP_VACANT,0}, /* v2_a14b396cd742 */
-    {228,2,25422,223,0,1,SP_VACANT,0}, /* v2_a1deae9d0f67 */
-    {230,2,25645,223,0,1,SP_VACANT,0}, /* v2_a33b13ef9f48 */
-    {232,2,25868,223,0,1,SP_VACANT,0}, /* v2_a49d6e6f20a8 */
-    {234,2,26091,223,0,1,SP_VACANT,0}, /* v2_a7fac0855e18 */
-    {236,2,26314,223,0,1,SP_VACANT,0}, /* v2_aa5aa5f115fe */
-    {238,2,26537,223,0,1,SP_VACANT,0}, /* v2_ad1787b572cc */
-    {240,2,26760,223,0,1,SP_VACANT,0}, /* v2_ad1c55145121 */
-    {242,2,26983,223,0,1,SP_VACANT,0}, /* v2_ad7fbf7a67d0 */
-    {244,2,27206,223,0,1,SP_VACANT,0}, /* v2_b0590906021a */
-    {246,2,27429,223,0,1,SP_VACANT,0}, /* v2_b30ea1f607fb */
-    {248,2,27652,223,0,1,SP_VACANT,0}, /* v2_b33e204941e2 */
-    {250,2,27875,223,0,1,SP_VACANT,0}, /* v2_b4f4ceda9793 */
-    {252,2,28098,223,0,1,SP_VACANT,0}, /* v2_b687a6d87902 */
-    {254,2,28321,223,0,1,SP_VACANT,0}, /* v2_b83f608d9e47 */
-    {256,2,28544,223,0,1,SP_VACANT,0}, /* v2_bb09fbc5982d */
-    {258,2,28767,223,0,1,SP_VACANT,0}, /* v2_bc36c428dd03 */
-    {260,2,28990,223,0,1,SP_VACANT,0}, /* v2_bcea3e9b438a */
-    {262,2,29213,223,0,1,SP_VACANT,0}, /* v2_bd58978ae11e */
-    {264,2,29436,223,0,1,SP_VACANT,0}, /* v2_bf65e32746e1 */
-    {266,2,29659,223,0,1,SP_VACANT,0}, /* v2_c036a9282b1d */
-    {268,2,29882,223,0,1,SP_VACANT,0}, /* v2_c446d90841c7 */
-    {270,2,30105,223,0,1,SP_VACANT,0}, /* v2_c476205dbe01 */
-    {272,2,30328,223,0,1,SP_VACANT,0}, /* v2_c47deeaa2b93 */
-    {274,2,30551,223,0,1,SP_VACANT,0}, /* v2_c7baa8a3ec88 */
-    {276,2,30774,223,0,1,SP_VACANT,0}, /* v2_c80bf5f07ac9 */
-    {278,2,30997,223,0,1,SP_VACANT,0}, /* v2_ca5eecd69e91 */
-    {280,2,31220,223,0,1,SP_VACANT,0}, /* v2_cab20a6975d3 */
-    {282,2,31443,223,0,1,SP_VACANT,0}, /* v2_cae2a68163a7 */
-    {284,2,31666,223,0,1,SP_VACANT,0}, /* v2_cf8f017fbf5a */
-    {286,2,31889,223,0,1,SP_VACANT,0}, /* v2_d03caf44ab63 */
-    {288,2,32112,223,0,1,SP_VACANT,0}, /* v2_d3ce54478c96 */
-    {290,2,32335,223,0,1,SP_VACANT,0}, /* v2_d404950566fa */
-    {292,2,32558,223,0,1,SP_VACANT,0}, /* v2_d43a1885e750 */
-    {294,2,32781,223,0,1,SP_VACANT,0}, /* v2_d4fae9b05592 */
-    {296,2,33004,223,0,1,SP_VACANT,0}, /* v2_d967366b0721 */
-    {298,2,33227,223,0,1,SP_VACANT,0}, /* v2_d98d91a92114 */
-    {300,2,33450,223,0,1,SP_VACANT,0}, /* v2_da9f71b9addd */
-    {302,2,33673,223,0,1,SP_VACANT,0}, /* v2_db4eec3996e5 */
-    {304,2,33896,223,0,1,SP_VACANT,0}, /* v2_db8aa29660fb */
-    {306,2,34119,223,0,1,SP_VACANT,0}, /* v2_df0efe62afd9 */
-    {308,2,34342,223,0,1,SP_VACANT,0}, /* v2_dfbfa5d11cdd */
-    {310,2,34565,223,0,1,SP_VACANT,0}, /* v2_e068ce82ae9d */
-    {312,2,34788,223,0,1,SP_VACANT,0}, /* v2_e10b542a17b8 */
-    {314,2,35011,223,0,1,SP_VACANT,0}, /* v2_e1e205b69fc0 */
-    {316,2,35234,223,0,1,SP_VACANT,0}, /* v2_e40e87481c8a */
-    {318,2,35457,223,0,1,SP_VACANT,0}, /* v2_e449e878a592 */
-    {320,2,35680,223,0,1,SP_VACANT,0}, /* v2_e4f4d432350c */
-    {322,2,35903,223,0,1,SP_VACANT,0}, /* v2_ea46d0122d31 */
-    {324,2,36126,223,0,1,SP_VACANT,0}, /* v2_eac0c452871d */
-    {326,2,36349,223,0,1,SP_VACANT,0}, /* v2_ec8cd3be5d00 */
-    {328,2,36572,223,0,1,SP_VACANT,0}, /* v2_ee2200c994ff */
-    {330,2,36795,223,0,1,SP_VACANT,0}, /* v2_ee349ddb295f */
-    {332,2,37018,223,0,1,SP_VACANT,0}, /* v2_ef7eed87336d */
-    {334,2,37241,223,0,1,SP_VACANT,0}, /* v2_efaf5c1212bf */
-    {336,2,37464,223,0,1,SP_VACANT,0}, /* v2_efc757d81ba1 */
-    {338,2,37687,223,0,1,SP_VACANT,0}, /* v2_efd7cdb63bd9 */
-    {340,2,37910,223,0,1,SP_VACANT,0}, /* v2_eff7538cfaa5 */
-    {342,2,38133,223,0,1,SP_VACANT,0}, /* v2_f0502277633d */
-    {344,2,38356,223,0,1,SP_VACANT,0}, /* v2_f089dbd7e718 */
-    {346,2,38579,223,0,1,SP_VACANT,0}, /* v2_f1428ca3add1 */
-    {348,2,38802,223,0,1,SP_VACANT,0}, /* v2_f1b2965f9da7 */
-    {350,2,39025,223,0,1,SP_VACANT,0}, /* v2_f4fa21b0d86b */
-    {352,2,39248,223,0,1,SP_VACANT,0}, /* v2_f8ed25fca2a1 */
-    {354,2,39471,223,0,1,SP_VACANT,0}, /* v2_fbcc8c787918 */
-    {356,2,39694,223,0,1,SP_VACANT,0}, /* v2_fd515de73480 */
-    {358,2,39917,223,0,1,SP_VACANT,0}, /* v2_ffca8812e5ad */
+    {0,2,0,223,0,16,0xffff,0,1,SP_VACANT,0}, /* v2_03fc321ed858 */
+    {2,2,223,223,16,16,0xffff,0,1,SP_VACANT,0}, /* v2_083c32927dbf */
+    {4,2,446,223,32,16,0xffff,0,1,SP_VACANT,0}, /* v2_0c0d0e808b22 */
+    {6,2,669,223,48,16,0xffff,0,1,SP_VACANT,0}, /* v2_0d06d975d9c4 */
+    {8,2,892,223,64,96,0xffff,0,1,SP_VACANT,0}, /* v2_0f04377268b2 */
+    {10,2,1115,223,160,16,0xffff,0,1,SP_VACANT,0}, /* v2_0f237b6b4e5f */
+    {12,2,1338,223,176,48,0xffff,0,1,SP_VACANT,0}, /* v2_108311fe3d00 */
+    {14,2,1561,223,224,16,0xffff,0,1,SP_VACANT,0}, /* v2_1255cba7c6ae */
+    {16,2,1784,223,240,16,0xffff,0,1,SP_VACANT,0}, /* v2_129cbe7fb1eb */
+    {18,2,2007,223,256,16,0xffff,0,1,SP_VACANT,0}, /* v2_15dc62ba3073 */
+    {20,2,2230,223,272,16,0xffff,0,1,SP_VACANT,0}, /* v2_18eed7b4e1c5 */
+    {22,2,2453,223,288,48,0xffff,0,1,SP_VACANT,0}, /* v2_18ffec260b71 */
+    {24,2,2676,223,336,16,0xffff,0,1,SP_VACANT,0}, /* v2_19141a81e7f1 */
+    {26,2,2899,223,352,16,0xffff,0,1,SP_VACANT,0}, /* v2_1995fa903841 */
+    {28,2,3122,223,368,16,0xffff,0,1,SP_VACANT,0}, /* v2_1aab94afb8fe */
+    {30,2,3345,223,384,16,0xffff,0,1,SP_VACANT,0}, /* v2_1c2694db7757 */
+    {32,2,3568,223,400,16,0xffff,0,1,SP_VACANT,0}, /* v2_1e102a522acb */
+    {34,2,3791,223,416,672,0xffff,0,1,SP_VACANT,0}, /* v2_1edeb41f3ffd */
+    {36,2,4014,223,1088,16,0xffff,0,1,SP_VACANT,0}, /* v2_208e8c2838b7 */
+    {38,2,4237,223,1104,16,0xffff,0,1,SP_VACANT,0}, /* v2_2151580d4607 */
+    {40,2,4460,223,1120,48,0xffff,0,1,SP_VACANT,0}, /* v2_21c4d07744a8 */
+    {42,2,4683,223,1168,16,0xffff,0,1,SP_VACANT,0}, /* v2_224385a7bc23 */
+    {44,2,4906,223,1184,144,0xffff,0,1,SP_VACANT,0}, /* v2_2a78c2ca9afe */
+    {46,2,5129,223,1328,16,0xffff,0,1,SP_VACANT,0}, /* v2_2b7e9941b707 */
+    {48,2,5352,223,1344,16,0xffff,0,1,SP_VACANT,0}, /* v2_2cc3a7e728d3 */
+    {50,2,5575,223,1360,32,0xffff,0,1,SP_VACANT,0}, /* v2_2e4ef65f40c1 */
+    {52,2,5798,223,1392,16,0xffff,0,1,SP_VACANT,0}, /* v2_2eb32c901575 */
+    {54,2,6021,223,1408,16,0xffff,0,1,SP_VACANT,0}, /* v2_2ebc5d482e51 */
+    {56,2,6244,223,1424,16,0xffff,0,1,SP_VACANT,0}, /* v2_31294b6fd7f2 */
+    {58,2,6467,223,1440,16,0xffff,0,1,SP_VACANT,0}, /* v2_332256ad5257 */
+    {60,2,6690,223,1456,16,0xffff,0,1,SP_VACANT,0}, /* v2_34cc794bdcb6 */
+    {62,2,6913,223,1472,16,0xffff,0,1,SP_VACANT,0}, /* v2_350f950fa5ec */
+    {64,2,7136,223,1488,16,0xffff,0,1,SP_VACANT,0}, /* v2_39a8d77af80a */
+    {66,2,7359,223,1504,16,0xffff,0,1,SP_VACANT,0}, /* v2_39e337157f3e */
+    {68,2,7582,223,1520,16,0xffff,0,1,SP_VACANT,0}, /* v2_3b97e057e186 */
+    {70,2,7805,223,1536,16,0xffff,0,1,SP_VACANT,0}, /* v2_3bfe69aab139 */
+    {72,2,8028,223,1552,64,0xffff,0,1,SP_VACANT,0}, /* v2_3c68cf7fab04 */
+    {74,2,8251,223,1616,64,0xffff,0,1,SP_VACANT,0}, /* v2_3d9160772530 */
+    {76,2,8474,223,1680,32,0xffff,0,1,SP_VACANT,0}, /* v2_3d98a30b45c1 */
+    {78,2,8697,223,1712,48,0xffff,0,1,SP_VACANT,0}, /* v2_3e066e1fdcff */
+    {80,2,8920,223,1760,32,0xffff,0,1,SP_VACANT,0}, /* v2_3f5525946db9 */
+    {82,2,9143,223,1792,448,0xffff,0,1,SP_VACANT,0}, /* v2_41ab56e07af1 */
+    {84,2,9366,223,2240,64,0xffff,0,1,SP_VACANT,0}, /* v2_42876b77315d */
+    {86,2,9589,223,2304,16,0xffff,0,1,SP_VACANT,0}, /* v2_43ca8d657100 */
+    {88,2,9812,223,2320,48,0xffff,0,1,SP_VACANT,0}, /* v2_451e9c210266 */
+    {90,2,10035,223,2368,16,0xffff,0,1,SP_VACANT,0}, /* v2_458b2b2fd9e9 */
+    {92,2,10258,223,2384,128,0xffff,0,1,SP_VACANT,0}, /* v2_459856208b24 */
+    {94,2,10481,223,2512,16,0xffff,0,1,SP_VACANT,0}, /* v2_497cc0a7c508 */
+    {96,2,10704,223,2528,16,0xffff,0,1,SP_VACANT,0}, /* v2_4aefeb1b4163 */
+    {98,2,10927,223,2544,32,0xffff,0,1,SP_VACANT,0}, /* v2_4c1d3b572d17 */
+    {100,2,11150,223,2576,16,0xffff,0,1,SP_VACANT,0}, /* v2_4c562bfa05ee */
+    {102,2,11373,223,2592,16,0xffff,0,1,SP_VACANT,0}, /* v2_505f23b6e238 */
+    {104,2,11596,223,2608,16,0xffff,0,1,SP_VACANT,0}, /* v2_507913396d0b */
+    {106,2,11819,223,2624,16,0xffff,0,1,SP_VACANT,0}, /* v2_536f669ca73b */
+    {108,2,12042,223,2640,80,0xffff,0,1,SP_VACANT,0}, /* v2_5493ee087ffc */
+    {110,2,12265,223,2720,16,0xffff,0,1,SP_VACANT,0}, /* v2_562a533097d2 */
+    {112,2,12488,223,2736,16,0xffff,0,1,SP_VACANT,0}, /* v2_56deea505c48 */
+    {114,2,12711,223,2752,32,0xffff,0,1,SP_VACANT,0}, /* v2_572c2837296c */
+    {116,2,12934,223,2784,16,0xffff,0,1,SP_VACANT,0}, /* v2_597e93767b14 */
+    {118,2,13157,223,2800,16,0xffff,0,1,SP_VACANT,0}, /* v2_59fb22adcd6d */
+    {120,2,13380,223,2816,16,0xffff,0,1,SP_VACANT,0}, /* v2_5a59cd142d31 */
+    {122,2,13603,223,2832,16,0xffff,0,1,SP_VACANT,0}, /* v2_5ca4775213af */
+    {124,2,13826,223,2848,32,0xffff,0,1,SP_VACANT,0}, /* v2_5cb99912a626 */
+    {126,2,14049,223,2880,32,0xffff,0,1,SP_VACANT,0}, /* v2_5de71c74e6b3 */
+    {128,2,14272,223,2912,432,0xffff,0,1,SP_VACANT,0}, /* v2_5f4e8f112af9 */
+    {130,2,14495,223,3344,448,0xffff,0,1,SP_VACANT,0}, /* v2_61d48ec8ee88 */
+    {132,2,14718,223,3792,96,0xffff,0,1,SP_VACANT,0}, /* v2_63096f77f2d3 */
+    {134,2,14941,223,3888,64,0xffff,0,1,SP_VACANT,0}, /* v2_65055342f4e0 */
+    {136,2,15164,223,3952,432,0xffff,0,1,SP_VACANT,0}, /* v2_69fea41fc1fd */
+    {138,2,15387,223,4384,128,0xffff,0,1,SP_VACANT,0}, /* v2_6a5431b516be */
+    {140,2,15610,223,4512,16,0xffff,0,1,SP_VACANT,0}, /* v2_6c87c170efee */
+    {142,2,15833,223,4528,32,0xffff,0,1,SP_VACANT,0}, /* v2_6cd32d5dd6e8 */
+    {144,2,16056,223,4560,16,0xffff,0,1,SP_VACANT,0}, /* v2_6d6baac136de */
+    {146,2,16279,223,4576,16,0xffff,0,1,SP_VACANT,0}, /* v2_6e3fe6950ca5 */
+    {148,2,16502,223,4592,64,0xffff,0,1,SP_VACANT,0}, /* v2_6e7076b9c0f0 */
+    {150,2,16725,223,4656,16,0xffff,0,1,SP_VACANT,0}, /* v2_6eb0ec7ea3e5 */
+    {152,2,16948,223,4672,16,0xffff,0,1,SP_VACANT,0}, /* v2_7563334aa134 */
+    {154,2,17171,223,4688,64,0xffff,0,1,SP_VACANT,0}, /* v2_759abdf4e274 */
+    {156,2,17394,223,4752,16,0xffff,0,1,SP_VACANT,0}, /* v2_76c388587a0b */
+    {158,2,17617,223,4768,16,0xffff,0,1,SP_VACANT,0}, /* v2_77a2cf2e7808 */
+    {160,2,17840,223,4784,48,0xffff,0,1,SP_VACANT,0}, /* v2_7e0119fd4108 */
+    {162,2,18063,223,4832,16,0xffff,0,1,SP_VACANT,0}, /* v2_7e1cc2bd7f9e */
+    {164,2,18286,223,4848,16,0xffff,0,1,SP_VACANT,0}, /* v2_80dfe64600de */
+    {166,2,18509,223,4864,16,0xffff,0,1,SP_VACANT,0}, /* v2_812b128bbb80 */
+    {168,2,18732,223,4880,16,0xffff,0,1,SP_VACANT,0}, /* v2_812eea01a882 */
+    {170,2,18955,223,4896,16,0xffff,0,1,SP_VACANT,0}, /* v2_81b21b9cc72a */
+    {172,2,19178,223,4912,960,0xffff,0,1,SP_VACANT,0}, /* v2_8547c6ca528d */
+    {174,2,19401,223,5872,32,0xffff,0,1,SP_VACANT,0}, /* v2_86f7b182e4ce */
+    {176,2,19624,223,5904,16,0xffff,0,1,SP_VACANT,0}, /* v2_8753e75d8693 */
+    {178,2,19847,223,5920,16,0xffff,0,1,SP_VACANT,0}, /* v2_8b6a8895fe60 */
+    {180,2,20070,223,5936,64,0xffff,0,1,SP_VACANT,0}, /* v2_8b93d6d55316 */
+    {182,2,20293,223,6000,80,0xffff,0,1,SP_VACANT,0}, /* v2_8b9d5125c6cb */
+    {184,2,20516,223,6080,16,0xffff,0,1,SP_VACANT,0}, /* v2_8ba6ea62e321 */
+    {186,2,20739,223,6096,64,0xffff,0,1,SP_VACANT,0}, /* v2_8fdfa2b36b52 */
+    {188,2,20962,223,6160,16,0xffff,0,1,SP_VACANT,0}, /* v2_8ff696c0d14c */
+    {190,2,21185,223,6176,112,0xffff,0,1,SP_VACANT,0}, /* v2_9017c14f26fb */
+    {192,2,21408,223,6288,16,0xffff,0,1,SP_VACANT,0}, /* v2_924894c2ee5e */
+    {194,2,21631,223,6304,32,0xffff,0,1,SP_VACANT,0}, /* v2_925348170914 */
+    {196,2,21854,223,6336,32,0xffff,0,1,SP_VACANT,0}, /* v2_92fdc51921c6 */
+    {198,2,22077,223,6368,16,0xffff,0,1,SP_VACANT,0}, /* v2_95c126064e08 */
+    {200,2,22300,223,6384,752,0xffff,0,1,SP_VACANT,0}, /* v2_95fb9fa5327c */
+    {202,2,22523,223,7136,32,0xffff,0,1,SP_VACANT,0}, /* v2_9644be8cdebf */
+    {204,2,22746,223,7168,32,0xffff,0,1,SP_VACANT,0}, /* v2_97af393306e4 */
+    {206,2,22969,223,7200,16,0xffff,0,1,SP_VACANT,0}, /* v2_98148dd32ea0 */
+    {208,2,23192,223,7216,64,0xffff,0,1,SP_VACANT,0}, /* v2_9aa283632c6d */
+    {210,2,23415,223,7280,16,0xffff,0,1,SP_VACANT,0}, /* v2_9c347a4542b6 */
+    {212,2,23638,223,7296,656,0xffff,0,1,SP_VACANT,0}, /* v2_9c98da04ac19 */
+    {214,2,23861,223,7952,32,0xffff,0,1,SP_VACANT,0}, /* v2_9c99c095da7b */
+    {216,2,24084,223,7984,480,0xffff,0,1,SP_VACANT,0}, /* v2_9cd82370e14c */
+    {218,2,24307,223,8464,16,0xffff,0,1,SP_VACANT,0}, /* v2_9d4e0683fefe */
+    {220,2,24530,223,8480,32,0xffff,0,1,SP_VACANT,0}, /* v2_9fff396bd41e */
+    {222,2,24753,223,8512,16,0xffff,0,1,SP_VACANT,0}, /* v2_a0def239485f */
+    {224,2,24976,223,8528,16,0xffff,0,1,SP_VACANT,0}, /* v2_a149c6a99837 */
+    {226,2,25199,223,8544,16,0xffff,0,1,SP_VACANT,0}, /* v2_a14b396cd742 */
+    {228,2,25422,223,8560,752,0xffff,0,1,SP_VACANT,0}, /* v2_a1deae9d0f67 */
+    {230,2,25645,223,9312,16,0xffff,0,1,SP_VACANT,0}, /* v2_a33b13ef9f48 */
+    {232,2,25868,223,9328,48,0xffff,0,1,SP_VACANT,0}, /* v2_a49d6e6f20a8 */
+    {234,2,26091,223,9376,16,0xffff,0,1,SP_VACANT,0}, /* v2_a7fac0855e18 */
+    {236,2,26314,223,9392,48,0xffff,0,1,SP_VACANT,0}, /* v2_aa5aa5f115fe */
+    {238,2,26537,223,9440,16,0xffff,0,1,SP_VACANT,0}, /* v2_ad1787b572cc */
+    {240,2,26760,223,9456,448,0xffff,0,1,SP_VACANT,0}, /* v2_ad1c55145121 */
+    {242,2,26983,223,9904,16,0xffff,0,1,SP_VACANT,0}, /* v2_ad7fbf7a67d0 */
+    {244,2,27206,223,9920,16,0xffff,0,1,SP_VACANT,0}, /* v2_b0590906021a */
+    {246,2,27429,223,9936,112,0xffff,0,1,SP_VACANT,0}, /* v2_b30ea1f607fb */
+    {248,2,27652,223,10048,16,0xffff,0,1,SP_VACANT,0}, /* v2_b33e204941e2 */
+    {250,2,27875,223,10064,448,0xffff,0,1,SP_VACANT,0}, /* v2_b4f4ceda9793 */
+    {252,2,28098,223,10512,16,0xffff,0,1,SP_VACANT,0}, /* v2_b687a6d87902 */
+    {254,2,28321,223,10528,16,0xffff,0,1,SP_VACANT,0}, /* v2_b83f608d9e47 */
+    {256,2,28544,223,10544,16,0xffff,0,1,SP_VACANT,0}, /* v2_bb09fbc5982d */
+    {258,2,28767,223,10560,16,0xffff,0,1,SP_VACANT,0}, /* v2_bc36c428dd03 */
+    {260,2,28990,223,10576,16,0xffff,0,1,SP_VACANT,0}, /* v2_bcea3e9b438a */
+    {262,2,29213,223,10592,16,0xffff,0,1,SP_VACANT,0}, /* v2_bd58978ae11e */
+    {264,2,29436,223,10608,656,0xffff,0,1,SP_VACANT,0}, /* v2_bf65e32746e1 */
+    {266,2,29659,223,11264,16,0xffff,0,1,SP_VACANT,0}, /* v2_c036a9282b1d */
+    {268,2,29882,223,11280,16,0xffff,0,1,SP_VACANT,0}, /* v2_c446d90841c7 */
+    {270,2,30105,223,11296,32,0xffff,0,1,SP_VACANT,0}, /* v2_c476205dbe01 */
+    {272,2,30328,223,11328,16,0xffff,0,1,SP_VACANT,0}, /* v2_c47deeaa2b93 */
+    {274,2,30551,223,11344,16,0xffff,0,1,SP_VACANT,0}, /* v2_c7baa8a3ec88 */
+    {276,2,30774,223,11360,32,0xffff,0,1,SP_VACANT,0}, /* v2_c80bf5f07ac9 */
+    {278,2,30997,223,11392,16,0xffff,0,1,SP_VACANT,0}, /* v2_ca5eecd69e91 */
+    {280,2,31220,223,11408,48,0xffff,0,1,SP_VACANT,0}, /* v2_cab20a6975d3 */
+    {282,2,31443,223,11456,16,0xffff,0,1,SP_VACANT,0}, /* v2_cae2a68163a7 */
+    {284,2,31666,223,11472,16,0xffff,0,1,SP_VACANT,0}, /* v2_cf8f017fbf5a */
+    {286,2,31889,223,11488,960,0xffff,0,1,SP_VACANT,0}, /* v2_d03caf44ab63 */
+    {288,2,32112,223,12448,32,0xffff,0,1,SP_VACANT,0}, /* v2_d3ce54478c96 */
+    {290,2,32335,223,12480,16,0xffff,0,1,SP_VACANT,0}, /* v2_d404950566fa */
+    {292,2,32558,223,12496,16,0xffff,0,1,SP_VACANT,0}, /* v2_d43a1885e750 */
+    {294,2,32781,223,12512,16,0xffff,0,1,SP_VACANT,0}, /* v2_d4fae9b05592 */
+    {296,2,33004,223,12528,480,0xffff,0,1,SP_VACANT,0}, /* v2_d967366b0721 */
+    {298,2,33227,223,13008,16,0xffff,0,1,SP_VACANT,0}, /* v2_d98d91a92114 */
+    {300,2,33450,223,13024,432,0xffff,0,1,SP_VACANT,0}, /* v2_da9f71b9addd */
+    {302,2,33673,223,13456,16,0xffff,0,1,SP_VACANT,0}, /* v2_db4eec3996e5 */
+    {304,2,33896,223,13472,16,0xffff,0,1,SP_VACANT,0}, /* v2_db8aa29660fb */
+    {306,2,34119,223,13488,672,0xffff,0,1,SP_VACANT,0}, /* v2_df0efe62afd9 */
+    {308,2,34342,223,14160,16,0xffff,0,1,SP_VACANT,0}, /* v2_dfbfa5d11cdd */
+    {310,2,34565,223,14176,16,0xffff,0,1,SP_VACANT,0}, /* v2_e068ce82ae9d */
+    {312,2,34788,223,14192,16,0xffff,0,1,SP_VACANT,0}, /* v2_e10b542a17b8 */
+    {314,2,35011,223,14208,16,0xffff,0,1,SP_VACANT,0}, /* v2_e1e205b69fc0 */
+    {316,2,35234,223,14224,32,0xffff,0,1,SP_VACANT,0}, /* v2_e40e87481c8a */
+    {318,2,35457,223,14256,16,0xffff,0,1,SP_VACANT,0}, /* v2_e449e878a592 */
+    {320,2,35680,223,14272,96,0xffff,0,1,SP_VACANT,0}, /* v2_e4f4d432350c */
+    {322,2,35903,223,14368,16,0xffff,0,1,SP_VACANT,0}, /* v2_ea46d0122d31 */
+    {324,2,36126,223,14384,16,0xffff,0,1,SP_VACANT,0}, /* v2_eac0c452871d */
+    {326,2,36349,223,14400,48,0xffff,0,1,SP_VACANT,0}, /* v2_ec8cd3be5d00 */
+    {328,2,36572,223,14448,16,0xffff,0,1,SP_VACANT,0}, /* v2_ee2200c994ff */
+    {330,2,36795,223,14464,16,0xffff,0,1,SP_VACANT,0}, /* v2_ee349ddb295f */
+    {332,2,37018,223,14480,64,0xffff,0,1,SP_VACANT,0}, /* v2_ef7eed87336d */
+    {334,2,37241,223,14544,16,0xffff,0,1,SP_VACANT,0}, /* v2_efaf5c1212bf */
+    {336,2,37464,223,14560,16,0xffff,0,1,SP_VACANT,0}, /* v2_efc757d81ba1 */
+    {338,2,37687,223,14576,16,0xffff,0,1,SP_VACANT,0}, /* v2_efd7cdb63bd9 */
+    {340,2,37910,223,14592,16,0xffff,0,1,SP_VACANT,0}, /* v2_eff7538cfaa5 */
+    {342,2,38133,223,14608,16,0xffff,0,1,SP_VACANT,0}, /* v2_f0502277633d */
+    {344,2,38356,223,14624,128,0xffff,0,1,SP_VACANT,0}, /* v2_f089dbd7e718 */
+    {346,2,38579,223,14752,16,0xffff,0,1,SP_VACANT,0}, /* v2_f1428ca3add1 */
+    {348,2,38802,223,14768,48,0xffff,0,1,SP_VACANT,0}, /* v2_f1b2965f9da7 */
+    {350,2,39025,223,14816,16,0xffff,0,1,SP_VACANT,0}, /* v2_f4fa21b0d86b */
+    {352,2,39248,223,14832,96,0xffff,0,1,SP_VACANT,0}, /* v2_f8ed25fca2a1 */
+    {354,2,39471,223,14928,16,0xffff,0,1,SP_VACANT,0}, /* v2_fbcc8c787918 */
+    {356,2,39694,223,14944,16,0xffff,0,1,SP_VACANT,0}, /* v2_fd515de73480 */
+    {358,2,39917,223,14960,16,0xffff,0,1,SP_VACANT,0}, /* v2_ffca8812e5ad */
 };
 
 static const V2Proc v2_procs[N_PROCS] = {
@@ -22185,17 +22188,16 @@ static const V2Proc v2_procs[N_PROCS] = {
     {179,8,{0,0,0}}, {179,9,{0,0,0}}, {179,10,{0,0,0}}, {179,11,{0,0,0}}, {179,12,{0,0,0}}, {179,13,{0,0,0}}, {179,14,{0,0,0}}, {179,15,{0,0,0}},
 };
 
-/* Proc-id ranges by anchor-site species code (procs are sorted so each
- * species' processes are contiguous): scan only the bucket matching
+/* Pattern ranges by anchor-site species code (patterns are sorted so
+ * each species' patterns are contiguous): match only the bucket for
  * st->species[site]. */
-static const int32_t v2_bucket_begin[5] = {0,14976,14976,14976,14976};
+static const int32_t v2_pattern_bucket_begin[5] = {0,180,180,180,180};
 
-/* ---- generic matcher ---- */
+/* ---- generic matcher: does pattern pt match at site under V2_OPS[op]? ---- */
 static int v2_match(const Lattice *lat, const State *st, int site,
-                    const V2Proc *pr)
+                    const V2Pattern *pt, int op)
 {
-    const V2Pattern *pt = &v2_patterns[pr->pat];
-    const int8_t *R = V2_OPS[pr->op];
+    const int8_t *R = V2_OPS[op];
     const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
     for (int32_t r = 0; r < pt->delta_n; ++r) {
         const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];
@@ -22233,9 +22235,20 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)
     if (!lat->site_grid || !lat->site_ijk) return;  /* grid not built */
     uint8_t sp = st->species[site];
     if (sp >= 4u) return;
-    for (int32_t p = v2_bucket_begin[sp]; p < v2_bucket_begin[sp + 1]; ++p) {
-        if (v2_match(lat, st, site, &v2_procs[p]))
-            avail_sites_add(as, p, site);
+    int32_t t_end = v2_pattern_bucket_begin[sp + 1];
+    for (int32_t t = v2_pattern_bucket_begin[sp]; t < t_end; ++t) {
+        const V2Pattern *pt = &v2_patterns[t];
+        uint32_t ops = 0;  /* bit g: the pattern matches under V2_OPS[g] */
+        for (int g = 0; g < 16; ++g)
+            if (((pt->op_mask >> g) & 1u) && v2_match(lat, st, site, pt, g))
+                ops |= 1u << g;
+        if (ops == 0) continue;
+        /* Enrol every member proc of each matched (pattern, op), walking
+         * the pattern's procs in id order: the avail_sites_add sequence
+         * is the one a per-proc scan produces. */
+        for (int32_t p = pt->proc_begin; p < pt->proc_begin + pt->proc_n; ++p)
+            if ((ops >> v2_procs[p].op) & 1u)
+                avail_sites_add(as, p, site);
     }
 }
 

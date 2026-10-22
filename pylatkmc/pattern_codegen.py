@@ -11,13 +11,14 @@ Instead this module emits:
   oriented process is a ``(pattern, op)`` pair and the matcher rotates
   offsets on the fly, so the tables stay ~10² KB instead of ~10⁰ MB.
 - **A generic matcher** (``v2_match`` + ``touchup_a``): screens on the
-  anchor-site species (processes are sorted so each species' processes form
-  one contiguous proc-id range), then verifies delta rows (exact before-
-  state; the site must exist) and context rows (``EMPTY`` = vacant OR absent,
-  ``OCC_ANY`` = any occupied) via ``lattice_site_at_ijk`` — the O(1) integer
-  site grid added to the runtime for exactly this purpose. Reads through the
-  stub site index ``n_sites`` are self-sentineling (``species[n_sites] ==
-  255`` matches no exact species).
+  anchor-site species (patterns are sorted so each species' patterns form
+  one contiguous range), then verifies each (pattern, op) ONCE — delta rows
+  (exact before-state; the site must exist) and context rows (``EMPTY`` =
+  vacant OR absent, ``OCC_ANY`` = any occupied) via ``lattice_site_at_ijk``,
+  the O(1) integer site grid added to the runtime for exactly this purpose —
+  and a match enrols every member proc of that (pattern, op). Reads through
+  the stub site index ``n_sites`` are self-sentineling (``species[n_sites]
+  == 255`` matches no exact species).
 - **A generic apply** + one-line per-proc wrappers, because the runtime's
   ``pylatkmc_apply_table[proc](st, lat, site)`` call signature is frozen by
   committed v0.3 proclists.
@@ -199,6 +200,8 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     ctx_rows: list[str] = []
     pattern_defs: list[str] = []
     max_delta = 0
+    proc_begin = 0
+    mats = d4h_matrices()
 
     for pi in order:
         pat = patterns[pi]
@@ -213,40 +216,46 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
             )
         max_delta = max(max_delta, len(pat.delta))
         v_origin, v_dest = _vacancy_rows(pat)
+        op_mask = 0
+        for op in pat.orientation_ops:
+            if not 0 <= op < len(mats):
+                raise ValueError(f"{pat.name}: orientation op {op} is not one of the 16 D4h ops")
+            op_mask |= 1 << op
+        n_pat_procs = len(_members(pat)) * len(pat.orientation_ops)
         pattern_defs.append(
             f"    {{{d_begin},{len(pat.delta)},{c_begin},{len(pat.context)},"
-            f"{v_origin},{v_dest},{_sp(pat.anchor_species)},0}}, /* {pat.name} */"
+            f"{proc_begin},{n_pat_procs},0x{op_mask:04x},{v_origin},{v_dest},"
+            f"{_sp(pat.anchor_species)},0}}, /* {pat.name} */"
         )
+        proc_begin += n_pat_procs
 
     n_procs = len(procs)
+    assert proc_begin == n_procs
 
-    # ---- per-species proc-id buckets -----------------------------------
-    # v2_bucket_begin[sp] .. v2_bucket_begin[sp+1] is the proc-id range whose
-    # anchor species code is sp. Species codes come from events_base.h.
-    sp_of_proc = [
-        _SP_CODE[patterns[pi].anchor_species] for (_t, _op, _m, pi) in procs
-    ]
+    # ---- per-species pattern buckets -----------------------------------
+    # v2_pattern_bucket_begin[sp] .. v2_pattern_bucket_begin[sp+1] is the
+    # range of patterns whose anchor species code is sp. Species codes come
+    # from events_base.h.
     n_sp = 4  # SP_COUNT in events_base.h
     bucket_begin = [0] * (n_sp + 1)
-    for code in sp_of_proc:
-        bucket_begin[code + 1] += 1
+    for pi in order:
+        bucket_begin[_SP_CODE[patterns[pi].anchor_species] + 1] += 1
     for i in range(n_sp):
         bucket_begin[i + 1] += bucket_begin[i]
 
     # ---- D4h op matrices ----------------------------------------------
-    mats = d4h_matrices()
     op_lines = [
         "    {" + ",".join(str(m[r][c]) for r in range(3) for c in range(3)) + "},"
         for m in mats
     ]
 
-    _ = n_procs  # length of procs == N_PROCS; the enum is emitted by emit_v2_enum
     out: list[str] = []
     a = out.append
     a("/* ---- v2 data-driven pattern tables (EventClass catalogue) ----")
     a(" *")
     a(" * Each pattern stores its canonical-frame rows ONCE; each process is a")
-    a(" * (pattern, D4h op) pair and the matcher rotates offsets on the fly.")
+    a(" * (pattern, member, D4h op) triple and the matcher rotates offsets on")
+    a(" * the fly, once per (pattern, op).")
     a(" * Offsets are integer FCC cells (a/2 units) relative to the pattern")
     a(" * anchor, resolved through the runtime's integer site grid")
     a(" * (lattice_site_at_ijk). Absent sites resolve to the stub index")
@@ -258,9 +267,11 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("typedef struct { int8_t di, dj, dk; uint8_t before, after; } V2DeltaRow;")
     a("typedef struct { int8_t di, dj, dk; uint8_t pred; } V2CtxRow;")
     a("typedef struct {")
-    a("    int32_t delta_begin, delta_n, ctx_begin, ctx_n;")
-    a("    int8_t  v_origin_row, v_dest_row;   /* MSD bookkeeping; -1 = n/a */")
-    a("    uint8_t anchor_sp, _pad;")
+    a("    int32_t  delta_begin, delta_n, ctx_begin, ctx_n;")
+    a("    int32_t  proc_begin, proc_n;        /* procs: member-major, then op */")
+    a("    uint16_t op_mask;                   /* bit g: V2_OPS[g] is an orientation */")
+    a("    int8_t   v_origin_row, v_dest_row;  /* MSD bookkeeping; -1 = n/a */")
+    a("    uint8_t  anchor_sp, _pad;")
     a("} V2Pattern;")
     a("typedef struct { int32_t pat; uint8_t op; uint8_t _pad[3]; } V2Proc;")
     a("")
@@ -288,18 +299,19 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     )
     a("};")
     a("")
-    a("/* Proc-id ranges by anchor-site species code (procs are sorted so each")
-    a(" * species' processes are contiguous): scan only the bucket matching")
+    a("/* Pattern ranges by anchor-site species code (patterns are sorted so")
+    a(" * each species' patterns are contiguous): match only the bucket for")
     a(" * st->species[site]. */")
-    a(f"static const int32_t v2_bucket_begin[{n_sp + 1}] = "
-      f"{{{','.join(str(b) for b in bucket_begin)}}};")
+    a(
+        f"static const int32_t v2_pattern_bucket_begin[{n_sp + 1}] = "
+        f"{{{','.join(str(b) for b in bucket_begin)}}};"
+    )
     a("")
-    a("/* ---- generic matcher ---- */")
+    a("/* ---- generic matcher: does pattern pt match at site under V2_OPS[op]? ---- */")
     a("static int v2_match(const Lattice *lat, const State *st, int site,")
-    a("                    const V2Proc *pr)")
+    a("                    const V2Pattern *pt, int op)")
     a("{")
-    a("    const V2Pattern *pt = &v2_patterns[pr->pat];")
-    a("    const int8_t *R = V2_OPS[pr->op];")
+    a("    const int8_t *R = V2_OPS[op];")
     a("    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];")
     a("    for (int32_t r = 0; r < pt->delta_n; ++r) {")
     a("        const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];")
@@ -337,9 +349,20 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("    if (!lat->site_grid || !lat->site_ijk) return;  /* grid not built */")
     a("    uint8_t sp = st->species[site];")
     a(f"    if (sp >= {n_sp}u) return;")
-    a("    for (int32_t p = v2_bucket_begin[sp]; p < v2_bucket_begin[sp + 1]; ++p) {")
-    a("        if (v2_match(lat, st, site, &v2_procs[p]))")
-    a("            avail_sites_add(as, p, site);")
+    a("    int32_t t_end = v2_pattern_bucket_begin[sp + 1];")
+    a("    for (int32_t t = v2_pattern_bucket_begin[sp]; t < t_end; ++t) {")
+    a("        const V2Pattern *pt = &v2_patterns[t];")
+    a("        uint32_t ops = 0;  /* bit g: the pattern matches under V2_OPS[g] */")
+    a("        for (int g = 0; g < 16; ++g)")
+    a("            if (((pt->op_mask >> g) & 1u) && v2_match(lat, st, site, pt, g))")
+    a("                ops |= 1u << g;")
+    a("        if (ops == 0) continue;")
+    a("        /* Enrol every member proc of each matched (pattern, op), walking")
+    a("         * the pattern's procs in id order: the avail_sites_add sequence")
+    a("         * is the one a per-proc scan produces. */")
+    a("        for (int32_t p = pt->proc_begin; p < pt->proc_begin + pt->proc_n; ++p)")
+    a("            if ((ops >> v2_procs[p].op) & 1u)")
+    a("                avail_sites_add(as, p, site);")
     a("    }")
     a("}")
     a("")
