@@ -419,6 +419,26 @@ def compile_decision_tree(processes: list[Process], function_name: str) -> str:
     return builder.render()
 
 
+def anchor_species(processes: list[Process]) -> list[str] | None:
+    """The species an anchor site must hold for `touchup_a` to enrol any of
+    `processes` there, sorted by name; None if some Process has no anchor
+    Condition (`NC_ANCHOR`) and so may enrol at a site of any species.
+
+    A Process enrols only where all its Conditions hold, so one whose anchor
+    Condition names species X never enrols at a site of another species,
+    whatever shape the compiled tree takes. codegen writes the result into
+    proclist.h as `PYLATKMC_ANCHOR_SPECIES_MASK`; when it is `["Vacant"]`,
+    the runtime touches up the vacancies alone (step-loop-full-rescan/01).
+    """
+    species: set[str] = set()
+    for p in processes:
+        anchor = {c.species for c in p.conditions if c.coord.code == "NC_ANCHOR"}
+        if not anchor:
+            return None
+        species |= anchor
+    return sorted(species)
+
+
 def emit_process_enum(processes: list[Process]) -> str:
     """Emit `enum { P_<name>, ... , N_PROCS };` for a process list."""
     if not processes:
@@ -566,6 +586,7 @@ def emit_apply_actions(processes: list[Process]) -> str:
 
 
 __all__ = (
+    "anchor_species",
     "compile_decision_tree",
     "emit_process_enum",
     "emit_rate_table",

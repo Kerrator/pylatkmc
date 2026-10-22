@@ -134,6 +134,15 @@ def n_procs_of(patterns: list[LatticePattern]) -> int:
     return sum(len(p.orientation_ops) * len(_members(p)) for p in patterns)
 
 
+def v2_anchor_species(patterns: list[LatticePattern]) -> list[str]:
+    """The species the v2 ``touchup_a`` matches patterns at (its non-empty
+    ``v2_pattern_bucket_begin`` buckets), sorted by name: every pattern
+    anchors on one species, and the matcher returns at once at a site of any
+    other. codegen writes it into proclist.h as
+    ``PYLATKMC_ANCHOR_SPECIES_MASK`` (step-loop-full-rescan/01)."""
+    return sorted({p.anchor_species for p in patterns})
+
+
 def _order(patterns: list[LatticePattern]) -> list[int]:
     """Stable pattern order: (anchor species code, pattern name)."""
     return sorted(range(len(patterns)), key=lambda i: (

@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from pylatkmc.decision_tree import (
+    anchor_species,
     compile_decision_tree,
     emit_apply_actions,
     emit_process_enum,
@@ -282,11 +283,34 @@ const ApplyFn   *const pylatkmc_apply_table = apply_table;
 
 def _build_proclist_h(spec: ModelSpec, extra_defines: str = "") -> str:
     """Render proclist.h. ``extra_defines`` slots extra ``#define`` lines
-    after the kB constant (v2 pattern-reach macros); the default ``""``
-    renders byte-identically to the pre-slot template, so v0.3 models
-    do not need regenerating."""
+    after the kB constant (the anchor-species mask on both paths; the v2
+    pattern-reach macros, provenance and surrogate externs); the default
+    ``""`` renders the bare template."""
     return _PROCLIST_H_TEMPLATE.format(
         spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K, extra_defines=extra_defines
+    )
+
+
+def _anchor_species_define(species: list[str] | None) -> str:
+    """The proclist.h block defining ``PYLATKMC_ANCHOR_SPECIES_MASK`` from
+    the species an anchor site must hold for touchup_a to enrol anything
+    there (``decision_tree.anchor_species`` / ``pattern_codegen.
+    v2_anchor_species``; ``None`` = any species). Bits are named by the
+    runtime's ``SP_*`` symbols, so the mask follows events_base.h. kmc.c
+    touches up only the vacancies when the mask is ``SP_VACANT`` alone."""
+    if species is None:
+        mask = "(~0u)"
+    elif not species:
+        mask = "0u"
+    else:
+        bits = [f"(1u << SP_{s.upper()})" for s in species]
+        mask = bits[0] if len(bits) == 1 else "(" + " | ".join(bits) + ")"
+    return (
+        "\n/* Species an anchor site must hold for touchup_a to enrol anything\n"
+        " * there: bit SP_<X> is set iff some process anchors on species X\n"
+        " * (~0u: some process does not condition its anchor). When it is\n"
+        " * SP_VACANT alone, kmc.c touches up only the vacancies. */\n"
+        f"#define PYLATKMC_ANCHOR_SPECIES_MASK {mask}\n"
     )
 
 
@@ -438,6 +462,7 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
         emit_v2_rate_table,
         n_procs_of,
         pattern_reach,
+        v2_anchor_species,
     )
     from pylatkmc.translator_v2 import (
         catalogue_is_phase_c,
@@ -526,7 +551,7 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
 
         s_ij, s_k = surrogate_ball_reach(esym_model)
         reach_ij, reach_k = max(reach_ij, s_ij), max(reach_k, s_k)
-    extra_defines = (
+    extra_defines = _anchor_species_define(v2_anchor_species(patterns)) + (
         "\n/* Max v2 pattern reach in grid cells (D4h-invariant), over all\n"
         " * delta+context rows (and the surrogate feature ball when active).\n"
         " * The runtime rejects a configuration whose vacuum gap is thinner\n"
@@ -608,7 +633,9 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
     proclist_c_path.write_text(proclist_c)
     written.append(proclist_c_path)
 
-    proclist_h = _build_proclist_h(spec)
+    proclist_h = _build_proclist_h(
+        spec, extra_defines=_anchor_species_define(anchor_species(processes))
+    )
     proclist_h_path = out / "proclist.h"
     proclist_h_path.write_text(proclist_h)
     written.append(proclist_h_path)
