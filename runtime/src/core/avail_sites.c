@@ -43,6 +43,12 @@ struct AvailSites {
     /* Per-proc cumulative running sum of rates[j] * n_sites_per_proc[j].
      * Populated by avail_sites_refresh_cum_rates. */
     double  *cum_rates;
+
+    /* Per-site tag bits (avail_sites_tag_or) and the list of sites holding
+     * any, so avail_sites_clear resets only those. */
+    uint32_t *site_tag;
+    int32_t  *tagged;
+    int32_t   n_tagged;
 };
 
 static inline size_t pair_idx(const AvailSites *as, int32_t proc, int32_t key)
@@ -67,9 +73,11 @@ int avail_sites_alloc(AvailSites **out, int32_t n_procs, int32_t n_sites)
     as->n_sites_per_proc = calloc((size_t)n_procs, sizeof *as->n_sites_per_proc);
     as->rates            = calloc((size_t)n_procs, sizeof *as->rates);
     as->cum_rates        = calloc((size_t)n_procs, sizeof *as->cum_rates);
+    as->site_tag         = calloc((size_t)n_sites, sizeof *as->site_tag);
+    as->tagged           = malloc((size_t)n_sites * sizeof *as->tagged);
 
     if (!as->site_at || !as->slot_of || !as->n_sites_per_proc
-        || !as->rates || !as->cum_rates) {
+        || !as->rates || !as->cum_rates || !as->site_tag || !as->tagged) {
         avail_sites_free(as);
         return -ENOMEM;
     }
@@ -91,6 +99,8 @@ void avail_sites_free(AvailSites *as)
     free(as->n_sites_per_proc);
     free(as->rates);
     free(as->cum_rates);
+    free(as->site_tag);
+    free(as->tagged);
     free(as);
 }
 
@@ -120,6 +130,24 @@ void avail_sites_clear(AvailSites *as)
         as->n_sites_per_proc[p] = 0;
         as->cum_rates[p] = 0.0;
     }
+    /* Tags go with the enrolments they describe. */
+    for (int32_t i = 0; i < as->n_tagged; ++i) as->site_tag[as->tagged[i]] = 0;
+    as->n_tagged = 0;
+}
+
+void avail_sites_tag_or(AvailSites *as, int32_t site, uint32_t bits)
+{
+    if (!as || site < 0 || site >= as->n_sites || bits == 0) return;
+    /* A site is listed once: when its tag first turns non-zero (tags only
+     * grow between clears), so n_tagged never exceeds n_sites. */
+    if (as->site_tag[site] == 0) as->tagged[as->n_tagged++] = site;
+    as->site_tag[site] |= bits;
+}
+
+uint32_t avail_sites_tag(const AvailSites *as, int32_t site)
+{
+    if (!as || site < 0 || site >= as->n_sites) return 0;
+    return as->site_tag[site];
 }
 
 void avail_sites_add(AvailSites *as, int32_t proc, int32_t site)

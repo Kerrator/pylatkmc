@@ -44,7 +44,8 @@
  * For (n_procs=358, n_sites=4096) this is ~12 MB total. We allocate
  * `site_at` and `slot_of` as full n_procs * n_sites tables — conservative
  * but trivial to index. If models ever exceed ~50 MB we can compress
- * `site_at` to be sparse-per-proc; not needed for v0.2.
+ * `site_at` to be sparse-per-proc; not needed for v0.2. The per-site tags
+ * (avail_sites_tag_or) add 8 bytes per site.
  *
  * Caller pattern
  * --------------
@@ -77,8 +78,22 @@ void avail_sites_free(AvailSites *as);
  * before `avail_sites_refresh_cum_rates`. Negative rates are rejected. */
 void avail_sites_set_rate(AvailSites *as, int32_t proc, double rate);
 
-/* Wipe all enrolments. Rates are NOT touched (they're a model constant). */
+/* Wipe all enrolments and all site tags. Rates are NOT touched (they're a
+ * model constant). */
 void avail_sites_clear(AvailSites *as);
+
+/* Per-site tag bits, an O(1) per-anchor summary of the enrolment that a
+ * consumer would otherwise rebuild by probing every proc's slot_of entry.
+ * A generated touchup ORs bits onto the site it is enrolling procs at; the
+ * v2 surrogate build tags each anchor with the 1NN hop directions its
+ * enrolled measured procs perform (the surrogate channel's de-dup, see
+ * pylatkmc/surrogate_codegen.py; large-system-scaling/10). A tag is the OR of
+ * every avail_sites_tag_or since the last avail_sites_clear: avail_sites_del
+ * does not touch tags (no runtime caller deletes between clears), so an
+ * incremental caller must rebuild a site's tag along with its enrolments.
+ * Out-of-range sites are ignored by tag_or and read as 0. */
+void     avail_sites_tag_or(AvailSites *as, int32_t site, uint32_t bits);
+uint32_t avail_sites_tag   (const AvailSites *as, int32_t site);
 
 /* O(1) add: append `site` to `proc`'s dense list. It is a programming
  * error to add a (proc, site) pair that's already enrolled. */
