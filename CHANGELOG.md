@@ -85,6 +85,20 @@ All notable changes to pylatkmc are documented here, following
   summaries. `rng_next2` now redraws an exact zero (`r2` in (0, 1)); no draw
   is remapped, so every fixed-seed trajectory that never drew 0 is bitwise
   unchanged. (large-system-scaling/03)
+- v2 models: a periodic (vacuum-free) axis shorter than `2*reach+1` grid
+  planes let pattern offsets `+d` and `d - dim` resolve to the same site, so
+  context rows tested their own periodic image (an 8x8-surface slab has 16
+  in-plane planes against `2*8+1 = 17`). `replica.c` now refuses it at
+  startup, next to the vacuum-gap check (`run_rc = -EINVAL`, exit 1); use at
+  least 9 surface sites per in-plane row for the shipped v2 models
+  (`PYLATKMC_V2_MAX_REACH_IJ = 8`). The generated `v2_apply` no longer
+  discards `state_apply_actions`' result: a rejected event returns
+  `PYLATKMC_HOP_REJECTED` (`state.h`) through the unchanged `ApplyFn`
+  signature, and `kmc_step_once` fails the step (`-EINVAL`, state untouched,
+  clock not advanced) instead of counting a no-op event. The v0.3 apply path
+  is unchanged (the documented dissolution under-budget plateau).
+  `nife_v2_scratch` and `nicr_v2_scratch` proclists are regenerated.
+  (large-system-scaling/05)
 
 Candidates for v0.4 (none committed):
 

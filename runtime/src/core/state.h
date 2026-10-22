@@ -84,4 +84,13 @@ int state_apply_actions(State *st,
                         int32_t n_actions,
                         uint8_t vacant_species);
 
+/* HopOutcome value (both fields) a generated apply function returns when
+ * state_apply_actions rejected the selected event, so kmc.c fails the step
+ * instead of advancing the clock over a no-op. Never a site index, and
+ * distinct from -1 ("not a single-vacancy hop"). The ApplyFn signature is
+ * frozen, so the rejection travels in the return value. Emitted by the v2
+ * pattern path only: v0.3 apply functions still discard the result (the
+ * documented dissolution under-budget plateau). */
+#define PYLATKMC_HOP_REJECTED (-2)
+
 #endif /* LATKMC_STATE_H */

@@ -78,7 +78,9 @@ cmake -B build_nife -DMODEL=nife_v2_scratch && cmake --build build_nife -j4
 `generated/proclist.h` exports `PYLATKMC_V2_MAX_REACH_IJ 8` / `PYLATKMC_V2_MAX_REACH_K 4`
 — a configuration whose vacuum gap is thinner than that on any axis is **rejected at
 startup** by `replica.c` (the integer site grid wraps every axis, so a thin gap would
-alias pattern rows onto the far surface).
+alias pattern rows onto the far surface). So is a fully periodic axis shorter than
+`2·reach+1` grid planes (offsets `+d` and `d − dim` would hit the same site): the
+in-plane grid has 2 planes per surface site, so use at least 9 surface sites per row.
 
 No `examples/` are shipped: this model has no validated run configuration yet. Sizing a
 slab that satisfies the reach above is the first step toward one.

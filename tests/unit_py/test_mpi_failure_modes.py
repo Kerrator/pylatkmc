@@ -14,6 +14,9 @@ temp dirs) and launches them with at most 2 ranks:
 - 04: pykmc.out's k_tot column is the total rate each step's dt was drawn
   from (dt * k_tot = -log(r2) ~ Exp(1)), on a surrogate build (measured +
   surrogate channel) and on a measured-only build alike.
+- 05: a v2 model refuses, at startup, a periodic axis shorter than
+  2*reach+1 grid planes (a reach x reach surface: the 8x8 box for reach 8),
+  and still runs one cell pair wider.
 
 Every launch gets a private, short TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open
 MPI singleton sharing /tmp/ompi.* can disturb unrelated jobs) and a hard
@@ -402,3 +405,36 @@ def test_surrogate_build_logs_total_rate(
     rows = _log_rows(out)
     assert any(r[7] == "-1" for r in rows), "no surrogate-channel step was exercised"
     _assert_k_tot_is_the_dt_rate(rows)
+
+
+def test_short_periodic_axis_is_refused_at_startup(
+    mpi_env: dict[str, str], nicr_binary: Path, tmp_path: Path
+) -> None:
+    """grid_nx = 2*reach < 2*reach+1: offsets +reach and -reach alias onto one
+    site (the 8x8-surface case for reach 8), so every rank refuses before its
+    first step, the refusal is recorded as a failed replica, and the job exits
+    non-zero (large-system-scaling/05)."""
+    reach_ij, _ = _nicr_reach()
+    out = tmp_path / "out"
+    ini = _ini(tmp_path / "in.ini", _nicr_box(tmp_path, reach_ij), out, temperature_K=600.0)
+    res = _mpirun([(nicr_binary, ini)] * 2, mpi_env)
+    assert res is not None, "job hung"
+    assert res.returncode != 0
+    assert f"axis 0 is periodic (no vacuum gap) with only {2 * reach_ij} grid planes" in res.stderr
+    assert f"2*reach+1 = {2 * reach_ij + 1}" in res.stderr
+    assert not _log_rows(out), "the run must be refused before any step"
+    agg = _aggregate(out)
+    assert (agg["n_success"], agg["n_failed"]) == (0, 2)
+    assert [r["run_rc"] for r in agg["replicas"]] == [-errno.EINVAL] * 2
+
+
+def test_periodic_axis_of_2_reach_plus_1_runs(
+    nicr_wide_run: tuple[subprocess.CompletedProcess[str], Path],
+) -> None:
+    res, out = nicr_wide_run
+    assert res.returncode == 0, res.stderr
+    assert "periodic (no vacuum gap)" not in res.stderr
+    assert sorted(p.parent.name for p in out.glob("replica_*/pykmc.out")) == [
+        "replica_0000",
+        "replica_0001",
+    ]

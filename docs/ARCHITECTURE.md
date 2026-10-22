@@ -233,7 +233,8 @@ Failure handling (`runtime/src/main.c`, `replica.c`):
   `-ENODATA` (-61) = trapped (no event left); anything else is a failure: a
   setup error inside `replica_run` (unreadable `.kmcinit`, `avail_sites`
   ENOMEM, a geometry refused by the v2 reach checks, ...), recorded as that
-  replica's `run_rc` although `kmc_run` never ran, or a failed step.
+  replica's `run_rc` although `kmc_run` never ran, or a failed step (e.g. a
+  rejected v2 apply, see Run below).
   `aggregate_summary.json` counts `run_rc == 0` as `n_success` and everything
   else, traps included, as `n_failed`.
 - **Exit status.** 0 when every replica completed or trapped (a normal
@@ -295,6 +296,19 @@ cat output/aggregate_summary.json
 T, and the RNG seed. See
 [`runtime/src/io/config_reader.h`](../runtime/src/io/config_reader.h)
 for the field set.
+
+v2 (pattern-table) models refuse two geometries at startup, because the
+integer site grid wraps every axis: a vacuum gap thinner than the pattern
+reach, and a periodic (vacuum-free) axis shorter than `2*reach+1` grid planes
+(offsets would alias onto each other or onto the anchor). The reach is
+`PYLATKMC_V2_MAX_REACH_{IJ,K}` in the model's `generated/proclist.h`; an
+in-plane grid axis has two planes per surface 1NN spacing, so reach 8 needs at
+least a 9×9 surface. Both refusals fail the replica with `run_rc = -EINVAL`
+before its first step (and the job exits 1). At run time, a v2 event whose
+delta rows `state_apply_actions` rejects (a before-state that no longer
+matches, two rows on one site, a full vacancy budget) makes the generated
+apply return `PYLATKMC_HOP_REJECTED` (`state.h`); `kmc_step_once` then fails
+the step with `-EINVAL` before the clock ticks, instead of logging a no-op.
 
 ---
 

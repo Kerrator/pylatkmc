@@ -193,17 +193,21 @@ static int replica_setup_and_run(ReplicaContext *rep, const InputConfig *cfg)
 
 #ifdef PYLATKMC_V2_MAX_REACH_K
     /* v2 pattern offsets resolve with wrap on every axis. Wrap is correct
-     * for a periodic (fully occupied) axis, and harmless when the empty gap
-     * (vacuum) is at least the pattern reach — offsets past the surface then
-     * hit empty grid cells (the stub) before they can reach the far surface.
-     * A thinner gap would silently alias patterns across the vacuum, so
-     * refuse it up front. The reach macros come from the generated
-     * proclist.h (v2 models only; v0.3 proclists don't define them). */
+     * for a periodic (fully occupied) axis at least 2*reach+1 grid planes
+     * long, and harmless when the empty gap (vacuum) is at least the pattern
+     * reach — offsets past the surface then hit empty grid cells (the stub)
+     * before they can reach the far surface. A thinner gap would silently
+     * alias patterns across the vacuum, and on a shorter periodic axis the
+     * offsets d and d - dim resolve to the same site (context rows test
+     * their own periodic image, delta rows can collide), so refuse both up
+     * front. The reach macros come from the generated proclist.h (v2 models
+     * only; v0.3 proclists don't define them). */
     {
         static const int axis_reach[3] = {
             PYLATKMC_V2_MAX_REACH_IJ, PYLATKMC_V2_MAX_REACH_IJ,
             PYLATKMC_V2_MAX_REACH_K,
         };
+        const int axis_dim[3] = { lat.grid_nx, lat.grid_ny, lat.grid_nz };
         for (int ax = 0; ax < 3; ++ax) {
             int gap = lattice_max_empty_axis_run(&lat, ax);
             if (gap < 0) {
@@ -220,6 +224,18 @@ static int replica_setup_and_run(ReplicaContext *rep, const InputConfig *cfg)
                         "wrap across the gap and silently match the far surface. "
                         "Thicken the vacuum in the initial configuration.\n",
                         rep->rank, ax, gap, axis_reach[ax]);
+                state_free(&st); lattice_free(&lat);
+                return -EINVAL;
+            }
+            if (gap == 0 && axis_dim[ax] < 2 * axis_reach[ax] + 1) {
+                fprintf(stderr,
+                        "[rank %d] axis %d is periodic (no vacuum gap) with only "
+                        "%d grid planes, fewer than 2*reach+1 = %d for the v2 "
+                        "pattern reach (%d): pattern offsets would wrap onto each "
+                        "other or onto the anchor and silently match periodic "
+                        "images. Enlarge the box along this axis.\n",
+                        rep->rank, ax, axis_dim[ax], 2 * axis_reach[ax] + 1,
+                        axis_reach[ax]);
                 state_free(&st); lattice_free(&lat);
                 return -EINVAL;
             }

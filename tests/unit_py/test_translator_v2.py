@@ -21,6 +21,7 @@ not mocks. No pandas/pyarrow needed (Parquet I/O is not exercised here).
 
 from __future__ import annotations
 
+import ctypes
 import math
 import os
 import shutil
@@ -613,6 +614,130 @@ def test_emitted_proclist_compiles(tmp_path: Path) -> None:
         text=True,
     )
     assert res.returncode == 0, f"generated v2 proclist.c failed to compile:\n{res.stderr}"
+
+
+class _HopOutcome(ctypes.Structure):
+    """Mirror of the generated ``HopOutcome`` (proclist.c / proclist.h)."""
+
+    _fields_ = [("v_origin", ctypes.c_int), ("v_dest", ctypes.c_int)]
+
+
+class _StatePrefix(ctypes.Structure):
+    """Prefix view of the runtime ``State`` (state.h field order)."""
+
+    _fields_ = [
+        ("species", ctypes.POINTER(ctypes.c_uint8)),
+        ("vac_list", ctypes.POINTER(ctypes.c_int32)),
+        ("vac_idx_of", ctypes.POINTER(ctypes.c_int32)),
+        ("n_vac", ctypes.c_int32),
+        ("n_vac_max", ctypes.c_int32),
+    ]
+
+
+_HOP_REJECTED = -2  # PYLATKMC_HOP_REJECTED, runtime/src/core/state.h
+_SP_VACANT, _SP_NI, _SP_CR = 0, 1, 3  # events_base.h
+
+
+def test_v2_apply_reports_rejected_actions(tmp_path: Path) -> None:
+    """A selected proc whose delta rows do not apply must not become a silent
+    no-op step with an advancing clock (large-system-scaling/05): the generated
+    apply returns the PYLATKMC_HOP_REJECTED marker, which kmc.c turns into a
+    failed step, and leaves the state untouched. Links the generated proclist.c
+    against the real state_actions.c (skips without cc)."""
+    if shutil.which("cc") is None:
+        pytest.skip("cc not on PATH")
+    patterns, _ = translate_event_classes(_catalogue([_mk_pe()]))
+    src = tmp_path / "proclist.c"
+    src.write_text(_full_proclist_c(patterns))
+    lib_path = tmp_path / (
+        "libv2apply.dylib" if os.uname().sysname == "Darwin" else "libv2apply.so"
+    )
+    res = subprocess.run(
+        [
+            "cc",
+            "-std=c11",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-fPIC",
+            "-shared",
+            "-I",
+            str(RUNTIME_CORE),
+            str(src),
+            str(RUNTIME_CORE / "state_actions.c"),
+            str(RUNTIME_CORE / "avail_sites.c"),
+            str(Path(__file__).parent / "_runtime_test_helpers.c"),
+            "-o",
+            str(lib_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert res.returncode == 0, f"v2 proclist.c + runtime failed to link:\n{res.stderr}"
+    lib = ctypes.CDLL(str(lib_path))
+    i32p = ctypes.POINTER(ctypes.c_int32)
+    lib.pylatkmc_test_make_lattice_grid.restype = ctypes.c_void_p
+    lib.pylatkmc_test_make_lattice_grid.argtypes = [
+        ctypes.c_int32,
+        i32p,
+        ctypes.c_int32,
+        i32p,
+        i32p,
+    ]
+    lib.pylatkmc_test_make_state.restype = ctypes.c_void_p
+    lib.pylatkmc_test_make_state.argtypes = [
+        ctypes.c_int32,
+        ctypes.c_int32,
+        ctypes.c_int32,
+        i32p,
+        ctypes.POINTER(ctypes.c_uint8),
+    ]
+    lib.pylatkmc_test_free_lattice.argtypes = [ctypes.c_void_p]
+    lib.pylatkmc_test_free_state.argtypes = [ctypes.c_void_p]
+
+    # Every same-parity runtime cell within 2 of the anchor (site 0), so the
+    # delta rows land on real sites whichever D4h op proc 0 carries.
+    near = range(-2, 3)
+    cells = [(0, 0, 0)] + [
+        (u, v, w)
+        for u in near
+        for v in near
+        for w in near
+        if (u, v, w) != (0, 0, 0) and (u - v) % 2 == 0 and (v - w) % 2 == 0
+    ]
+    n = len(cells)
+    flat = (ctypes.c_int32 * (3 * n))(*[c for cell in cells for c in cell])
+    lat = lib.pylatkmc_test_make_lattice_grid(n, flat, 3, None, None)
+    assert lat
+    table = ctypes.c_void_p.in_dll(lib, "pylatkmc_apply_table").value
+    fn_type = ctypes.CFUNCTYPE(_HopOutcome, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int)
+    apply0 = fn_type(ctypes.cast(table, ctypes.POINTER(ctypes.c_void_p))[0])
+
+    def apply_with_neighbours(neighbour_sp: int) -> tuple[_HopOutcome, list[int], list[int], int]:
+        before = [_SP_VACANT] + [neighbour_sp] * (n - 1)  # vacancy anchor at site 0
+        st = lib.pylatkmc_test_make_state(
+            n, 4, 1, (ctypes.c_int32 * 1)(0), (ctypes.c_uint8 * n)(*before)
+        )
+        assert st
+        ho = apply0(st, lat, 0)
+        view = ctypes.cast(st, ctypes.POINTER(_StatePrefix)).contents
+        after = [view.species[i] for i in range(n)]
+        n_vac = view.n_vac
+        lib.pylatkmc_test_free_state(st)
+        return ho, before, after, n_vac
+
+    try:
+        # Rejected: the neighbour row expects Cr but finds Ni.
+        ho, before, after, n_vac = apply_with_neighbours(_SP_NI)
+        assert (ho.v_origin, ho.v_dest) == (_HOP_REJECTED, _HOP_REJECTED)
+        assert after == before and n_vac == 1
+        # Control: the same proc applies when the state matches.
+        ho, before, after, n_vac = apply_with_neighbours(_SP_CR)
+        assert ho.v_origin == 0 and ho.v_dest > 0
+        assert after[0] == _SP_CR and after[ho.v_dest] == _SP_VACANT and n_vac == 1
+        assert sum(a != b for a, b in zip(after, before, strict=True)) == 2
+    finally:
+        lib.pylatkmc_test_free_lattice(lat)
 
 
 def test_emission_deterministic_across_hashseeds(tmp_path: Path) -> None:

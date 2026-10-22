@@ -67,7 +67,9 @@ typedef struct {
  * Writes (proc, site, dt, r_tot) to the out parameters if non-NULL; r_tot is
  * the total rate dt was drawn from and the event selected against (measured
  * channel + Phase C surrogate channel). Returns 0 on success, -ENODATA if
- * trapped (r_tot == 0), -EINVAL on bad args.
+ * trapped (r_tot == 0), -EINVAL on bad args or when the selected event's
+ * actions were rejected (PYLATKMC_HOP_REJECTED: no state change, clock not
+ * advanced).
  */
 int kmc_step_once(KmcContext *ctx,
                   int32_t *out_proc, int32_t *out_site, double *out_dt,
