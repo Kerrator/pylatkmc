@@ -58,9 +58,10 @@ def bic() -> ModuleType:
 
 
 # ---------------------------------------------------------------------------
-# Oracle: the replaced implementation, verbatim (tools/build_initial_config.py
-# @ fe64066: build_fcc100_slab's loop, compute_neighbors_with_pbc,
-# classify_direction, adj_to_csr and main()'s 1NN/2NN assembly).
+# Oracle: the replaced implementation (tools/build_initial_config.py @ fe64066:
+# build_fcc100_slab's loop, compute_neighbors_with_pbc, classify_direction,
+# adj_to_csr and main()'s 1NN/2NN assembly), verbatim except that the SC_* /
+# DF_* constants are inlined and comments and type hints are dropped.
 # ---------------------------------------------------------------------------
 
 
