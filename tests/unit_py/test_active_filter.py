@@ -16,6 +16,11 @@ Coverage:
 * rescan: union of static + vacancy + 1NN-of-vacancy
 * idempotency (mark twice ≡ mark once)
 * swap-last invariant on unmark
+* rescan_vacancies (large-system-scaling WP4a): the vacancy-only active list
+  the step loop touches up for vacancy-anchored models is the vacant
+  subsequence of rescan's list, in rescan's order, on randomized FCC-slab
+  states evolved through state_apply_actions; rescan's own order is the
+  pre-WP4a one (static sites by a pass over every site, then the walk)
 """
 
 from __future__ import annotations
@@ -23,6 +28,7 @@ from __future__ import annotations
 import ctypes
 import errno
 import os
+import random
 import shutil
 import subprocess
 from pathlib import Path
@@ -548,3 +554,264 @@ def test_rescan_on_square_grid_with_vacancy(libfilter: ctypes.CDLL) -> None:
         af.compute_static(lat)
         af.rescan(lat, st)
         assert af.active_set() == expected
+
+
+# ---------------------------------------------------------------------------
+# Vacancy-only rescan (large-system-scaling WP4a; step-loop-full-rescan/01)
+#
+# When every Process anchors on a vacancy, kmc.c touches up only the list
+# active_filter_rescan_vacancies builds. touchup_a appends each enrolled site
+# to its proc's avail_sites list and avail_sites_select picks a slot of that
+# list, so for the selected events to stay bitwise identical that list must be
+# the vacant sites of active_filter_rescan's list in the SAME order: the static
+# vacancies by ascending site, then the others at their first appearance in
+# the vacancy + 1NN walk (a vacancy can first appear as the 1NN of a vacancy
+# ahead of it in vac_list). Neither vac_list order nor site order is right.
+# ---------------------------------------------------------------------------
+
+SP_VACANT, SP_NI, SP_FE, SP_CR = 0, 1, 2, 3  # events_base.h
+FCC_BULK_NN1 = 12  # replica.c PYLATKMC_FCC_BULK_NN1
+
+
+class _StateAction(ctypes.Structure):
+    _fields_ = [("site", ctypes.c_int32), ("before", ctypes.c_uint8), ("after", ctypes.c_uint8)]
+
+
+class _CStatePrefix(ctypes.Structure):
+    """The leading fields of the C `State` (state.h)."""
+
+    _fields_ = [
+        ("species", ctypes.POINTER(ctypes.c_uint8)),
+        ("vac_list", ctypes.POINTER(ctypes.c_int32)),
+        ("vac_idx_of", ctypes.POINTER(ctypes.c_int32)),
+        ("n_vac", ctypes.c_int32),
+        ("n_vac_max", ctypes.c_int32),
+    ]
+
+
+@pytest.fixture(scope="module")
+def libscan(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
+    """active_filter + state_actions + the test helpers, so a state can be
+    evolved by the production vac_list bookkeeping between rescans."""
+    if not _have_cc():
+        pytest.skip("cc not on PATH")
+    builddir = tmp_path_factory.mktemp("active_filter_scan_lib")
+    libpath = builddir / ("libscan.dylib" if os.uname().sysname == "Darwin" else "libscan.so")
+    cmd = ["cc", "-std=c11", "-Wall", "-Wextra", "-Werror", "-O2", "-fPIC", "-shared"]
+    cmd += ["-I", str(RUNTIME_CORE), str(ACTIVE_FILTER_SRC), str(RUNTIME_CORE / "state_actions.c")]
+    cmd += [str(HELPERS_SRC), "-o", str(libpath)]
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        pytest.fail(f"active_filter + state_actions + helpers failed to compile:\n{res.stderr}")
+    lib = ctypes.CDLL(str(libpath))
+    vp, i32 = ctypes.c_void_p, ctypes.c_int32
+    lib.active_filter_alloc.restype = ctypes.c_int
+    lib.active_filter_alloc.argtypes = [ctypes.POINTER(vp), i32, i32]
+    lib.active_filter_free.argtypes = [vp]
+    lib.active_filter_compute_static.restype = ctypes.c_int
+    lib.active_filter_compute_static.argtypes = [vp, vp]
+    lib.active_filter_rescan.argtypes = [vp, vp, vp]
+    lib.active_filter_rescan_vacancies.argtypes = [vp, vp, vp]
+    lib.active_filter_n_active.restype = i32
+    lib.active_filter_n_active.argtypes = [vp]
+    lib.active_filter_site_at.restype = i32
+    lib.active_filter_site_at.argtypes = [vp, i32]
+    lib.state_apply_actions.restype = ctypes.c_int
+    lib.state_apply_actions.argtypes = [vp, ctypes.POINTER(_StateAction), i32, ctypes.c_uint8]
+    lib.pylatkmc_test_make_lattice.restype = vp
+    lib.pylatkmc_test_make_lattice.argtypes = [i32, ctypes.POINTER(i32), ctypes.POINTER(i32)]
+    lib.pylatkmc_test_free_lattice.argtypes = [vp]
+    lib.pylatkmc_test_make_state.restype = vp
+    lib.pylatkmc_test_make_state.argtypes = [
+        i32,
+        i32,
+        i32,
+        ctypes.POINTER(i32),
+        ctypes.POINTER(ctypes.c_uint8),
+    ]
+    lib.pylatkmc_test_free_state.argtypes = [vp]
+    return lib
+
+
+def _fcc_slab_csr(nx: int, ny: int, nz: int, rng: random.Random) -> tuple[list[int], list[int]]:
+    """1NN CSR of an FCC(100) slab: nz layers of nx x ny sites, periodic in
+    plane, open along z, so the top and bottom layers have 8 neighbours
+    (static) and the rest 12. Odd layers sit at (i + 1/2, j + 1/2), so a
+    site's cross-layer 1NN are the 4 cells around it in each adjacent layer.
+    Every site's neighbour order is shuffled: the rescan walks CSR order."""
+
+    def idx(k: int, i: int, j: int) -> int:
+        return (k * nx + i % nx) * ny + j % ny
+
+    offsets, indices = [0], []
+    for k in range(nz):
+        d = (0, 1) if k % 2 else (-1, 0)
+        for i in range(nx):
+            for j in range(ny):
+                nbrs = [idx(k, i + 1, j), idx(k, i - 1, j), idx(k, i, j + 1), idx(k, i, j - 1)]
+                for kk in (k - 1, k + 1):
+                    if 0 <= kk < nz:
+                        nbrs += [idx(kk, i + a, j + b) for a in d for b in d]
+                rng.shuffle(nbrs)
+                indices += nbrs
+                offsets.append(len(indices))
+    return offsets, indices
+
+
+def _rescan_reference(offsets: list[int], indices: list[int], vac_list: list[int]) -> list[int]:
+    """active_filter_rescan's order before WP4a: a pass over every site seeds
+    the static (low-coordination) sites in ascending order, then each vacancy
+    of vac_list and its 1NN in CSR order are listed at first appearance."""
+    n_sites = len(offsets) - 1
+    order = [s for s in range(n_sites) if offsets[s + 1] - offsets[s] < FCC_BULK_NN1]
+    seen = set(order)
+    for v in vac_list:
+        for s in (v, *indices[offsets[v] : offsets[v + 1]]):
+            if s not in seen:
+                seen.add(s)
+                order.append(s)
+    return order
+
+
+def _listed(lib: ctypes.CDLL, h: ctypes.c_void_p) -> list[int]:
+    """The filter's active list, in order."""
+    return [lib.active_filter_site_at(h, i) for i in range(lib.active_filter_n_active(h))]
+
+
+class _ScanFilter:
+    """An ActiveFilter over one lattice, with its static part computed."""
+
+    def __init__(self, lib: ctypes.CDLL, n_sites: int, lat: int) -> None:
+        self.lib = lib
+        self.h = ctypes.c_void_p()
+        assert lib.active_filter_alloc(ctypes.byref(self.h), n_sites, FCC_BULK_NN1) == 0
+        assert lib.active_filter_compute_static(self.h, lat) == 0
+
+    def rescan(self, lat: int, st: int) -> list[int]:
+        self.lib.active_filter_rescan(self.h, lat, st)
+        return _listed(self.lib, self.h)
+
+    def rescan_vacancies(self, lat: int, st: int) -> list[int]:
+        self.lib.active_filter_rescan_vacancies(self.h, lat, st)
+        return _listed(self.lib, self.h)
+
+    def free(self) -> None:
+        self.lib.active_filter_free(self.h)
+
+
+def test_rescan_vacancies_order_on_a_chain(libscan: ctypes.CDLL) -> None:
+    """Hand-checked: in a 10-site chain (every site is static at the FCC bulk
+    threshold, as at a surface) the order is ascending; with bulk_thr 2 only
+    the endpoints are static and the walk order shows. vac_list [6, 2, 5, 9]:
+    static vacancy 9 first, then 6, then 5 (the 1NN of 6, ahead of its own
+    vac_list slot), then 2 — neither vac_list nor site order."""
+    n = 10
+    offsets, indices = _linear_chain_csr(n)
+    vac = [6, 2, 5, 9]
+    species = [SP_VACANT if s in vac else SP_NI for s in range(n)]
+    lat = libscan.pylatkmc_test_make_lattice(n, _i32arr(offsets), _i32arr(indices))
+    st = libscan.pylatkmc_test_make_state(
+        n, 8, len(vac), _i32arr(vac), (ctypes.c_uint8 * n)(*species)
+    )
+    assert lat and st
+    filters = []
+    try:
+        for thr, expected in ((FCC_BULK_NN1, [2, 5, 6, 9]), (2, [9, 6, 5, 2])):
+            h = ctypes.c_void_p()
+            assert libscan.active_filter_alloc(ctypes.byref(h), n, thr) == 0
+            filters.append(h)
+            assert libscan.active_filter_compute_static(h, lat) == 0
+            libscan.active_filter_rescan(h, lat, st)
+            full = _listed(libscan, h)
+            libscan.active_filter_rescan_vacancies(h, lat, st)
+            got = _listed(libscan, h)
+            assert got == expected
+            assert got == [s for s in full if species[s] == SP_VACANT]
+    finally:
+        for h in filters:
+            libscan.active_filter_free(h)
+        libscan.pylatkmc_test_free_state(st)
+        libscan.pylatkmc_test_free_lattice(lat)
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_rescan_vacancies_is_rescans_vacant_subsequence(libscan: ctypes.CDLL, seed: int) -> None:
+    """On an FCC slab whose state is evolved by the production vac_list
+    bookkeeping (state_apply_actions: hops swap-last a vacancy out of
+    vac_list and append its new site, dissolutions append, refills
+    swap-last) through adjacent vacancies, surface (static) vacancies and
+    vacancies created mid-run, every state satisfies: rescan's list is the
+    pre-WP4a order, and rescan_vacancies' list is its vacant subsequence. The
+    filters are reused across states, as in the step loop, and one of them
+    alternates between the two rescans."""
+    rng = random.Random(seed)
+    nx = ny = nz = 6
+    n = nx * ny * nz
+    offsets, indices = _fcc_slab_csr(nx, ny, nz, rng)
+    nbrs = [indices[offsets[s] : offsets[s + 1]] for s in range(n)]
+    static = [s for s in range(n) if len(nbrs[s]) < FCC_BULK_NN1]
+    species = [rng.choice((SP_NI, SP_NI, SP_FE, SP_CR)) for _ in range(n)]
+    seed_site = rng.randrange(n)
+    vac = [seed_site, *rng.sample(nbrs[seed_site], 3)]  # an adjacent cluster
+    vac = list(dict.fromkeys(vac + rng.sample(static, 4) + rng.sample(range(n), 4)))
+    rng.shuffle(vac)
+    for s in vac:
+        species[s] = SP_VACANT
+    lat = libscan.pylatkmc_test_make_lattice(n, _i32arr(offsets), _i32arr(indices))
+    st = libscan.pylatkmc_test_make_state(
+        n, 64, len(vac), _i32arr(vac), (ctypes.c_uint8 * n)(*species)
+    )
+    assert lat and st
+    view = _CStatePrefix.from_address(st)
+    af_full, af_vac, af_mixed = (_ScanFilter(libscan, n, lat) for _ in range(3))
+    seen = {"not_vac_list_order": 0, "not_site_order": 0, "static_and_bulk": 0}
+    try:
+        for step in range(400):
+            sp = [view.species[s] for s in range(n)]
+            vac_list = [view.vac_list[i] for i in range(view.n_vac)]
+            full = af_full.rescan(lat, st)
+            assert full == _rescan_reference(offsets, indices, vac_list), f"seed {seed} step {step}"
+            want = [s for s in full if sp[s] == SP_VACANT]
+            assert sorted(want) == sorted(vac_list)
+            assert af_vac.rescan_vacancies(lat, st) == want, f"seed {seed} step {step}"
+            mixed = af_mixed.rescan(lat, st) if step % 2 else af_mixed.rescan_vacancies(lat, st)
+            assert mixed == (full if step % 2 else want), f"seed {seed} step {step}"
+            seen["not_vac_list_order"] += want != vac_list
+            seen["not_site_order"] += want != sorted(want)
+            seen["static_and_bulk"] += 0 < sum(s in static for s in want) < len(want)
+
+            # Next state: a hop (60 %), a dissolution (25 %) or a refill (15 %).
+            r = rng.random()
+            if r < 0.6:
+                v = rng.choice(vac_list)
+                occupied = [j for j in nbrs[v] if sp[j] != SP_VACANT]
+                if not occupied:
+                    continue
+                j = rng.choice(occupied)
+                acts = [(v, SP_VACANT, sp[j]), (j, sp[j], SP_VACANT)]
+            elif r < 0.85 and view.n_vac < view.n_vac_max:
+                pool = static if rng.random() < 0.5 else range(n)
+                s = rng.choice([s for s in pool if sp[s] != SP_VACANT])
+                acts = [(s, sp[s], SP_VACANT)]
+            elif view.n_vac > 1:
+                acts = [(rng.choice(vac_list), SP_VACANT, SP_NI)]
+            else:
+                continue
+            arr = (_StateAction * len(acts))(*(_StateAction(*a) for a in acts))
+            assert libscan.state_apply_actions(st, arr, len(acts), SP_VACANT) == 0
+    finally:
+        for af in (af_full, af_vac, af_mixed):
+            af.free()
+        libscan.pylatkmc_test_free_state(st)
+        libscan.pylatkmc_test_free_lattice(lat)
+    # The states covered the orders a shortcut would get wrong.
+    assert all(count > 20 for count in seen.values()), seen
+
+
+def test_compute_static_rejects_a_lattice_without_csr(libscan: ctypes.CDLL) -> None:
+    h = ctypes.c_void_p()
+    assert libscan.active_filter_alloc(ctypes.byref(h), 4, FCC_BULK_NN1) == 0
+    try:
+        assert libscan.active_filter_compute_static(h, None) == EINVAL
+    finally:
+        libscan.active_filter_free(h)

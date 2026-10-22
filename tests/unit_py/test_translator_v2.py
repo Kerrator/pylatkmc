@@ -813,6 +813,9 @@ def test_generate_v2_end_to_end(tmp_path: Path) -> None:
     hdr = (out / "proclist.h").read_text()
     assert "#define PYLATKMC_V2_MAX_REACH_IJ 2" in hdr
     assert "#define PYLATKMC_V2_MAX_REACH_K 0" in hdr
+    # The pattern anchors on the vacancy: the step loop may touch up only
+    # the vacant sites (large-system-scaling WP4a).
+    assert "#define PYLATKMC_ANCHOR_SPECIES_MASK (1u << SP_VACANT)" in hdr
     # Regenerating is byte-stable.
     first = src
     generate(spec, out)
@@ -875,6 +878,7 @@ def test_generate_v2_empty_catalogue_compiles(tmp_path: Path) -> None:
     assert "typedef struct { double prefactor_Hz;" in src  # RateConst emitted
     hdr = (out / "proclist.h").read_text()
     assert "#define PYLATKMC_V2_MAX_REACH_IJ 0" in hdr
+    assert "#define PYLATKMC_ANCHOR_SPECIES_MASK 0u" in hdr  # no pattern anchors anywhere
     if shutil.which("cc") is None:
         pytest.skip("cc not on PATH (emission asserted; compile gate skipped)")
     res = subprocess.run(
