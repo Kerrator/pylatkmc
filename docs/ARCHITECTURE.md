@@ -181,7 +181,9 @@ species has patterns, `touchup_a`:
 
 So each (pattern, op) is matched once per anchor, not once per member, and the
 `avail_sites_add` sequence is the one a proc-by-proc scan would make
-(large-system-scaling/08, 09).
+(large-system-scaling/08, 09). On a Phase C surrogate build, step 3 also
+records the vacancy hops of the matched procs in the anchor's `avail_sites`
+cover word (see "Phase C surrogate channel: per-step bookkeeping" below).
 
 Step 3 relies on each pattern's procs being one contiguous id range
 (`V2Pattern.proc_begin`/`proc_n`), and on the patterns being grouped by anchor
@@ -191,6 +193,45 @@ procs. The ball read and the op masks live on the stack of `touchup_a`:
 `V2_N_BALL + 12 * V2_N_KEYS` bytes, 3.1 KB for nife_v2_scratch and 3.4 KB for
 nicr_v2_scratch. Codegen refuses tables that would overflow their `uint16`
 indices, which keeps this stack use under 200 KB.
+
+### Phase C surrogate channel: per-step bookkeeping
+
+On a model with `[rate_data].surrogate_model`, each step runs
+`surrogate_rebuild` (`runtime/src/core/surrogate.c`) after the touchup. It
+takes every real-atom 1NN of every vacancy whose raw (unwrapped) `site_ijk`
+offset is one of the 12 baked hop directions, so a neighbour across a
+periodic seam is never a candidate. It skips the hops a measured proc already
+performs and rates the rest with `surrogate_eval`. `surrogate_account` then
+updates the flag registry for every live candidate.
+
+- **De-dup (large-system-scaling/10).** On surrogate builds only,
+  `codegen._generate_v2` passes `cover_dirs=surrogate_codegen.RUNTIME_DIRECTIONS`
+  (the `surr_dirs` order) to `emit_pattern_tables`. The emitted
+  `v2_record_covers` runs in `touchup_a` once per matched pattern, after its
+  procs are enrolled. For each matched op it resolves the pattern's
+  vacancy-origin and vacancy-destination delta rows through the site grid, as
+  `v2_apply` does. When the origin is the anchor itself and the destination is
+  a real site one raw `site_ijk` step `v2_cover_dirs[d]` away, it sets bit d of
+  the anchor's cover word (`avail_sites_cover_add`). A pattern without a unique
+  vacancy origin and destination (row -1) records nothing.
+  `pylatkmc_measured_covers_hop(lat, st, as, vac, neigh)` maps the pair to d
+  through the same table and reads that bit, so the check is O(1) and reads
+  nothing from `slot_of`. Two guards keep the halves together: the check calls
+  `v2_cover_dir`, which exists only when the touchup records covers, so a
+  surrogate build without the recorder does not compile; and
+  `emit_surrogate_tables` refuses to bake `surr_dirs` whose directions differ
+  from `RUNTIME_DIRECTIONS`. `avail_sites_clear` zeroes the words with the
+  enrolments. `avail_sites_del` leaves them, so an incremental engine must
+  rebuild a site's word along with its enrolments.
+- **Flag registry (large-system-scaling/11).** The registry is an array, in
+  insertion order (the registry index), of at most `flag_registry_capacity`
+  flags keyed by (min site, max site, direction). Once it is full, new keys
+  are dropped silently. `flag_lookup` finds a key through a linear-probing
+  index of at least 2 x capacity slots, sized at init and never rehashed, so a
+  lookup is O(1). The array, its order and `flag_registry.csv` (sorted by
+  `carried_flux * max(n_fired, 1)`, ties by key) are unchanged.
+
+What remains of a surrogate step is mostly `surrogate_eval` itself.
 
 ---
 
@@ -238,7 +279,9 @@ int kmc_step_once(KmcContext *ctx,
 - **`AvailSites`** — per-step event-availability index. Dual-index
   `site_at[proc][k]` + `slot_of[proc][site]` for O(1) add/del. Plus
   `rates[proc]` (set once at startup) and `cum_rates[proc]` (refreshed
-  per step).
+  per step), and a 16-bit cover word per site that a surrogate build's
+  touchup sets and `avail_sites_clear` zeroes with the enrolments (the
+  surrogate de-dup, above).
 - **`ActiveFilter`** — bitmap + packed list of "sites worth running
   touchup at". Static mask (geometry-derived) + dynamic mask (vacancies
   and their 1NN).

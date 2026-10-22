@@ -66,6 +66,37 @@ All notable changes to pylatkmc are documented here, following
   `V2_PRED_*` are replaced by `v2_match_rows` / `V2_CLS_*` and `v2_ball`, so
   external tools that parse a v2 `proclist.c` must follow.
   (large-system-scaling/08, 09)
+- **Phase C surrogate channel bookkeeping throughput.** Two per-step costs of
+  a surrogate build no longer grow with the model size or the run length.
+  Fixed-seed outputs are bitwise identical (`pykmc.out`, `trajkmc.xyz`,
+  `phasec.out`, `flag_registry.csv`, the summaries).
+  - The de-dup against the measured channel (`pylatkmc_measured_covers_hop`,
+    asked for every vacancy x 1NN candidate every step) scanned all `N_PROCS`
+    through `avail_sites_is_enrolled`. A surrogate build's v2 `touchup_a` now
+    records, while it enrols an anchor's procs, which surrogate hop directions
+    they move the anchor's vacancy along, in a new per-site `avail_sites`
+    cover word (`avail_sites_cover_add` / `avail_sites_cover`, zeroed by
+    `avail_sites_clear`; 6 bytes per site). The check reads one bit and keeps
+    its signature. Only the `nicr_v2_scratch` proclist is regenerated (it
+    gains `v2_cover_dirs`, `v2_cover_dir` and `v2_record_covers` and loses
+    `surr_proc_vsite`); builds without a surrogate model emit no cover code
+    and are byte-identical. An all-skipped catalogue with a surrogate model
+    now compiles. (large-system-scaling/10)
+  - The flag-registry lookup (per live candidate and per fired one) scanned
+    the registry linearly; `flag_registry_capacity` defaults to 65536. An
+    open-addressing index beside the registry array (a power of two >= 2 x
+    capacity slots, 512 KB per replica at the default) makes it O(1). The
+    array (registry index = first-seen order), the silent cap at capacity and
+    every field are unchanged. (large-system-scaling/11)
+  - Measured as user CPU on one E-core of the Linux box (1 rank, cores 22-23,
+    outputs byte-identical to the base build's): `nicr_painted` 2.21 -> 1.95
+    ms per step, `nicr_random` 0.96 -> 0.86 ms, a 64-vacancy 4000-site
+    Ni90Cr10 slab 19.1 -> 16.9 ms. Most of what remains is `surrogate_eval`.
+    With a full default registry, the accounting of a 128-candidate step
+    drops from 5.8 ms to 3 us. On these E-cores `surrogate_eval`'s speed
+    depends on the binary's code layout: other builds of the same logic ran
+    `nicr_random` in 8.7-16 s from run to run, so compare timings across
+    several runs.
 - **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
   total rate the step's `dt` was drawn from and its event selected against
   (measured + surrogate channel). It used to log the measured channel only
