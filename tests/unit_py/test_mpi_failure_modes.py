@@ -8,6 +8,9 @@ temp dirs) and launches them with at most 2 ranks:
   fails; a replica that completes or traps (no event left, a normal physical
   end) still exits 0, because job queues mark any non-zero exit as a failed
   job.
+- 02: when only ONE rank fails startup (input_config_load or replica_init),
+  every rank terminates promptly with a non-zero exit and no replica runs,
+  instead of the healthy rank hanging in the post-run collectives.
 
 Every launch gets a private, short TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open
 MPI singleton sharing /tmp/ompi.* can disturb unrelated jobs) and a hard
@@ -235,3 +238,48 @@ def test_completed_or_trapped_run_exits_zero(
     assert [r["run_rc"] for r in agg["replicas"]] == [run_rc] * 2
     assert (agg["n_success"], agg["n_failed"]) == counts
     assert "replica_run failed" not in res.stderr  # a trap is not reported as a failure
+
+
+# ---------------------------------------------------------------------------
+# 02: one rank failing startup must not hang the others
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("stage", "failure"),
+    [
+        ("input_config_load", "missing_ini"),
+        ("replica_init", "output_root_under_a_file"),
+        ("replica_init", "replica_dir_is_a_file"),
+    ],
+    ids=["missing_ini", "output_root_under_a_file", "replica_dir_is_a_file"],
+)
+def test_one_rank_startup_failure_terminates_every_rank(
+    mpi_env: dict[str, str], ni_binary: Path, tmp_path: Path, stage: str, failure: str
+) -> None:
+    """Only rank 1 fails startup. Before the fix rank 0 ran its replica and
+    then blocked in MPI_Barrier / MPI_Gather until killed; now every rank
+    exits non-zero promptly and no replica runs."""
+    if not NI_SLAB_1VAC.is_file():
+        pytest.skip(f"example slab missing: {NI_SLAB_1VAC}")
+    out = tmp_path / "out"
+    good = _ini(tmp_path / "good.ini", NI_SLAB_1VAC, out)
+    if failure == "missing_ini":
+        bad = tmp_path / "no_such_input.ini"
+    elif failure == "output_root_under_a_file":
+        blocker = tmp_path / "blocker"  # a regular FILE: no directory below it
+        blocker.write_text("not a directory\n")
+        bad = _ini(tmp_path / "bad.ini", NI_SLAB_1VAC, blocker / "out")
+    else:
+        # Same input on both ranks, but a regular file sits where rank 1's
+        # replica directory must go (replica_init used to accept it as an
+        # existing directory, and the run failed later at its first open).
+        out.mkdir()
+        (out / "replica_0001").write_text("")
+        bad = good
+    res = _mpirun([(ni_binary, good), (ni_binary, bad)], mpi_env, timeout=60.0)
+    assert res is not None, "rank 0 hung after rank 1 failed startup"
+    assert res.returncode != 0
+    assert f"[rank 1] {stage} failed" in res.stderr
+    assert "startup failed on 1 of 2 ranks" in res.stderr
+    assert not list(out.rglob("pykmc.out")), "no replica may run"

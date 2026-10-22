@@ -221,6 +221,13 @@ to `output_root/`.
 
 Failure handling (`runtime/src/main.c`, `replica.c`):
 
+- **Startup is agreed collectively.** `input_config_load` and `replica_init`
+  (replica directory creation) run on every rank, then an `MPI_Allreduce`
+  checks them: if any rank failed, every rank exits 1 before any replica
+  runs, so a rank-local failure (an `output_root` one node can't write, a
+  replica path too long for its 512-byte buffer, a file where a replica
+  directory must go) can't leave the healthy ranks blocked in `MPI_Gather`
+  until walltime.
 - **`run_rc` per replica.** `0` = reached `max_steps` / `max_time_s`;
   `-ENODATA` (-61) = trapped (no event left); anything else is a failure: a
   setup error inside `replica_run` (unreadable `.kmcinit`, `avail_sites`

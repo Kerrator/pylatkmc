@@ -52,6 +52,15 @@ All notable changes to pylatkmc are documented here, following
 - A replica whose setup failed (any early return in `replica_run` before
   `kmc_run`) was counted in `n_success` with `run_rc = 0`; it now records the
   setup error in `run_rc` and counts as failed. (large-system-scaling/01)
+- One rank failing `input_config_load` / `replica_init` left the other ranks
+  blocked in MPI collectives until walltime. All ranks now agree on the
+  startup status (`MPI_Allreduce`) before any replica runs and exit 1
+  together; each failing rank prints its own error and rank 0 adds
+  `startup failed on K of M ranks; no replica was run`. `replica_init` also
+  rejects an `output_root` that would truncate the replica directory path in
+  its 512-byte buffer (`-ENAMETOOLONG`) and an existing non-directory where a
+  directory must go (`-ENOTDIR`; it used to pass as an existing directory and
+  the run failed later at its first file open). (large-system-scaling/02)
 
 Candidates for v0.4 (none committed):
 
