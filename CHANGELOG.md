@@ -40,6 +40,13 @@ All notable changes to pylatkmc are documented here, following
   binary built on a login node can die with an illegal instruction on older
   compute nodes. The configure summary prints the setting; README.md and
   docs/ARCHITECTURE.md (Build) document it. (large-system-scaling/07)
+- **`run.traj_every` INI key**: the `trajkmc.xyz` frame cadence, separate from
+  `sample_every` (which keeps setting the `pykmc.out` / `phasec.out` rows). A
+  frame writes every atom as text (~50 MB at 1e6 sites), so large runs can log
+  densely and keep frames sparse. Default: `sample_every`, so an input without
+  the key writes byte-identical outputs; `0` writes only the t=0 frame. The
+  key changes which frames are written, never their content or the dynamics.
+  (large-system-scaling/15)
 
 ### Changed
 
