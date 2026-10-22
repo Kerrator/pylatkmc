@@ -1,8 +1,12 @@
-"""Regression tests for the generated v2 matcher (large-system-scaling/08).
+"""Regression tests for the generated v2 matcher (large-system-scaling/08, 09).
 
 - 08: ``touchup_a`` matches each (pattern, op) once per anchor, however many
   harvested members (procs) share it, and a match enrols every member proc.
-- This is a pure speed-up, so enrolment must not change: on a periodic slab
+- 09: ``touchup_a`` resolves each site of the pattern ball (``v2_ball``: every
+  row offset under every D4h op) once per anchor, instead of rotating and
+  wrapping every row of every (pattern, member, op) through
+  ``lattice_site_at_ijk``.
+- Both are pure speed-ups, so enrolment must not change: on a periodic slab
   with vacuum (both surfaces, the periodic seams, every site an anchor) the
   exact ``avail_sites_add`` call sequence equals a reference built from the
   per-proc matcher semantics (rotate each row, resolve it through the site
@@ -370,3 +374,62 @@ def test_matched_pattern_op_enrols_every_member_with_member_independent_work(sla
         assert sorted(per_hit) == hits_s
         for (name, _op, _s), pids in per_hit.items():
             assert len(pids) == MULTI[name] and pids == sorted(pids)
+
+
+def test_touchup_resolves_each_ball_site_once(slabs) -> None:
+    """09: a touchup at an anchor makes exactly one grid lookup per distinct
+    oriented row offset (the ball), however many (pattern, member, op) rows
+    read it; a site whose species anchors no pattern makes none."""
+    from pylatkmc.translator_v2 import d4h_matrices
+
+    mats = d4h_matrices()
+    slab = slabs["multi"]
+    offsets = {r.off for p in slab.patterns for r in (*p.delta, *p.context)}
+    n_ball = len({_rotate(m, o) for m in mats for o in offsets})
+    n_rows = sum(len(p.delta) + len(p.context) for p in slab.patterns)
+    n_row_ops = sum(
+        len(p.members) * len(p.orientation_ops) * (len(p.delta) + len(p.context))
+        for p in slab.patterns
+    )
+    assert n_ball < n_row_ops  # the per-row scan could cost more than the ball
+    species = _random_species(random.Random(9), slab.n)
+    _log, lookups = slab.touchup(species, range(slab.n))
+    for s, n in enumerate(lookups):
+        anchors = species[s] in (SP["Vacant"], SP["Ni"])
+        assert n == (n_ball if anchors else 0), (s, species[s], n, n_ball, n_rows)
+
+
+def test_ball_tables_cover_every_oriented_row() -> None:
+    """The ball is the keys (all canonical row offsets) followed by their other
+    D4h images, sorted, and rot[k][g] is the ball index of op g applied to key
+    k, so every oriented row offset is a ball site."""
+    pytest.importorskip("numpy")
+    from pylatkmc.pattern_codegen import ball_tables
+    from pylatkmc.translator_v2 import d4h_matrices
+
+    mats = d4h_matrices()
+    patterns = _patterns(MULTI)
+    ball, n_keys, rot = ball_tables(patterns)
+    keys = sorted({r.off for p in patterns for r in (*p.delta, *p.context)})
+    assert ball[:n_keys] == keys
+    assert ball[n_keys:] == sorted(set(ball[n_keys:])) and not set(ball[n_keys:]) & set(keys)
+    assert set(ball) == {_rotate(m, o) for m in mats for o in keys}
+    assert all(
+        ball[rot[k][g]] == _rotate(mats[g], keys[k]) for k in range(n_keys) for g in range(16)
+    )
+
+
+def test_committed_v2_proclists_use_the_ball_matcher() -> None:
+    """CI links the committed proclists without regenerating them: every
+    committed v2 proclist.c must carry the ball matcher, not the per-proc
+    rotate-and-wrap scan."""
+    v2 = [
+        p
+        for p in sorted((REPO_ROOT / "models").glob("*/generated/proclist.c"))
+        if "V2Pattern" in p.read_text()
+    ]
+    assert v2
+    for path in v2:
+        text = path.read_text()
+        assert "v2_ball_pass(lat, st, site, pass);" in text, f"{path}: regenerate it"
+        assert "v2_ctx_rows" not in text, f"{path}: regenerate it"
