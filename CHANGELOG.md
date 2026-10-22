@@ -72,6 +72,23 @@ All notable changes to pylatkmc are documented here, following
   (a trap is reported by `kmc_run: trapped at step N`, as before), and rank 0
   adds `K of M replicas failed (setup or run error); exit status 1`.
   (large-system-scaling/01)
+- **`tools/build_initial_config.py` scales to 1e6+ sites.** It copied the
+  positions into 9 xy images, called `cKDTree.query_ball_point` once per site
+  from Python and built the CSR from Python lists (~17 s and 1 GB at 1e5
+  sites; hours and tens of GB at 1e7). Positions are now generated with numpy
+  and both neighbour lists come from one periodic `cKDTree` pass
+  (`compute_neighbor_csr`: `boxsize` in xy, queried in chunks, packed with
+  numpy): 1e5 sites take ~2 s / 0.25 GB, 1e6 sites ~13 s / 0.5 GB. The
+  `.kmcinit` is byte-identical to the old tool's for every input it accepts
+  (verified against a frozen copy of the old tool in
+  `tests/unit_py/test_build_initial_config.py`), with two new refusals: more
+  than 128 layers in total (`layer_index` is int8 in the format, which
+  `runtime/src/io/initconfig.c` reads; NumPy 2 raised an opaque
+  `OverflowError`, NumPy 1.x wrapped the index silently and corrupted the
+  `site_class` and vacancy-layer masks), and `--nx 1` / `--ny 1` (every site
+  was written as its own in-plane neighbour). Both now exit with an `error:`
+  message and write nothing. `compute_neighbors_with_pbc` stays for
+  `tools/xyz_to_kmcinit.py`; `adj_to_csr` is gone. (large-system-scaling/14)
 
 ### Fixed
 
