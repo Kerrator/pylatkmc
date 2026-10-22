@@ -6,6 +6,9 @@ test_mpi_failure_modes.py):
 - 05: a generated v2 apply whose ``state_apply_actions`` call is rejected
   reports ``PYLATKMC_HOP_REJECTED`` with the state untouched, and
   ``kmc_step_once`` then fails the step without advancing the clock.
+- 06: the emitters index ``coord_table`` / ``site_ijk`` in ``size_t``, and so
+  does every COMMITTED proclist.c (CI links them without regenerating). The
+  ``initconfig_load`` range check lives in test_initconfig_range.py.
 
 Each test skips cleanly without cc.
 """
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import ctypes
 import errno
+import re
 import shutil
 import subprocess
 import sys
@@ -262,3 +266,37 @@ def test_rejected_apply_fails_the_step_without_advancing_the_clock(tmp_path: Pat
     rc = lib.pylatkmc_test_step_rejected(ctypes.byref(time_s), ctypes.byref(step))
     assert rc == -errno.EINVAL
     assert (time_s.value, step.value) == (0.0, 0), "a rejected event must not tick the clock"
+
+
+# ---------------------------------------------------------------------------
+# 06: emitted site indices are size_t-wide (and the committed proclists agree)
+# ---------------------------------------------------------------------------
+
+#: int-width site*stride indexing, which overflows on large lattices.
+_INT_INDEX = re.compile(
+    r"\[\s*(?:(?:site|anchor)\s*\*\s*(?:N_NEIGHBOUR_CODES|3)|3\s*\*\s*(?:site|anchor))\b"
+)
+
+
+def test_emitted_site_indices_are_size_t() -> None:
+    """coord_table / site_ijk indexes are computed in size_t by the emitters
+    (an int ``site * N_NEIGHBOUR_CODES`` overflows above ~93M sites) and in
+    every committed proclist.c, which CI links without regenerating."""
+    from pylatkmc.decision_tree import _coord_macro
+    from pylatkmc.processes import CoordOffset
+    from pylatkmc.surrogate_codegen import _MEASURED_COVERS_C
+
+    assert _coord_macro(CoordOffset(code="NC_NN1_PX")) == (
+        "lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX]"
+    )
+    assert _coord_macro(CoordOffset(code="NC_ANCHOR")) == "site"
+    assert "&lat->site_ijk[(size_t)anchor * 3]" in _MEASURED_COVERS_C
+    assert _INT_INDEX.search(_MEASURED_COVERS_C) is None
+    v2 = _v2_hop_proclist_c()  # v2_match + v2_apply from pattern_codegen
+    assert v2.count("&lat->site_ijk[(size_t)site * 3]") == 2
+    assert _INT_INDEX.search(v2) is None
+    proclists = sorted((REPO_ROOT / "models").glob("*/generated/proclist.c"))
+    assert proclists
+    for path in proclists:
+        hit = _INT_INDEX.search(path.read_text())
+        assert hit is None, f"{path}: int-width index {hit.group(0)!r} (regenerate it)"

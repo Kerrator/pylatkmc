@@ -99,6 +99,16 @@ All notable changes to pylatkmc are documented here, following
   is unchanged (the documented dissolution under-budget plateau).
   `nife_v2_scratch` and `nicr_v2_scratch` proclists are regenerated.
   (large-system-scaling/05)
+- **Large-lattice index overflow.** The emitted v0.3 decision tree indexed
+  `coord_table[site * N_NEIGHBOUR_CODES + nc]` in `int`, which overflows (UB)
+  above ~93M sites; the emitted index, and the v2 / surrogate
+  `site_ijk[3 * site]` lookups, are now computed in `size_t`.
+  `initconfig_load` refuses (`-EOVERFLOW`) a header whose `n_sites`,
+  `nn1_count` or `nn2_count` exceeds `INT32_MAX` instead of truncating it (a
+  header claiming `2^32 + N` sites loaded silently as `N`), checked on the
+  64-bit values before narrowing, so a negative count that would wrap to a
+  valid int32 is `-EPROTO`. All five models' `proclist.c` are regenerated
+  (index expressions only; `proclist.h` unchanged). (large-system-scaling/06)
 
 Candidates for v0.4 (none committed):
 

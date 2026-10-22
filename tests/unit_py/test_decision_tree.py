@@ -111,8 +111,10 @@ def test_apply_actions_anchor_uses_site_directly() -> None:
     out = emit_apply_actions(procs)
     # The anchor StateAction's .site field is `site` (not a coord_table lookup).
     assert ".site = site," in out
-    # The +x StateAction's .site field uses coord_table.
-    assert "coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX]" in out
+    # The +x StateAction's .site field uses coord_table, indexed in size_t:
+    # an int `site * N_NEIGHBOUR_CODES` overflows above ~93M sites.
+    assert "coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX]" in out
+    assert "coord_table[site *" not in out
 
 
 def test_apply_actions_multi_site_emits_n_assignments() -> None:

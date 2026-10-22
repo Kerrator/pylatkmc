@@ -508,7 +508,7 @@ static int32_t surr_proc_vsite(const Lattice *lat, int32_t anchor, int32_t proc,
     const V2Pattern *pt = &v2_patterns[pr->pat];
     const int8_t *R = V2_OPS[pr->op];
     const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + row];
-    const int16_t *c0 = &lat->site_ijk[3 * anchor];
+    const int16_t *c0 = &lat->site_ijk[(size_t)anchor * 3];
     int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;
     int32_t dj = R[3]*dr->di + R[4]*dr->dj + R[5]*dr->dk;
     int32_t dk = R[6]*dr->di + R[7]*dr->dj + R[8]*dr->dk;
