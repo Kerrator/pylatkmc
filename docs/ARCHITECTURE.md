@@ -318,6 +318,13 @@ T, and the RNG seed. See
 [`runtime/src/io/config_reader.h`](../runtime/src/io/config_reader.h)
 for the field set.
 
+Output cadence: `[run] sample_every = N` writes a `pykmc.out` row (and, on a
+surrogate build, a `phasec.out` row) every N steps. `trajkmc.xyz` frames follow
+the same cadence unless `[run] traj_every = M` is set: then a frame every M
+steps, or only the t=0 frame for `M = 0`. A frame lists every atom as text,
+about 50 MB per million sites, so large lattices should thin frames with
+`traj_every` rather than thinning the step log.
+
 v2 (pattern-table) models refuse two geometries at startup, because the
 integer site grid wraps every axis: a vacuum gap thinner than the pattern
 reach, and a periodic (vacuum-free) axis shorter than `2*reach+1` grid planes

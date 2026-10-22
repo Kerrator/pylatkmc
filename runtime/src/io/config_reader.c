@@ -36,6 +36,7 @@ static int set_key(InputConfig *cfg, const char *section, const char *key, const
     if (strcmp(qual, "run.max_steps")       == 0) cfg->max_steps       = strtoull(val, NULL, 10);
     else if (strcmp(qual, "run.max_time_s") == 0) cfg->max_time_s      = strtod(val, NULL);
     else if (strcmp(qual, "run.sample_every")  == 0) cfg->sample_every  = strtoull(val, NULL, 10);
+    else if (strcmp(qual, "run.traj_every")    == 0) cfg->traj_every    = strtoull(val, NULL, 10);
     else if (strcmp(qual, "run.summary_every") == 0) cfg->summary_every = strtoull(val, NULL, 10);
     else if (strcmp(qual, "run.base_seed")     == 0) cfg->base_seed     = strtoull(val, NULL, 10);
     else if (strcmp(qual, "paths.ratetable_path")  == 0)
@@ -94,6 +95,7 @@ int input_config_load(InputConfig *out, const char *path)
     out->max_steps       = 1000000ULL;
     out->max_time_s      = 0.0;
     out->sample_every    = 1000ULL;
+    out->traj_every      = UINT64_MAX;  /* unset: resolved to sample_every below */
     out->summary_every   = 0ULL;
     out->base_seed       = 42ULL;
     out->temperature_K   = 500.0;
@@ -138,6 +140,12 @@ int input_config_load(InputConfig *out, const char *path)
         set_key(out, section, key, val);
     }
     fclose(fp);
+
+    /* Without run.traj_every, trajectory frames keep the pykmc.out cadence
+     * (the only cadence before the key existed), so old inputs write the same
+     * trajkmc.xyz. A large lattice can thin its frames (~50 MB each at 1e6
+     * sites) without thinning the step log. */
+    if (out->traj_every == UINT64_MAX) out->traj_every = out->sample_every;
 
     /* Resolve relative paths against the input file's directory. */
     char ini_dir[512];

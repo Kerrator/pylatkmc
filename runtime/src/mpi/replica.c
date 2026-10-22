@@ -302,6 +302,7 @@ static int replica_setup_and_run(ReplicaContext *rep, const InputConfig *cfg)
         .max_steps     = cfg->max_steps,
         .max_time_s    = cfg->max_time_s,
         .sample_every  = cfg->sample_every,
+        .traj_every    = cfg->traj_every,
         .summary_every = cfg->summary_every,
         .out_dir       = rep->out_dir,
         .traj_path     = traj_path,

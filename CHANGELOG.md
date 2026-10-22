@@ -40,6 +40,13 @@ All notable changes to pylatkmc are documented here, following
   binary built on a login node can die with an illegal instruction on older
   compute nodes. The configure summary prints the setting; README.md and
   docs/ARCHITECTURE.md (Build) document it. (large-system-scaling/07)
+- **`[run] traj_every` input key**: the `trajkmc.xyz` frame cadence, separate
+  from `sample_every` (the `pykmc.out` / `phasec.out` cadence). A frame lists
+  every atom as text (~50 MB per million sites), so a large lattice can now
+  thin its frames without thinning the step log. `traj_every = 0` writes only
+  the t=0 frame. Without the key, frames keep the `sample_every` cadence, so
+  existing inputs write byte-identical outputs. docs/ARCHITECTURE.md (Run)
+  documents it. (large-system-scaling/15)
 
 ### Changed
 

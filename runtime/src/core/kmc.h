@@ -14,7 +14,8 @@
 typedef struct {
     uint64_t max_steps;
     double   max_time_s;        /* 0 means no cap */
-    uint64_t sample_every;      /* emit trajectory + step-log every N steps */
+    uint64_t sample_every;      /* emit the step log (pykmc.out, phasec.out) every N steps */
+    uint64_t traj_every;        /* emit a trajectory frame every N steps (0 = t=0 frame only) */
     uint64_t summary_every;     /* flush summary.json every N steps (0 = end only) */
 
     const char *out_dir;
