@@ -468,7 +468,7 @@ static inline uint32_t flag_home(int32_t lo, int32_t hi, int32_t dir, uint32_t m
  * index n_flags) if new; NULL once the registry is full and the key is new
  * (large-system-scaling/11: the index makes this O(1) instead of a scan of
  * the registry, with the same entries, order and capacity behaviour). */
-static SurrFlag *flag_lookup(SurrCtx *ctx, int32_t a, int32_t b, int32_t dir)
+static inline SurrFlag *flag_lookup(SurrCtx *ctx, int32_t a, int32_t b, int32_t dir)
 {
     int32_t lo = a < b ? a : b, hi = a < b ? b : a;
     uint32_t mask = ctx->flag_slot_mask;
