@@ -272,7 +272,12 @@ static int replica_setup_and_run(ReplicaContext *rep, const InputConfig *cfg)
         avail_sites_free(as); state_free(&st); lattice_free(&lat);
         return rc;
     }
-    active_filter_compute_static(af, &lat);
+    rc = active_filter_compute_static(af, &lat);
+    if (rc != 0) {
+        fprintf(stderr, "[rank %d] active_filter_compute_static failed: %d\n", rep->rank, rc);
+        active_filter_free(af); avail_sites_free(as); state_free(&st); lattice_free(&lat);
+        return rc;
+    }
 
     rng_seed(&rng, cfg->base_seed, (uint32_t)rep->rank);
 

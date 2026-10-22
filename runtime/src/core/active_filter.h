@@ -28,10 +28,11 @@
  *   is_active   : 1 byte per site, 1 = active
  *   active_list : packed list of active site indices, length n_active
  *   static_mask : precomputed bitmap of geometry-active sites (cond 3)
+ *   static_list : the same sites, ascending (n_static of them)
  *
- * The static mask is computed once at lattice-load time. The dynamic
- * mask is recomputed per step from the State's vacancy list and the
- * Lattice's 1NN CSR.
+ * The static mask and list are computed once at lattice-load time. The
+ * dynamic part is recomputed per step from the State's vacancy list and
+ * the Lattice's 1NN CSR.
  *
  * Usage from the runtime:
  *
@@ -39,12 +40,19 @@
  *   active_filter_compute_static(af, lat);             // once at startup
  *
  *   for each KMC step:
- *       active_filter_rescan(af, lat, st);             // O(n_vac * deg)
+ *       active_filter_rescan(af, lat, st);
  *       avail_sites_clear(as);
  *       for i in [0, active_filter_n_active(af)):
  *           touchup_a(active_filter_site_at(af, i));   // generated code
  *       avail_sites_refresh_cum_rates(as);
  *       avail_sites_select(as, ...);
+ *
+ * Order matters: touchup_a appends each enrolled site to its proc's
+ * avail_sites list, and avail_sites_select picks a slot of that list, so
+ * the order of the active list over the sites that enrol something decides
+ * which event a random number selects. The rescan lists the static sites
+ * in ascending site order, then walks st->vac_list: each vacancy, then its
+ * 1NN in CSR order, every site at its first appearance only.
  */
 
 typedef struct ActiveFilter ActiveFilter;
@@ -57,12 +65,14 @@ int  active_filter_alloc(ActiveFilter **out, int32_t n_sites,
                          int32_t bulk_threshold);
 void active_filter_free(ActiveFilter *af);
 
-/* Precompute the static (geometry-derived) active mask from `lat`'s 1NN
- * CSR. Idempotent. */
-void active_filter_compute_static(ActiveFilter *af, const Lattice *lat);
+/* Precompute the static (geometry-derived) active mask, and the ascending
+ * list of its sites, from `lat`'s 1NN CSR. Idempotent. Returns 0; -EINVAL
+ * on bad args; -ENOMEM (the filter is then unchanged). */
+int  active_filter_compute_static(ActiveFilter *af, const Lattice *lat);
 
-/* Full rescan: union of static_mask, vacant sites, and 1NN of vacant.
- * O(n_vac * <degree>) plus a one-time linear pass over static_mask. */
+/* Full rescan: union of static_mask, vacant sites, and 1NN of vacant, in
+ * the order described above. O(n_static + n_vac * <degree>) per call, plus
+ * the previous call's n_active. */
 void active_filter_rescan(ActiveFilter *af,
                           const Lattice *lat,
                           const State *st);

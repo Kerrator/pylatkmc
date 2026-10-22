@@ -16,6 +16,11 @@ struct ActiveFilter {
     uint8_t *is_active;     /* [n_sites] 1 if active, 0 if not */
     uint8_t *static_mask;   /* [n_sites] 1 if geometry-active, immutable */
 
+    /* The static_mask sites in ascending order (n_static of them), so the
+     * per-step re-seed costs O(n_static) instead of a pass over n_sites. */
+    int32_t *static_list;
+    int32_t  n_static;
+
     int32_t *active_list;   /* [n_sites] packed indices (length = n_active) */
     int32_t  n_active;
 
@@ -56,18 +61,30 @@ void active_filter_free(ActiveFilter *af)
     if (!af) return;
     free(af->is_active);
     free(af->static_mask);
+    free(af->static_list);
     free(af->active_list);
     free(af->list_idx);
     free(af);
 }
 
-void active_filter_compute_static(ActiveFilter *af, const Lattice *lat)
+int active_filter_compute_static(ActiveFilter *af, const Lattice *lat)
 {
-    if (!af || !lat || !lat->nn1_offsets) return;
+    if (!af || !lat || !lat->nn1_offsets) return -EINVAL;
+    int32_t n_static = 0;
+    for (int32_t s = 0; s < af->n_sites; ++s)
+        if (lat->nn1_offsets[s + 1] - lat->nn1_offsets[s] < af->bulk_threshold) ++n_static;
+    int32_t *list = malloc((size_t)(n_static > 0 ? n_static : 1) * sizeof *list);
+    if (!list) return -ENOMEM;
+
+    free(af->static_list);
+    af->static_list = list;
+    af->n_static = 0;
     for (int32_t s = 0; s < af->n_sites; ++s) {
         int32_t deg = lat->nn1_offsets[s + 1] - lat->nn1_offsets[s];
         af->static_mask[s] = (deg < af->bulk_threshold) ? 1 : 0;
+        if (af->static_mask[s]) af->static_list[af->n_static++] = s;
     }
+    return 0;
 }
 
 /* Internal: append `site` to active_list if not already present.
@@ -79,21 +96,27 @@ static inline void _append(ActiveFilter *af, int32_t site)
     af->active_list[af->n_active++] = site;
 }
 
-void active_filter_clear_dynamic(ActiveFilter *af)
+/* Internal: empty active_list, resetting only the sites it holds. */
+static void _drop_all(ActiveFilter *af)
 {
-    if (!af) return;
-    /* Drop everything we accumulated and re-seed from static_mask. */
     for (int32_t i = 0; i < af->n_active; ++i) {
         int32_t s = af->active_list[i];
         af->is_active[s] = 0;
         af->list_idx[s] = -1;
     }
     af->n_active = 0;
-    for (int32_t s = 0; s < af->n_sites; ++s) {
-        if (af->static_mask[s]) {
-            af->is_active[s] = 1;
-            _append(af, s);
-        }
+}
+
+void active_filter_clear_dynamic(ActiveFilter *af)
+{
+    if (!af) return;
+    /* Drop everything we accumulated and re-seed from the static sites, in
+     * ascending site order (static_list is static_mask, in order). */
+    _drop_all(af);
+    for (int32_t i = 0; i < af->n_static; ++i) {
+        int32_t s = af->static_list[i];
+        af->is_active[s] = 1;
+        _append(af, s);
     }
 }
 
