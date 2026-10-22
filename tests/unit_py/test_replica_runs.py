@@ -12,6 +12,8 @@ Builds models with CMake (into pytest tmp dirs) and launches each case with
   (02).
 - nicr_v2_scratch (surrogate build): pykmc.out's k_tot is the total rate each
   dt was drawn from, surrogate channel included (04).
+- nicr_v2_scratch: a box whose periodic in-plane axis is shorter than
+  2*reach+1 grid cells is refused at startup (05).
 
 Skips without cmake / MPI / mpirun (and numpy for the v2 boxes). Every launch
 gets a private TMPDIR + OMPI_MCA_orte_tmpdir_base, two ranks, and
@@ -250,3 +252,13 @@ def test_surrogate_build_logs_total_rate(nicr_bin: Path, tmp_path: Path) -> None
     rows = _log_rows(tmp_path)
     assert any(r[7] == "-1" for r in rows), "no surrogate-channel step was exercised"
     _assert_k_tot_is_the_dt_rate(rows)
+
+
+def test_short_periodic_axis_is_refused_at_startup(nicr_bin: Path, tmp_path: Path) -> None:
+    """grid_nx = 2*reach < 2*reach+1: offsets +reach and -reach alias onto one
+    site (the 8x8-surface case for reach 8), so refuse before any output."""
+    reach_ij, _ = _nicr_reach()
+    res, _ = _launch(nicr_bin, _ini(tmp_path, _nicr_box(tmp_path, reach_ij), temperature_K=600.0))
+    assert res.returncode != 0
+    assert "periodic" in res.stderr and "reach" in res.stderr
+    assert not _log_rows(tmp_path)

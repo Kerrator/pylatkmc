@@ -101,15 +101,26 @@ static void update_msd(const Lattice *lat, State *st, int32_t v_origin, int32_t 
     }
 }
 
-/* Apply the selected measured Process at the given anchor site. */
-static void apply_event(KmcContext *ctx, int32_t proc, int32_t site)
+/* Apply the selected measured Process at the given anchor site. Returns
+ * -EINVAL, and the step fails, if the apply function reports that
+ * state_apply_actions rejected the event (v2 pattern path). */
+static int apply_event(KmcContext *ctx, int32_t proc, int32_t site)
 {
     State *st = ctx->st;
     const Lattice *lat = ctx->lat;
 
     HopOutcome ho = pylatkmc_apply_table[proc](st, lat, site);
+    if (ho.v_origin == PYLATKMC_HOP_REJECTED) {
+        fprintf(stderr,
+            "[kmc] step %llu: proc %d at site %d was rejected by "
+            "state_apply_actions (its delta rows do not apply to the current "
+            "state); stopping instead of logging a no-op step.\n",
+            (unsigned long long)st->step, proc, site);
+        return -EINVAL;
+    }
     if (pylatkmc_rate_table[proc].is_electrochemical) st->n_dissolution++;
     update_msd(lat, st, ho.v_origin, ho.v_dest);
+    return 0;
 }
 
 int kmc_step_once(KmcContext *ctx,
@@ -160,7 +171,8 @@ int kmc_step_once(KmcContext *ctx,
     if (target < pat_rtot || surr_rtot <= 0.0) {
         int rc = avail_sites_select(ctx->as, target, &proc, &site);
         if (rc != 0) return rc;
-        apply_event(ctx, proc, site);
+        rc = apply_event(ctx, proc, site);
+        if (rc != 0) return rc;
 #ifdef PYLATKMC_HAS_SURROGATE
         if (ctx->surr)
             surrogate_note_measured(ctx->surr, pylatkmc_proc_v6_ea[proc],

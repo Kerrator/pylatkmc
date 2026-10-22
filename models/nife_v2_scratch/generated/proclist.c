@@ -22264,7 +22264,13 @@ static HopOutcome v2_apply(State *st, const Lattice *lat, int32_t proc,
         acts[r].before = dr->before;
         acts[r].after  = dr->after;
     }
-    (void)state_apply_actions(st, acts, pt->delta_n, SP_VACANT);
+    if (state_apply_actions(st, acts, pt->delta_n, SP_VACANT) != 0) {
+        /* Rejected and nothing applied (a delta row no longer validates,
+         * two rows resolve to one site, or n_vac would leave its budget):
+         * tell kmc.c, which fails the step rather than log a no-op. */
+        HopOutcome rejected = { PYLATKMC_HOP_REJECTED, PYLATKMC_HOP_REJECTED };
+        return rejected;
+    }
     HopOutcome ho = { -1, -1 };
     if (pt->v_origin_row >= 0) ho.v_origin = acts[pt->v_origin_row].site;
     if (pt->v_dest_row   >= 0) ho.v_dest   = acts[pt->v_dest_row].site;

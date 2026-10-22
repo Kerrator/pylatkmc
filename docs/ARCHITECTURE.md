@@ -289,6 +289,14 @@ T, and the RNG seed. See
 [`runtime/src/io/config_reader.h`](../runtime/src/io/config_reader.h)
 for the field set.
 
+v2 (pattern-table) models refuse two geometries at startup, because the
+integer site grid wraps every axis: a vacuum gap thinner than the pattern
+reach, and a periodic (vacuum-free) axis shorter than `2*reach+1` grid cells
+(offsets would alias onto each other or onto the anchor). The reach is
+`PYLATKMC_V2_MAX_REACH_{IJ,K}` in the model's `generated/proclist.h`; an
+in-plane grid axis has two cells per surface 1NN spacing, so reach 8 needs at
+least a 9×9 surface.
+
 ---
 
 ## Validation status & known limitations
