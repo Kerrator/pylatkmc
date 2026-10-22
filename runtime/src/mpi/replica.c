@@ -153,11 +153,15 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     ActiveFilter *af  = NULL;
     Rng           rng = {0};
 
+    /* Every setup failure below records its code in rep->stats.run_rc before
+     * returning: the stats were zeroed by replica_init, and a run_rc of 0
+     * would count this never-run replica as a success in replica_aggregate. */
     int rc = initconfig_load(cfg->initconfig_path, &lat, &st,
                              (int32_t)cfg->max_dissolution_events);
     if (rc != 0) {
         fprintf(stderr, "[rank %d] initconfig_load(%s) failed: %d\n",
                 rep->rank, cfg->initconfig_path, rc);
+        rep->stats.run_rc = rc;
         return rc;
     }
 
@@ -167,6 +171,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         fprintf(stderr, "[rank %d] lattice_build_coord_table failed: %d\n",
                 rep->rank, rc);
         state_free(&st); lattice_free(&lat);
+        rep->stats.run_rc = rc;
         return rc;
     }
 
@@ -179,6 +184,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
         fprintf(stderr, "[rank %d] lattice_build_site_grid failed: %d\n",
                 rep->rank, rc);
         state_free(&st); lattice_free(&lat);
+        rep->stats.run_rc = rc;
         return rc;
     }
 
@@ -202,6 +208,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
                         "[rank %d] lattice_max_empty_axis_run(axis %d) failed: %d\n",
                         rep->rank, ax, gap);
                 state_free(&st); lattice_free(&lat);
+                rep->stats.run_rc = gap;
                 return gap;
             }
             if (gap > 0 && gap < axis_reach[ax]) {
@@ -212,6 +219,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
                         "Thicken the vacuum in the initial configuration.\n",
                         rep->rank, ax, gap, axis_reach[ax]);
                 state_free(&st); lattice_free(&lat);
+                rep->stats.run_rc = -EINVAL;
                 return -EINVAL;
             }
         }
@@ -223,6 +231,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     if (rc != 0) {
         fprintf(stderr, "[rank %d] avail_sites_alloc failed: %d\n", rep->rank, rc);
         state_free(&st); lattice_free(&lat);
+        rep->stats.run_rc = rc;
         return rc;
     }
     /* Seed per-proc rates from the generated rate_table. The table stores
@@ -245,6 +254,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     if (rc != 0) {
         fprintf(stderr, "[rank %d] active_filter_alloc failed: %d\n", rep->rank, rc);
         avail_sites_free(as); state_free(&st); lattice_free(&lat);
+        rep->stats.run_rc = rc;
         return rc;
     }
     active_filter_compute_static(af, &lat);
@@ -268,6 +278,7 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     if (rc != 0) {
         fprintf(stderr, "[rank %d] surrogate_ctx_init failed: %d\n", rep->rank, rc);
         active_filter_free(af); avail_sites_free(as); state_free(&st); lattice_free(&lat);
+        rep->stats.run_rc = rc;
         return rc;
     }
     surr = &surr_ctx;
