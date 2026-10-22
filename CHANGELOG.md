@@ -33,6 +33,13 @@ All notable changes to pylatkmc are documented here, following
   - Tests: `test_dissolution_rate.py`, `test_dissolution_translate.py`, and a
     build+run `test_dissolution_smoke.py` (verifies a dissolution fires, a
     vacancy is created, and the first-event rate scales as `exp(Phi/kT)`).
+- **`PYLATKMC_NATIVE` CMake option** (default `ON` = the historical
+  `-O3 -march=native` flags, so local binaries and their fixed-seed outputs are
+  unchanged). Cluster (DRAC) builds should pass `-DPYLATKMC_NATIVE=OFF`
+  (optionally with `-DCMAKE_C_FLAGS=-march=x86-64-v3`): a `-march=native`
+  binary built on a login node can die with an illegal instruction on older
+  compute nodes. The configure summary prints the setting; README.md and
+  docs/ARCHITECTURE.md (Build) document it. (large-system-scaling/07)
 
 ### Changed
 
