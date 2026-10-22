@@ -17,8 +17,9 @@ uint64_t rng_next_u64(Rng *rng);
 /* Uniform double in [0, 1). */
 double   rng_next_double(Rng *rng);
 
-/* Two uniform doubles in [0, 1), drawn in a fixed order (r1, r2).
- * r1 is the event-selection draw, r2 is the time-increment draw. */
+/* Two uniform doubles drawn in a fixed order (r1, r2).
+ * r1 is the event-selection draw, in [0, 1). r2 is the time-increment draw,
+ * in (0, 1): an exact 0.0 is redrawn so dt = -log(r2)/r_tot stays finite. */
 void     rng_next2(Rng *rng, double *r1, double *r2);
 
 #endif /* LATKMC_RNG_H */
