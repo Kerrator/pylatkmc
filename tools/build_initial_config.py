@@ -2,7 +2,13 @@
 
 3D FCC(100) slab of nx × ny surface sites × nz layers (nz ≥ 3). Neighbours
 are computed from Cartesian positions with PBC in xy only, mirroring
-Analysis/lattice_3d.py.compute_3d_site_graph.
+Analysis/lattice_3d.py.compute_3d_site_graph: one periodic KD-tree pair
+search plus numpy-only CSR packing (neighbour_csr), so 1e6+ site slabs build
+in seconds.
+
+At most 128 layers in total (nz + n_adatom_layers): the .kmcinit stores
+layer_index as int8 (runtime/src/io/initconfig.c reads i8[N]), so a thicker
+slab is refused instead of wrapping its layer indices.
 
 Site layout:
   - Even layers (k=0, 2, ...): sites at (i, j, k*ls) * (nn_dist, nn_dist, 1)
@@ -46,6 +52,9 @@ DF_111_INTERLAYER = 2
 DF_001_EXCHANGE = 3
 DF_UNRESOLVED = 4
 
+# layer_index is int8 in the .kmcinit payload: layers 0..127.
+MAX_LAYERS = int(np.iinfo(np.int8).max) + 1
+
 
 def build_fcc100_slab(
     nx: int,
@@ -69,6 +78,10 @@ def build_fcc100_slab(
     state_apply_actions validation. With n_adatom_layers >= 1 the top
     surface's NC_NN1_UP_* points to a real (initially vacant) lattice
     site.
+
+    nz + n_adatom_layers may not exceed MAX_LAYERS (128): layer_index is
+    int8 in the .kmcinit, and a wrapped index would corrupt the site_class
+    and vacancy-candidate masks.
     """
     if nz < 3:
         raise ValueError(f"nz must be >= 3 (got {nz}); latkmc is 3D-only")
@@ -80,19 +93,24 @@ def build_fcc100_slab(
 
     ls = nn_dist / np.sqrt(2.0)  # layer spacing, a/2 for FCC(100)
     nz_total = nz + n_adatom_layers
-    sites: list[tuple[float, float, float, int]] = []
-    for k in range(nz_total):
-        dx = 0.5 * nn_dist if (k % 2 == 1) else 0.0
-        dy = 0.5 * nn_dist if (k % 2 == 1) else 0.0
-        for i in range(nx):
-            for j in range(ny):
-                x = i * nn_dist + dx
-                y = j * nn_dist + dy
-                z = k * ls
-                sites.append((x, y, z, k))
-
-    positions = np.array([(s[0], s[1], s[2]) for s in sites], dtype=np.float32)
-    layer_index = np.array([s[3] for s in sites], dtype=np.int8)
+    if nz_total > MAX_LAYERS:
+        raise ValueError(
+            f"nz + n_adatom_layers = {nz} + {n_adatom_layers} = {nz_total} layers, but a "
+            f".kmcinit holds at most {MAX_LAYERS}: layer_index is stored as int8 "
+            "(runtime/src/io/initconfig.c reads i8[N])"
+        )
+    # Sites in (k, i, j) order, j fastest; odd layers shifted by half a
+    # surface spacing in x and y. Same float64 arithmetic as a scalar loop,
+    # then rounded to float32.
+    k = np.repeat(np.arange(nz_total), nx * ny)
+    i = np.tile(np.repeat(np.arange(nx), ny), nz_total)
+    j = np.tile(np.arange(ny), nz_total * nx)
+    shift = np.where(k % 2 == 1, 0.5 * nn_dist, 0.0)
+    positions = np.empty((k.size, 3), dtype=np.float32)
+    positions[:, 0] = i * nn_dist + shift
+    positions[:, 1] = j * nn_dist + shift
+    positions[:, 2] = k * ls
+    layer_index = k.astype(np.int8)
 
     # Site class is computed for the *atom-occupied* slab — the adatom
     # layers above are flagged SC_BULK_LIKE because the static-active
@@ -100,7 +118,7 @@ def build_fcc100_slab(
     # downward 1NN, well below bulk's 12, so they're "active" by
     # geometry).
     top = nz - 1  # top atom layer (NOT top of total grid)
-    site_class = np.full(len(sites), SC_BULK_LIKE, dtype=np.uint8)
+    site_class = np.full(k.size, SC_BULK_LIKE, dtype=np.uint8)
     site_class[layer_index == top] = SC_SURFACE
     site_class[layer_index == top - 1] = SC_SUBSURFACE
 
@@ -119,6 +137,10 @@ def compute_neighbors_with_pbc(
     Displacement is the Cartesian vector FROM the site TO the neighbor, already
     minimum-imaged. cutoff = cutoff_factor * nn_dist (use 1.1 for 1NN, sqrt(2)*1.05
     for 2NN). Sites don't include themselves.
+
+    A per-site search over 9 xy image copies, kept for tools/xyz_to_kmcinit.py
+    (which relies on its hit order) and for scripts that import this tool. It
+    does not scale; main()'s neighbour lists come from neighbour_csr.
     """
     n = len(positions)
     cell_arr = np.asarray(cell, dtype=np.float64)
@@ -148,24 +170,37 @@ def compute_neighbors_with_pbc(
     return out
 
 
-def classify_direction(disp: np.ndarray, nn_dist: float) -> int:
-    """Classify a Cartesian edge displacement into a DF_* enum."""
-    dx, dy, dz = float(disp[0]), float(disp[1]), float(disp[2])
+def classify_directions(disp: np.ndarray, nn_dist: float) -> np.ndarray:
+    """Classify Cartesian edge displacements (shape [..., 3]) into DF_* (uint8)."""
+    dx, dy, dz = disp[..., 0], disp[..., 1], disp[..., 2]
     d_xy = np.hypot(dx, dy)
+    abs_dz = np.abs(dz)
     ls = nn_dist / np.sqrt(2.0)
     tol = 0.1 * nn_dist
+    inplane = abs_dz < tol
+    # First true condition wins, in the order of the module docstring's table.
+    return np.select(
+        [
+            inplane & (np.abs(d_xy - nn_dist) < tol),
+            inplane & (np.abs(d_xy - np.sqrt(2.0) * nn_dist) < tol),
+            inplane,
+            np.abs(abs_dz - ls) < tol,
+            (np.abs(abs_dz - 2 * ls) < tol) & (d_xy < tol),
+        ],
+        [DF_110_INPLANE, DF_100_INPLANE, DF_UNRESOLVED, DF_111_INTERLAYER, DF_001_EXCHANGE],
+        DF_UNRESOLVED,
+    ).astype(np.uint8)
 
-    if abs(dz) < tol:
-        if abs(d_xy - nn_dist) < tol:
-            return DF_110_INPLANE
-        if abs(d_xy - np.sqrt(2.0) * nn_dist) < tol:
-            return DF_100_INPLANE
-        return DF_UNRESOLVED
-    if abs(abs(dz) - ls) < tol:
-        return DF_111_INTERLAYER
-    if abs(abs(dz) - 2 * ls) < tol and d_xy < tol:
-        return DF_001_EXCHANGE
-    return DF_UNRESOLVED
+
+# classify_direction and adj_to_csr are the scalar, per-site API that scripts
+# importing this tool as a module call on compute_neighbors_with_pbc's lists
+# (main() no longer uses either of them). Keep their names, signatures and
+# results.
+
+
+def classify_direction(disp: np.ndarray, nn_dist: float) -> int:
+    """Classify a Cartesian edge displacement into a DF_* enum."""
+    return int(classify_directions(np.asarray(disp, dtype=np.float64), nn_dist))
 
 
 def adj_to_csr(
@@ -192,6 +227,94 @@ def adj_to_csr(
     indices = np.array([it[0] for it in all_items], dtype=np.int32)
     dir_family = np.array([it[1] for it in all_items], dtype=np.uint8)
     return offsets, indices, dir_family
+
+
+def _pack_csr(
+    n: int, src: np.ndarray, dst: np.ndarray, dir_family: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Directed edges → CSR (offsets, indices, dir_family), each site's
+    neighbours sorted by index."""
+    if src.size > np.iinfo(np.int32).max:
+        raise ValueError(
+            f"{src.size} neighbour edges exceed the .kmcinit's int32 CSR offsets "
+            "(runtime/src/io/initconfig.c)"
+        )
+    order = np.lexsort((dst, src))
+    offsets = np.zeros(n + 1, dtype=np.int32)
+    np.cumsum(np.bincount(src, minlength=n), out=offsets[1:])
+    return offsets, dst[order].astype(np.int32, copy=False), dir_family[order]
+
+
+# Pairs per displacement/classification batch (bounds the float64 temporaries).
+_PAIR_BATCH = 1 << 22
+
+
+def neighbour_csr(
+    positions: np.ndarray,
+    cell: np.ndarray,
+    nn_dist: float,
+    cutoff_1nn: float,
+    cutoff_2nn: float,
+) -> tuple[tuple[np.ndarray, np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """1NN and 2NN neighbour lists as CSR, with PBC in x and y only.
+
+    A site's 1NN are the sites within cutoff_1nn * nn_dist of it through any xy
+    periodic image; its 2NN are those within cutoff_2nn * nn_dist that are not
+    1NN. Each list is sorted by neighbour index, and dir_family classifies the
+    displacement. Returns ((nn1_offsets, nn1_indices, nn1_dir),
+    (nn2_offsets, nn2_indices, nn2_dir)).
+
+    One periodic KD-tree pair search, then numpy-only CSR packing; z is kept
+    non-periodic by a z box of twice (slab height + cutoff), which no |dz|
+    reaches half of. The output matches the former per-site search over 9
+    image copies, which kept each neighbour's FIRST image hit (in tree order):
+    on the FCC(100) grid, every image of a neighbour inside its shell has the
+    same |dz| and the same distance (1NN, or 2NN for a non-1NN), hence the same
+    direction family, so the minimum image is as good as any. That search also
+    listed a site as its own neighbour when an in-plane period fits inside a
+    cutoff (nx or ny = 1), which the periodic tree cannot report; those
+    self-edges are added explicitly.
+    """
+    n = len(positions)
+    pos = positions.astype(np.float64)
+    pos[:, 2] -= pos[:, 2].min()  # the periodic tree wants z in [0, Lz)
+    box_xy = np.asarray(cell, dtype=np.float64)[:2]
+    r1 = cutoff_1nn * nn_dist
+    r2 = cutoff_2nn * nn_dist
+    # Single-threaded (cKDTree's query_pairs takes no workers argument).
+    tree = cKDTree(pos, boxsize=[box_xy[0], box_xy[1], 2.0 * (pos[:, 2].max() + r2)])
+    pairs = tree.query_pairs(r2, output_type="ndarray").astype(np.int32)
+    del tree
+    pi, pj = pairs[:, 0], pairs[:, 1]
+    in_1nn = np.empty(len(pairs), dtype=bool)
+    pair_dir = np.empty(len(pairs), dtype=np.uint8)
+    for lo in range(0, len(pairs), _PAIR_BATCH):
+        sl = slice(lo, lo + _PAIR_BATCH)
+        disp = pos[pj[sl]] - pos[pi[sl]]
+        for ax in (0, 1):  # minimum image in x and y
+            d = disp[:, ax]
+            d[d > 0.5 * box_xy[ax]] -= box_xy[ax]
+            d[d < -0.5 * box_xy[ax]] += box_xy[ax]
+        in_1nn[sl] = np.einsum("ij,ij->i", disp, disp) <= r1 * r1
+        pair_dir[sl] = classify_directions(disp, nn_dist)
+
+    # The shorter in-plane period makes every site its own neighbour in the
+    # first shell whose cutoff covers it (none unless nx or ny is 1).
+    period = np.zeros(3)
+    period[np.argmin(box_xy)] = box_xy.min()
+    self_shell = next((s for s, r in enumerate((r1, r2)) if box_xy.min() <= r), None)
+
+    shells = []
+    for shell, mask in enumerate((in_1nn, ~in_1nn)):
+        a, b, df = pi[mask], pj[mask], pair_dir[mask]
+        src, dst, dirs = [a, b], [b, a], [df, df]  # each pair, both directions
+        if shell == self_shell:
+            sites = np.arange(n, dtype=np.int32)
+            src.append(sites)
+            dst.append(sites)
+            dirs.append(np.full(n, classify_directions(period, nn_dist), dtype=np.uint8))
+        shells.append(_pack_csr(n, np.concatenate(src), np.concatenate(dst), np.concatenate(dirs)))
+    return shells[0], shells[1]
 
 
 def main() -> int:
@@ -242,32 +365,33 @@ def main() -> int:
 
     a = A_LATTICE[args.element]
     nn_dist = a / np.sqrt(2.0)
-
-    positions, layer_index, site_class, cell = build_fcc100_slab(
-        args.nx,
-        args.ny,
-        args.nz,
-        nn_dist,
-        vacuum_layers=args.vacuum_layers,
-        n_adatom_layers=args.n_adatom_layers,
-    )
-    n_sites = positions.shape[0]
     nz_total = args.nz + args.n_adatom_layers
 
-    # 1NN within 1.1*nn_dist; 2NN within sqrt(2)*nn_dist*1.05
-    adj_1nn = compute_neighbors_with_pbc(positions, cell, nn_dist, 1.1)
-    adj_2nn_raw = compute_neighbors_with_pbc(positions, cell, nn_dist, np.sqrt(2.0) * 1.05)
-    # Exclude 1NN from 2NN list.
-    adj_2nn: list[list[tuple[int, np.ndarray]]] = []
-    for s in range(n_sites):
-        nn1_set = {j for j, _ in adj_1nn[s]}
-        adj_2nn.append([(j, d) for j, d in adj_2nn_raw[s] if j not in nn1_set])
+    try:
+        positions, layer_index, site_class, cell = build_fcc100_slab(
+            args.nx,
+            args.ny,
+            args.nz,
+            nn_dist,
+            vacuum_layers=args.vacuum_layers,
+            n_adatom_layers=args.n_adatom_layers,
+        )
+    except ValueError as exc:
+        # The layer-count refusal (build_fcc100_slab's last check) exits with a
+        # one-line message. The nz / vacuum / adatom checks before it keep
+        # raising, as they always did.
+        layer_refusal = nz_total > MAX_LAYERS and not (
+            args.nz < 3 or args.vacuum_layers < 0 or args.n_adatom_layers < 0
+        )
+        if not layer_refusal:
+            raise
+        sys.exit(f"error: {exc}")
+    n_sites = positions.shape[0]
 
-    def classifier(d: np.ndarray) -> int:
-        return classify_direction(d, nn_dist)
-
-    nn1_offsets, nn1_indices, nn1_dir = adj_to_csr(adj_1nn, classifier)
-    nn2_offsets, nn2_indices, nn2_dir = adj_to_csr(adj_2nn, classifier)
+    # 1NN within 1.1*nn_dist; 2NN within sqrt(2)*nn_dist*1.05, 1NN excluded.
+    (nn1_offsets, nn1_indices, nn1_dir), (nn2_offsets, nn2_indices, nn2_dir) = neighbour_csr(
+        positions, cell, nn_dist, 1.1, np.sqrt(2.0) * 1.05
+    )
 
     # Species: either homogeneous (primary element) OR random alloy from --composition.
     rng = np.random.default_rng(args.seed)

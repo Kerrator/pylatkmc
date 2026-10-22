@@ -410,8 +410,11 @@ ctx->st->time_s += dt;
 ctx->st->step   += 1;
 ```
 
-If `step % cfg->sample_every == 0`, write the trajectory frame
-(`xyz_writer`) and the per-step log row (`pykmc_out`).
+If `step % cfg->traj_every == 0`, write the trajectory frame
+(`xyz_writer`); if `step % cfg->sample_every == 0`, write the per-step log
+row (`pykmc_out`). `traj_every` is the `[run] traj_every` INI key and
+defaults to `sample_every`, so both share one cadence unless the input sets
+it.
 
 ---
 

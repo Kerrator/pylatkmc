@@ -260,8 +260,9 @@ int kmc_run(KmcContext *ctx)
         }
         if (step_rc != 0) { last_rc = step_rc; break; }
 
+        if (xyz.fp && cfg->traj_every > 0 && (ctx->st->step % cfg->traj_every) == 0)
+            xyz_write_frame(&xyz, ctx->st);
         if (cfg->sample_every > 0 && (ctx->st->step % cfg->sample_every) == 0) {
-            if (xyz.fp) xyz_write_frame(&xyz, ctx->st);
             if (out_log.fp) {
                 double k_event = (proc_done >= 0)
                     ? rateconst_eval(pylatkmc_rate_table[proc_done],
