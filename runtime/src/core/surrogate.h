@@ -137,9 +137,15 @@ typedef struct SurrCtx {
     SurrCandidate *cand;
     int32_t n_cand, cap_cand;
     double  surr_rtot;
-    /* registry */
+    /* registry: flags[0..n_flags) in first-seen order (registry index) */
     SurrFlag *flags;
     int32_t   n_flags;
+    /* Open-addressing index over flags[] keyed on (site_a, site_b, dir_idx)
+     * (large-system-scaling/11): a power of two >= 2*capacity slots, each
+     * 0 (empty) or registry index + 1; linear probing, sized once, never
+     * rehashed (the registry never removes a flag). */
+    int32_t  *flag_slots;
+    size_t    flag_slot_mask;
     /* accounting */
     double   flux_flag_cum;   /* Σ over steps of k_flag * dt */
     double   flux_total_cum;  /* Σ over steps of k_total * dt */
