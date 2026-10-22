@@ -11,7 +11,10 @@ typedef struct {
     /* [run] */
     uint64_t max_steps;
     double   max_time_s;
-    uint64_t sample_every;
+    uint64_t sample_every;           /* pykmc.out (+ phasec.out) row every N steps; 0 = none */
+    uint64_t traj_every;             /* trajkmc.xyz frame every N steps after the t=0 frame;
+                                      * 0 = t=0 frame only. Defaults to sample_every when the
+                                      * key is absent (the cadence before this key existed). */
     uint64_t summary_every;
     uint64_t base_seed;
 
