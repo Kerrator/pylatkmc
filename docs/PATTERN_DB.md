@@ -73,7 +73,9 @@ the chosen Process's actions atomically.
    ┌────────────────────────────────────────────────────────────────────────┐
    │  C runtime: per replica, per step                                      │
    │                                                                        │
-   │   active_filter_rescan(af, lat, st)                                    │
+   │   active_filter_rescan(af, lat, st)    (or _rescan_vacancies when      │
+   │                                         every Process anchors on a     │
+   │                                         vacancy: vacant sites only)    │
    │   avail_sites_clear(as)                                                │
    │   for s in active_filter sites:                                        │
    │       touchup_a(lat, st, as, s)        ← generated decision tree       │
@@ -291,7 +293,11 @@ Per step:
 1. **Active-site rescan** (`active_filter_rescan`). A site is "active"
    iff vacant, has a vacant 1NN, or has `nn1_degree < 12`. Bulk atoms
    with full coordination and no nearby vacancy can never have a
-   Process match — skipping them saves the touchup cost.
+   Process match — skipping them saves the touchup cost. When every
+   Process of the model anchors on a vacancy (the generated
+   `PYLATKMC_ANCHOR_SPECIES_MASK` is `SP_VACANT` alone), the step loop
+   calls `active_filter_rescan_vacancies` instead, which lists only the
+   vacant sites (see "active_filter" below).
 
 2. **Clear the avail_sites index** (`avail_sites_clear`). Wipes all
    `(proc, site)` enrolments from the previous step. Per-proc rate
@@ -364,15 +370,40 @@ Source: [`runtime/src/core/state_actions.c`](../runtime/src/core/state_actions.c
 
 ### active_filter — coord-based gate
 
-`active_filter_compute_static(af, lat)` precomputes a bitmap of
-geometry-derived active sites (anywhere `nn1_degree < bulk_threshold`).
-`active_filter_rescan(af, lat, st)` resets the dynamic part to that
-static mask, then marks every vacancy and every 1NN of vacancy.
-O(n_vac × 12 + n_static_sites) per step.
+`active_filter_compute_static(af, lat)` precomputes, once at startup, a
+bitmap of geometry-derived active sites (anywhere
+`nn1_degree < bulk_threshold`) and the ascending list of those sites.
+`active_filter_rescan(af, lat, st)` resets the active list to the static
+sites, in ascending site order, then walks `st->vac_list`: each vacancy,
+then its 1NN in CSR order, every site listed at its first appearance.
+O(n_vac × 12 + n_static_sites) per step; there is no pass over all sites.
 
 For the production 8×8×3 slab with one surface vacancy, this gives
 ~13–20 active sites instead of all 192 — touchup cost drops by an
 order of magnitude.
+
+**The order of the list is part of the result.** `touchup_a` appends each
+enrolled site to its proc's `avail_sites` list, and `avail_sites_select`
+picks a slot of that list, so the order in which the enrolling sites are
+touched up decides which event a given random number selects.
+
+**Vacancy-anchored models** (`ni_example`, `ni_fe_cr_v1`, `nife_v2_scratch`,
+`nicr_v2_scratch`): codegen writes `PYLATKMC_ANCHOR_SPECIES_MASK` into
+`proclist.h`, a bit `1u << SP_<X>` for every species a Process can anchor
+on (the anchor-site Condition of each v0.3 Process; the non-empty
+`v2_pattern_bucket_begin` ranges of a v2 model). When it is `SP_VACANT`
+alone, `touchup_a` enrols nothing at an occupied site, so `kmc_step_once`
+calls `active_filter_rescan_vacancies`, which lists only the vacant sites,
+in the order the full rescan lists them: the static vacancies by ascending
+site index, then the others at their first appearance in the vacancy + 1NN
+walk. A vacancy can first appear as the 1NN of a vacancy ahead of it in
+`vac_list`, so this order is neither `vac_list` order nor site order. The
+`avail_sites` lists, and so fixed-seed trajectories, are bitwise identical
+to the full rescan's; a step costs O(n_vac × 12) instead of a touchup at
+every surface site. `ni_dissolution_demo` anchors dissolution on surface
+atoms, so it keeps the full rescan. A `proclist.h` generated before the
+mask existed does not define it, and the step loop then uses the full
+rescan.
 
 ## Files at a glance
 

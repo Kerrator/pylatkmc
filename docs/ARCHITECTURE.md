@@ -56,7 +56,8 @@ Three layers, one direction of dependency:
 
 Everything model-specific is **baked at codegen time** (Process names,
 rate constants, action specifics). The runtime hot loop is a tight
-sequence of `active_filter_rescan` → `avail_sites_clear` → per-site
+sequence of `active_filter_rescan` (or `active_filter_rescan_vacancies`
+for a vacancy-anchored model) → `avail_sites_clear` → per-site
 `touchup_a` → `avail_sites_select` → `apply_table[proc]`.
 
 ---
@@ -244,7 +245,11 @@ int kmc_step_once(KmcContext *ctx,
                   int32_t *out_proc, int32_t *out_site, double *out_dt,
                   double *out_r_tot)
 {
-    active_filter_rescan(ctx->af, ctx->lat, ctx->st);
+    /* PYLATKMC_ANCHOR_SPECIES_MASK comes from the generated proclist.h. */
+    if ((PYLATKMC_ANCHOR_SPECIES_MASK & ~(1u << SP_VACANT)) == 0u)
+        active_filter_rescan_vacancies(ctx->af, ctx->lat, ctx->st);
+    else
+        active_filter_rescan(ctx->af, ctx->lat, ctx->st);
     avail_sites_clear(ctx->as);
     int32_t n_active = active_filter_n_active(ctx->af);
     for (int32_t i = 0; i < n_active; ++i) {
@@ -283,8 +288,16 @@ int kmc_step_once(KmcContext *ctx,
   touchup sets and `avail_sites_clear` zeroes with the enrolments (the
   surrogate de-dup, above).
 - **`ActiveFilter`** — bitmap + packed list of "sites worth running
-  touchup at". Static mask (geometry-derived) + dynamic mask (vacancies
-  and their 1NN).
+  touchup at". Static mask (geometry-derived, plus the ascending list of
+  its sites, both built once) + dynamic part (vacancies and their 1NN).
+  The list order is part of the result: touchup appends each enrolled
+  site to its proc's `avail_sites` list, and selection picks a slot of
+  that list. When every Process anchors on a vacancy (the generated
+  `PYLATKMC_ANCHOR_SPECIES_MASK` is `SP_VACANT` alone, as in every model
+  but `ni_dissolution_demo`), `active_filter_rescan_vacancies` lists just
+  the vacant sites, in the full rescan's order, so a step costs
+  O(n_vac × 12) rather than a touchup at every surface site, with
+  bitwise-identical trajectories (docs/PATTERN_DB.md, "active_filter").
 - **`Rng`** — splitmix64; seeded per-replica from `(base_seed, rank)`.
 
 ### MPI ensemble

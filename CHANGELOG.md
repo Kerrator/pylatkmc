@@ -51,6 +51,38 @@ All notable changes to pylatkmc are documented here, following
 
 ### Changed
 
+- **The step loop no longer rescans the whole slab for vacancy-anchored
+  models.** Every step used to call `touchup_a` at every surface
+  (low-coordination) site, every vacancy and every 1NN of a vacancy, after a
+  pass over all sites to find the surface ones. In `ni_example`,
+  `ni_fe_cr_v1`, `nife_v2_scratch` and `nicr_v2_scratch` every Process
+  anchors on a vacancy, so only the vacancy calls could enrol anything.
+  Fixed-seed outputs are bitwise identical (every golden case, including the
+  multi-vacancy and dissolution ones).
+  - Codegen writes `PYLATKMC_ANCHOR_SPECIES_MASK` into `proclist.h`, a bit
+    `1u << SP_<X>` for each species a Process can anchor on (`~0u`: any).
+    All five models' `proclist.h` are regenerated (6 added lines each;
+    `proclist.c` unchanged). A `proclist.h` without the mask (generated
+    earlier) keeps the full rescan.
+  - When the mask is `SP_VACANT` alone, `kmc_step_once` touches up only the
+    vacant sites (`active_filter_rescan_vacancies`), in the order the full
+    rescan listed them: the surface vacancies by site index, then the others
+    at their first appearance in the vacancy + 1NN walk. That order decides
+    which event a random number selects (each proc's `avail_sites` list is
+    filled in touchup order), so it is kept exactly. A step then costs
+    O(n_vac x 12) instead of a touchup per surface site.
+  - Other models (`ni_dissolution_demo`: dissolution anchors on surface
+    atoms) keep the full rescan, which now re-seeds the surface sites from a
+    list built once at startup instead of a pass over all sites.
+    `active_filter_compute_static` returns an error code (it allocates that
+    list).
+  - Measured as user+sys CPU on one P-core (1 rank, min of 5, startup
+    subtracted), 100x100x10 slabs (1e5 sites) with 4 vacancies:
+    `ni_example` 12.6 k -> 912 k steps/s (72x); `nicr_v2_scratch` with the
+    surrogate channel 982 -> 1079 steps/s (1.1x: `surrogate_eval` dominates
+    its step); `ni_dissolution_demo` 676 -> 672 steps/s (unchanged: its step
+    is the touchups of the ~2e4 surface atoms its dissolution Processes can
+    anchor on). (step-loop-full-rescan/01, large-system-scaling WP4a)
 - **v2 matcher throughput.** The generated v2 `touchup_a` re-matched every
   (pattern, orientation) once per harvested member (5.2x redundant in
   `nife_v2_scratch`, 6.8x in `nicr_v2_scratch`) and rotated and wrapped every

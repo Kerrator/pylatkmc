@@ -240,7 +240,7 @@ for (int p = 0; p < pylatkmc_n_procs; ++p)
     avail_sites_set_rate(as, p, pylatkmc_rate_table[p].rate);
 
 active_filter_alloc(&af, lat.n_sites, /*bulk_threshold=*/12);
-active_filter_compute_static(af, &lat);                 // mark surface/edge sites
+active_filter_compute_static(af, &lat);                 // mark + list surface/edge sites
 
 rng_seed(&rng, cfg->base_seed, rank);
 
@@ -288,6 +288,15 @@ Now we OR in: every vacancy + every 1NN of vacancy.
 For our setup (1 surface vacancy at site `s`), the active set contains
 ~13 sites: `s` itself + 8 1NN of `s` + the 4-corner static-active sites
 on the slab boundary.
+
+Every Process of this model anchors on a vacancy (the generated
+`proclist.h` says so: `PYLATKMC_ANCHOR_SPECIES_MASK` is
+`(1u << SP_VACANT)`), so `touchup_a` can enrol nothing at the other 12
+sites. The step loop therefore calls `active_filter_rescan_vacancies`
+instead, which lists just `s`: the vacant sites of the full list, in its
+order. The enrolments, and so the trajectory, are exactly the same; the
+step skips 12 touchups that could never match (on a large slab, one per
+surface site).
 
 ### 7.2 — `avail_sites_clear(as)`
 
