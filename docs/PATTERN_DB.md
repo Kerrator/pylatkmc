@@ -405,6 +405,12 @@ Per-step pykmc.out columns (v0.2 schema):
 `enum { P_<name>, ..., N_PROCS }` in proclist.c — cross-reference to
 map back to a Process name.
 
+`k_tot` is the total rate the step's `dt` was drawn from (`dt = -ln(r2)/k_tot`)
+and its event selected against. On a Phase C surrogate build that is the
+measured plus the surrogate channel (a surrogate fire logs `proc_id = -1`);
+before large-system-scaling/04 the column held the measured channel only on
+those builds. Elsewhere it is the measured `r_tot`, unchanged.
+
 ## See also
 
 - [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) — worked example: one

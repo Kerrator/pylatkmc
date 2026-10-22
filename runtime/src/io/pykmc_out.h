@@ -14,6 +14,10 @@
  *     them. To map back to a human-readable Process name, cross-reference
  *     proclist.c's `enum { P_<name>, ... }` for the model.
  *   - `site` is the absolute anchor site index where the event fired.
+ *   - `k_tot` is the total rate the step's dt was drawn from and its event
+ *     selected against: measured + surrogate channel on a Phase C surrogate
+ *     build (before large-system-scaling/04 it logged the measured channel
+ *     only there), the measured r_tot otherwise.
  */
 
 typedef struct {
