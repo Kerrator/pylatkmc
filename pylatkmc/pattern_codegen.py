@@ -158,6 +158,17 @@ def _proc_list(patterns: list[LatticePattern]) -> tuple[list[int], list[tuple[in
     return order, procs
 
 
+def anchor_species(patterns: list[LatticePattern]) -> list[str]:
+    """The species ``touchup_a`` can enrol a proc at, in runtime code order.
+
+    These are the non-empty ``v2_pattern_bucket_begin`` ranges: the generic
+    matcher returns at once at a site of any other species. Feeds
+    ``PYLATKMC_ANCHOR_SPECIES_MASK`` in proclist.h, from which the runtime
+    decides to touch up only the vacancies.
+    """
+    return sorted({p.anchor_species for p in patterns}, key=lambda s: (_SP_CODE.get(s, 255), s))
+
+
 def emit_v2_enum(patterns: list[LatticePattern]) -> str:
     """Emit ``enum { N_PROCS = <n> };`` — must precede the rate table."""
     return f"enum {{ N_PROCS = {n_procs_of(patterns)} }};\n"
@@ -708,6 +719,7 @@ __all__ = (
     "CHANNEL_SURROGATE",
     "CLS_EMPTY",
     "CLS_OCC_ANY",
+    "anchor_species",
     "ball_tables",
     "emit_pattern_tables",
     "emit_v2_enum",

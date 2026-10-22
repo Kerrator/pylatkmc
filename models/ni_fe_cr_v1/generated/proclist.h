@@ -25,6 +25,12 @@
  * by the Python codegen and this C runtime, so the two cannot drift. */
 #define PYLATKMC_KB_EV_PER_K 8.6173330000e-05
 
+/* Anchor species: bit (1u << SP_<X>) is set iff touchup_a can enrol a
+ * Process at a site holding species X (~0u: any species). When it is
+ * the SP_VACANT bit alone, kmc.c touches up only the vacant sites. The
+ * SP_* codes are in events_base.h. */
+#define PYLATKMC_ANCHOR_SPECIES_MASK (1u << SP_VACANT)
+
 /* Number of Processes in this model. Defined by the generated enum
  * in proclist.c; exposed here as a const for sizeof / loop bounds. */
 extern const int32_t pylatkmc_n_procs;

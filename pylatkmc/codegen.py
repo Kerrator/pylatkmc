@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from pylatkmc.decision_tree import (
+    anchor_species,
     compile_decision_tree,
     emit_apply_actions,
     emit_process_enum,
@@ -280,11 +281,38 @@ const ApplyFn   *const pylatkmc_apply_table = apply_table;
     return preamble + body + public_glue
 
 
-def _build_proclist_h(spec: ModelSpec, extra_defines: str = "") -> str:
-    """Render proclist.h. ``extra_defines`` slots extra ``#define`` lines
-    after the kB constant (v2 pattern-reach macros); the default ``""``
-    renders byte-identically to the pre-slot template, so v0.3 models
-    do not need regenerating."""
+def _anchor_mask_define(anchors: list[str] | None, species_order: list[str]) -> str:
+    """The proclist.h block defining ``PYLATKMC_ANCHOR_SPECIES_MASK``.
+
+    ``anchors`` comes from the path's emitter (``decision_tree.anchor_species``
+    / ``pattern_codegen.anchor_species``): the species at which ``touchup_a``
+    can enrol anything, or ``None`` for any species. The bits are emitted by
+    NAME (``SP_<NAME>``, as the touchup itself names them), in
+    ``species_order`` (the spec's species list).
+    """
+    if anchors is None:
+        expr = "(~0u)"
+    elif not anchors:
+        expr = "0u"
+    else:
+        rank = {s: i for i, s in enumerate(species_order)}
+        names = sorted(set(anchors), key=lambda s: (rank.get(s, len(rank)), s))
+        bits = " | ".join(f"(1u << SP_{s.upper()})" for s in names)
+        expr = bits if len(names) == 1 else f"({bits})"
+    return (
+        "\n/* Anchor species: bit (1u << SP_<X>) is set iff touchup_a can enrol a\n"
+        " * Process at a site holding species X (~0u: any species). When it is\n"
+        " * the SP_VACANT bit alone, kmc.c touches up only the vacant sites. The\n"
+        " * SP_* codes are in events_base.h. */\n"
+        f"#define PYLATKMC_ANCHOR_SPECIES_MASK {expr}\n"
+    )
+
+
+def _build_proclist_h(spec: ModelSpec, anchors: list[str] | None, extra_defines: str = "") -> str:
+    """Render proclist.h. The anchor-species mask (see ``_anchor_mask_define``)
+    and then ``extra_defines`` (v2 pattern-reach macros, provenance and
+    surrogate externs) slot in after the kB constant."""
+    extra_defines = _anchor_mask_define(anchors, spec.species) + extra_defines
     return _PROCLIST_H_TEMPLATE.format(
         spec_name=spec.name, kb_ev_per_k=KB_EV_PER_K, extra_defines=extra_defines
     )
@@ -431,6 +459,7 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
     same template as the v0.3 path, so the runtime cannot tell the strategies
     apart. Skipped classes are reported, never silent.
     """
+    from pylatkmc.pattern_codegen import anchor_species as v2_anchor_species
     from pylatkmc.pattern_codegen import (
         emit_pattern_tables,
         emit_v2_enum,
@@ -544,7 +573,9 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
     proclist_c_path.write_text(preamble + body + public_glue)
     written.append(proclist_c_path)
     proclist_h_path = out / "proclist.h"
-    proclist_h_path.write_text(_build_proclist_h(spec, extra_defines=extra_defines))
+    proclist_h_path.write_text(
+        _build_proclist_h(spec, v2_anchor_species(patterns), extra_defines=extra_defines)
+    )
     written.append(proclist_h_path)
     return written
 
@@ -608,7 +639,7 @@ def generate(spec: ModelSpec, out_dir: str | Path, spec_path: Path | None = None
     proclist_c_path.write_text(proclist_c)
     written.append(proclist_c_path)
 
-    proclist_h = _build_proclist_h(spec)
+    proclist_h = _build_proclist_h(spec, anchor_species(processes))
     proclist_h_path = out / "proclist.h"
     proclist_h_path.write_text(proclist_h)
     written.append(proclist_h_path)

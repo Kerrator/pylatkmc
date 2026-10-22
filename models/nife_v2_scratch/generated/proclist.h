@@ -25,6 +25,12 @@
  * by the Python codegen and this C runtime, so the two cannot drift. */
 #define PYLATKMC_KB_EV_PER_K 8.6173330000e-05
 
+/* Anchor species: bit (1u << SP_<X>) is set iff touchup_a can enrol a
+ * Process at a site holding species X (~0u: any species). When it is
+ * the SP_VACANT bit alone, kmc.c touches up only the vacant sites. The
+ * SP_* codes are in events_base.h. */
+#define PYLATKMC_ANCHOR_SPECIES_MASK (1u << SP_VACANT)
+
 /* Max v2 pattern reach in grid cells (D4h-invariant), over all
  * delta+context rows (and the surrogate feature ball when active).
  * The runtime rejects a configuration whose vacuum gap is thinner
