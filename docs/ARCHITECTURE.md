@@ -274,6 +274,17 @@ CMake `file(GLOB)` picks up:
 - Compiles them into `pylatkmc_lib` (static archive)
 - Links `runtime/src/main.c` against it → final binary
 
+`-DPYLATKMC_NATIVE=ON` (the default) compiles with `-O3 -march=native`, tuned
+for the build host. **Cluster (DRAC) builds:** configure with
+`-DPYLATKMC_NATIVE=OFF`, because a `-march=native` binary built on a login node
+can stop with an illegal-instruction error on older compute nodes. Add
+`-DCMAKE_C_FLAGS=-march=x86-64-v3` to target a known baseline (AVX2 + FMA:
+Haswell / Zen or newer; check the oldest node type of the cluster you run on):
+
+```bash
+cmake -B build -DMODEL=<model> -DPYLATKMC_NATIVE=OFF -DCMAKE_C_FLAGS=-march=x86-64-v3
+```
+
 ---
 
 ## Run
