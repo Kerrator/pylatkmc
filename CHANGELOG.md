@@ -77,6 +77,12 @@ All notable changes to pylatkmc are documented here, following
   instead of advancing the clock over a no-op. The v0.3 apply path is
   unchanged (the dissolution under-budget plateau stays as documented).
   (large-system-scaling/05)
+- The emitted v0.3 decision tree indexed `coord_table[site * N_NEIGHBOUR_CODES + nc]`
+  in `int`, which overflows above ~93M sites; the emitted index (and the v2
+  `site_ijk[3 * site]` lookups) are now computed in `size_t`. `initconfig_load`
+  refuses (`-EOVERFLOW`) a header whose `n_sites`, `nn1_count` or `nn2_count`
+  exceeds `INT32_MAX` instead of truncating it. All five models' proclists are
+  regenerated. (large-system-scaling/06)
 
 Candidates for v0.4 (none committed):
 

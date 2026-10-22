@@ -2025,7 +2025,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2035,7 +2035,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2045,7 +2045,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2055,7 +2055,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2065,7 +2065,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2075,7 +2075,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2085,7 +2085,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2095,7 +2095,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2105,7 +2105,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2115,7 +2115,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2125,7 +2125,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2135,7 +2135,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_0_nv2_1__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2145,7 +2145,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2155,7 +2155,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2165,7 +2165,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2175,7 +2175,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2185,7 +2185,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2195,7 +2195,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2205,7 +2205,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2215,7 +2215,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2225,7 +2225,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2235,7 +2235,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2245,7 +2245,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2255,7 +2255,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_1_nv2_1__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2265,7 +2265,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2275,7 +2275,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2285,7 +2285,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2295,7 +2295,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2305,7 +2305,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2315,7 +2315,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2325,7 +2325,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2335,7 +2335,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2345,7 +2345,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2355,7 +2355,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2365,7 +2365,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2375,7 +2375,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_2_nv2_1__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2385,7 +2385,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2395,7 +2395,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2405,7 +2405,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2415,7 +2415,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2425,7 +2425,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2435,7 +2435,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2445,7 +2445,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2455,7 +2455,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2465,7 +2465,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2475,7 +2475,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2485,7 +2485,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2495,7 +2495,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_0__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2505,7 +2505,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2515,7 +2515,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2525,7 +2525,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2535,7 +2535,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2545,7 +2545,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2555,7 +2555,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2565,7 +2565,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2575,7 +2575,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2585,7 +2585,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2595,7 +2595,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2605,7 +2605,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2615,7 +2615,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_3_nv2_1__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2625,7 +2625,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2635,7 +2635,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2645,7 +2645,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2655,7 +2655,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2665,7 +2665,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2675,7 +2675,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2685,7 +2685,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2695,7 +2695,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2705,7 +2705,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2715,7 +2715,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2725,7 +2725,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2735,7 +2735,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_1__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2745,7 +2745,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2755,7 +2755,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2765,7 +2765,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2775,7 +2775,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2785,7 +2785,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2795,7 +2795,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2805,7 +2805,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2815,7 +2815,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2825,7 +2825,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2835,7 +2835,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2845,7 +2845,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2855,7 +2855,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_2__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2865,7 +2865,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2875,7 +2875,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2885,7 +2885,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2895,7 +2895,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2905,7 +2905,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2915,7 +2915,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2925,7 +2925,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2935,7 +2935,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2945,7 +2945,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2955,7 +2955,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2965,7 +2965,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2975,7 +2975,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_4_nv2_3__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2985,7 +2985,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -2995,7 +2995,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3005,7 +3005,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3015,7 +3015,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3025,7 +3025,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3035,7 +3035,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3045,7 +3045,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3055,7 +3055,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3065,7 +3065,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3075,7 +3075,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3085,7 +3085,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3095,7 +3095,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_1__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3105,7 +3105,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3115,7 +3115,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3125,7 +3125,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3135,7 +3135,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3145,7 +3145,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3155,7 +3155,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3165,7 +3165,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3175,7 +3175,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3185,7 +3185,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3195,7 +3195,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3205,7 +3205,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3215,7 +3215,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_2__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3225,7 +3225,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3235,7 +3235,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3245,7 +3245,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3255,7 +3255,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3265,7 +3265,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3275,7 +3275,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3285,7 +3285,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3295,7 +3295,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3305,7 +3305,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3315,7 +3315,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3325,7 +3325,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3335,7 +3335,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_3__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3345,7 +3345,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_px__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3355,7 +3355,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_mx__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3365,7 +3365,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_py__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3375,7 +3375,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_my__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3385,7 +3385,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_pp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3395,7 +3395,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_pm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3405,7 +3405,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_mp__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3415,7 +3415,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_up_mm__
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3425,7 +3425,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3435,7 +3435,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3445,7 +3445,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3455,7 +3455,7 @@ static HopOutcome apply_actions_subsurface_1nn_inplane__nv1_5_nv2_4__nn1_down_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3465,7 +3465,7 @@ static HopOutcome apply_actions_subsurface_2nn_diagonal__nv1_3__nn2_px__ni(State
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3475,7 +3475,7 @@ static HopOutcome apply_actions_subsurface_2nn_diagonal__nv1_3__nn2_mx__ni(State
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3485,7 +3485,7 @@ static HopOutcome apply_actions_subsurface_2nn_diagonal__nv1_3__nn2_py__ni(State
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3495,7 +3495,7 @@ static HopOutcome apply_actions_subsurface_2nn_diagonal__nv1_3__nn2_my__ni(State
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3505,7 +3505,7 @@ static HopOutcome apply_actions_subsurface_2nn_diagonal__nv1_3__nn2_pz__ni(State
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PZ], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PZ], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3515,7 +3515,7 @@ static HopOutcome apply_actions_subsurface_2nn_diagonal__nv1_3__nn2_mz__ni(State
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MZ], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MZ], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3525,7 +3525,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_up_pp__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3535,7 +3535,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_up_pm__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3545,7 +3545,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_up_mp__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3555,7 +3555,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_up_mm__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3565,7 +3565,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_down_pp__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3575,7 +3575,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_down_pm__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3585,7 +3585,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_down_mp__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3595,7 +3595,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_1__nn1_down_mm__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3605,7 +3605,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_up_pp__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3615,7 +3615,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_up_pm__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3625,7 +3625,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_up_mp__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3635,7 +3635,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_up_mm__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3645,7 +3645,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_down_pp__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3655,7 +3655,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_down_pm__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3665,7 +3665,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_down_mp__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3675,7 +3675,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_2__nn1_down_mm__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3685,7 +3685,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_up_pp__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3695,7 +3695,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_up_pm__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3705,7 +3705,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_up_mp__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3715,7 +3715,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_up_mm__ni(
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3725,7 +3725,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_down_pp__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3735,7 +3735,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_down_pm__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3745,7 +3745,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_down_mp__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3755,7 +3755,7 @@ static HopOutcome apply_actions_subsurface_interlayer_hop__nv1_3__nn1_down_mm__n
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3765,7 +3765,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3775,7 +3775,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3785,7 +3785,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3795,7 +3795,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3805,7 +3805,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3815,7 +3815,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3825,7 +3825,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3835,7 +3835,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_1__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3845,7 +3845,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3855,7 +3855,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3865,7 +3865,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3875,7 +3875,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3885,7 +3885,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3895,7 +3895,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3905,7 +3905,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3915,7 +3915,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_2__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3925,7 +3925,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3935,7 +3935,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3945,7 +3945,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3955,7 +3955,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3965,7 +3965,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3975,7 +3975,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3985,7 +3985,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -3995,7 +3995,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_3__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4005,7 +4005,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4015,7 +4015,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4025,7 +4025,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4035,7 +4035,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4045,7 +4045,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4055,7 +4055,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4065,7 +4065,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4075,7 +4075,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_4__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4085,7 +4085,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4095,7 +4095,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_up_p
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4105,7 +4105,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4115,7 +4115,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_up_m
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4125,7 +4125,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4135,7 +4135,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4145,7 +4145,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4155,7 +4155,7 @@ static HopOutcome apply_actions_subsurface_migration_interlayer__nv1_5__nn1_down
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4165,7 +4165,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_0__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4175,7 +4175,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_0__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4185,7 +4185,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_0__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4195,7 +4195,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_0__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4205,7 +4205,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_1__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4215,7 +4215,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_1__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4225,7 +4225,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_1__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4235,7 +4235,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_1__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4245,7 +4245,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_2__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4255,7 +4255,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_2__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4265,7 +4265,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_2__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4275,7 +4275,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_2__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4285,7 +4285,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_3__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4295,7 +4295,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_3__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4305,7 +4305,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_3__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4315,7 +4315,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_0_nv2_3__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4325,7 +4325,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_0__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4335,7 +4335,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_0__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4345,7 +4345,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_0__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4355,7 +4355,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_0__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4365,7 +4365,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_1__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4375,7 +4375,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_1__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4385,7 +4385,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_1__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4395,7 +4395,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_1__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4405,7 +4405,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_2__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4415,7 +4415,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_2__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4425,7 +4425,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_2__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4435,7 +4435,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_2__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4445,7 +4445,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_3__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4455,7 +4455,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_3__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4465,7 +4465,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_3__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4475,7 +4475,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_1_nv2_3__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4485,7 +4485,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_0__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4495,7 +4495,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_0__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4505,7 +4505,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_0__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4515,7 +4515,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_0__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4525,7 +4525,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_1__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4535,7 +4535,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_1__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4545,7 +4545,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_1__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4555,7 +4555,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_1__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4565,7 +4565,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_2__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4575,7 +4575,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_2__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4585,7 +4585,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_2__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4595,7 +4595,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_2__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4605,7 +4605,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_3__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4615,7 +4615,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_3__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4625,7 +4625,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_3__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4635,7 +4635,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_2_nv2_3__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4645,7 +4645,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_0__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4655,7 +4655,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_0__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4665,7 +4665,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_0__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4675,7 +4675,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_0__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4685,7 +4685,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_1__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4695,7 +4695,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_1__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4705,7 +4705,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_1__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4715,7 +4715,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_1__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4725,7 +4725,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_2__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4735,7 +4735,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_2__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4745,7 +4745,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_2__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4755,7 +4755,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_2__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4765,7 +4765,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_3__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4775,7 +4775,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_3__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4785,7 +4785,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_3__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4795,7 +4795,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_3__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4805,7 +4805,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_4__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4815,7 +4815,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_4__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4825,7 +4825,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_4__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4835,7 +4835,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_3_nv2_4__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4845,7 +4845,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_0__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4855,7 +4855,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_0__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4865,7 +4865,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_0__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4875,7 +4875,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_0__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4885,7 +4885,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_1__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4895,7 +4895,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_1__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4905,7 +4905,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_1__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4915,7 +4915,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_1__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4925,7 +4925,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_2__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4935,7 +4935,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_2__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4945,7 +4945,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_2__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4955,7 +4955,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_2__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4965,7 +4965,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_3__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4975,7 +4975,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_3__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4985,7 +4985,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_3__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -4995,7 +4995,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_3__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5005,7 +5005,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_4__nn1_px__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5015,7 +5015,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_4__nn1_mx__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5025,7 +5025,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_4__nn1_py__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5035,7 +5035,7 @@ static HopOutcome apply_actions_surface_1nn_inplane__nv1_4_nv2_4__nn1_my__ni(Sta
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5045,7 +5045,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_5__nn1_down_pp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5055,7 +5055,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_5__nn1_down_pm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5065,7 +5065,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_5__nn1_down_mp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5075,7 +5075,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_5__nn1_down_mm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5085,7 +5085,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_6__nn1_down_pp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5095,7 +5095,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_6__nn1_down_pm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5105,7 +5105,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_6__nn1_down_mp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5115,7 +5115,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_6__nn1_down_mm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5125,7 +5125,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_7__nn1_down_pp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5135,7 +5135,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_7__nn1_down_pm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5145,7 +5145,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_7__nn1_down_mp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5155,7 +5155,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_7__nn1_down_mm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5165,7 +5165,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_pp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5175,7 +5175,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_pm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5185,7 +5185,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_mp_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5195,7 +5195,7 @@ static HopOutcome apply_actions_surface_interlayer_hop__li_0_nv1_8__nn1_down_mm_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5205,7 +5205,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5215,7 +5215,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5225,7 +5225,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5235,7 +5235,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_1__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5245,7 +5245,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5255,7 +5255,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5265,7 +5265,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5275,7 +5275,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_2__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5285,7 +5285,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5295,7 +5295,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5305,7 +5305,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5315,7 +5315,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_3__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5325,7 +5325,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5335,7 +5335,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5345,7 +5345,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5355,7 +5355,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_4__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5365,7 +5365,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5375,7 +5375,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5385,7 +5385,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5395,7 +5395,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_down__nv1_5__nn1_dow
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5405,7 +5405,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5415,7 +5415,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5425,7 +5425,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5435,7 +5435,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5445,7 +5445,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5455,7 +5455,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5465,7 +5465,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5475,7 +5475,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_lateral__nv1_4__nn1_
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5485,7 +5485,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5495,7 +5495,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5505,7 +5505,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5515,7 +5515,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_1__nn1_up_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5525,7 +5525,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5535,7 +5535,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5545,7 +5545,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5555,7 +5555,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_2__nn1_up_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5565,7 +5565,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_pp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5575,7 +5575,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_pm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5585,7 +5585,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_mp
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -5595,7 +5595,7 @@ static HopOutcome apply_actions_surface_subsurface_exchange_up__nv1_3__nn1_up_mm
     (void)lat;
     StateAction acts[2] = {
         { .site = site, .before = SP_VACANT, .after = SP_NI },
-        { .site = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
+        { .site = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM], .before = SP_NI, .after = SP_VACANT },
     };
     (void)state_apply_actions(st, acts, 2, SP_VACANT);
     return (HopOutcome){ .v_origin = acts[0].site, .v_dest = acts[1].site };
@@ -13000,13 +13000,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
             }
             break;
         case SP_VACANT:
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_py = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_py = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13016,7 +13016,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_py = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PY];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PY];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_py = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13062,13 +13062,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_px = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_px = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13078,7 +13078,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_px = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_px = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13124,13 +13124,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_my = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_my = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13140,7 +13140,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_my = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MY];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MY];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_my = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13186,13 +13186,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_mx = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_mx = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13202,7 +13202,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_mx = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_MX];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_MX];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_mx = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13248,13 +13248,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_down_pp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_down_pp = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13264,7 +13264,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_down_pp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_down_pp = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13306,13 +13306,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_down_pm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_down_pm = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13322,7 +13322,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_down_pm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_PM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_down_pm = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13364,13 +13364,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_down_mp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_down_mp = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13380,7 +13380,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_down_mp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_down_mp = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13422,13 +13422,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_down_mm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_down_mm = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13438,7 +13438,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_down_mm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_DOWN_MM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_down_mm = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13480,13 +13480,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_up_pp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_up_pp = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13496,7 +13496,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_up_pp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_up_pp = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13532,13 +13532,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_up_pm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_up_pm = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13548,7 +13548,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_up_pm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_PM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_up_pm = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13584,13 +13584,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_up_mp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_up_mp = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13600,7 +13600,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_up_mp = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MP];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_up_mp = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13636,13 +13636,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn1_up_mm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn1_up_mm = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13652,7 +13652,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                         }
                         int nr_2nn_vacant_at_nn1_up_mm = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_UP_MM];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_2nn_vacant_at_nn1_up_mm = 0;
                                 for (int _i = lat->nn2_offsets[_m]; _i < lat->nn2_offsets[_m + 1]; ++_i) {
@@ -13688,13 +13688,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PZ]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PZ]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn2_pz = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PZ];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PZ];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn2_pz = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13707,13 +13707,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PY]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PY]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn2_py = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PY];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PY];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn2_py = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13726,13 +13726,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PX]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PX]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn2_px = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_PX];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_PX];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn2_px = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13745,13 +13745,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MZ]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MZ]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn2_mz = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MZ];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MZ];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn2_mz = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13764,13 +13764,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MY]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MY]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn2_my = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MY];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MY];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn2_my = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
@@ -13783,13 +13783,13 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
                     break;
                 default: break;
             }
-            switch (st->species[lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MX]]) {
+            switch (st->species[lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MX]]) {
                 case SP_NI:
                     {
                         /* shell-count loops for bucket-key gating */
                         int nr_1nn_vacant_at_nn2_mx = -1;  /* sentinel: stub-site mover → no match */
                         {
-                            int _m = lat->coord_table[site * N_NEIGHBOUR_CODES + NC_NN2_MX];
+                            int _m = lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN2_MX];
                             if (_m >= 0 && _m < lat->n_sites) {
                                 nr_1nn_vacant_at_nn2_mx = 0;
                                 for (int _i = lat->nn1_offsets[_m]; _i < lat->nn1_offsets[_m + 1]; ++_i) {
