@@ -34,6 +34,22 @@ All notable changes to pylatkmc are documented here, following
     build+run `test_dissolution_smoke.py` (verifies a dissolution fires, a
     vacancy is created, and the first-event rate scales as `exp(Phi/kT)`).
 
+### Changed
+
+- **Process exit status.** The binary exits 1 on every rank when any rank's
+  replica failed setup (bad/missing `.kmcinit`, `avail_sites` ENOMEM, a refused
+  geometry, ...) or its run failed; a replica that completed or trapped
+  (`run_rc = -ENODATA`, no event left) still exits 0. Sweeps and job queues can
+  now see failures; the aggregate's `n_success` / `n_failed` semantics are
+  unchanged (a trapped replica was and is counted in `n_failed`).
+  (large-system-scaling/01)
+
+### Fixed
+
+- A replica whose setup failed (any early return in `replica_run` before
+  `kmc_run`) was counted in `n_success` with `run_rc = 0`; it now records the
+  setup error in `run_rc` and counts as failed. (large-system-scaling/01)
+
 Candidates for v0.4 (none committed):
 
 - Bystander runtime support — implement count-tuple expansion in

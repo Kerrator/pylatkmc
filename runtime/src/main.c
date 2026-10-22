@@ -54,15 +54,17 @@ int main(int argc, char **argv) {
     }
 
     rc = replica_run(&rep, &cfg);
-    /* Pre-M1: run() returns -ENOSYS. Treat that as a successful scaffold
-     * smoke test; M1 will return 0 on real completion. */
-    if (rc != 0 && rc != -ENOSYS) {
+    if (rc != 0) {
         fprintf(stderr, "[rank %d] replica_run failed: %d\n", rank, rc);
     }
 
-    MPI_Barrier(MPI_COMM_WORLD);
+    /* Process exit status (sweeps, job queues): a replica that completed or
+     * trapped (-ENODATA: no event left, a normal physical end) succeeds; a
+     * setup or run failure on ANY rank fails the job, on every rank. */
+    int failed = (rc != 0 && rc != -ENODATA);
+    MPI_Allreduce(MPI_IN_PLACE, &failed, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     replica_aggregate(&rep, &cfg);
 
     MPI_Finalize();
-    return 0;
+    return failed ? 1 : 0;
 }
