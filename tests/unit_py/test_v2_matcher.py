@@ -2,11 +2,13 @@
 
 - 08: ``touchup_a`` matches each unique (pattern, op) ONCE per anchor and, on
   a match, enrols every member proc of it. It used to loop over procs, so a
-  pattern with n harvested members was re-matched n times per op. The
-  enrolment must stay exactly what the per-row semantics give (context
-  EMPTY = vacant or absent, OCC_ANY = any real species, delta rows strict),
-  across the periodic wrap and the stub cells, with each proc's site order
-  unchanged.
+  pattern with n harvested members was re-matched n times per op.
+- 09: ``v2_match`` no longer rotates and wraps every row through
+  ``lattice_site_at_ijk``: ``touchup_a`` gathers the anchor's context-ball
+  species once per op and the rows index that local array. The enrolment
+  must stay exactly what the per-row semantics give (context EMPTY = vacant
+  or absent, OCC_ANY = any real species, delta rows strict), across the
+  periodic wrap and the stub cells, with each proc's site order unchanged.
 
 The emitted proclist.c is compiled with the real avail_sites.c and checked
 against a pure-Python reference of the per-row semantics, through ctypes.
@@ -351,7 +353,7 @@ def test_one_match_enrols_every_member_proc(lib: ctypes.CDLL) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Enrolment == per-row rotate-and-wrap semantics
+# 09: gathered-ball matching == per-row rotate-and-wrap semantics
 # ---------------------------------------------------------------------------
 
 
@@ -386,3 +388,28 @@ def test_reference_configurations_exercise_stub_and_wrap() -> None:
         stub += seen["stub_in_match"]
         wrap += seen["wrap_in_match"]
     assert stub > 0 and wrap > 0
+
+
+def _function_body(src: str, signature: str) -> str:
+    """The text of the function DEFINED with ``signature`` at column 0."""
+    start = src.index("\n" + signature) + 1
+    return src[start : src.index("\n}\n", start)]
+
+
+def test_matcher_does_not_rotate_or_wrap_per_row() -> None:
+    """The emitted matcher reads the gathered ball: no 3x3 rotation and no
+    lattice_site_at_ijk per row, in fresh emission and in every committed v2
+    proclist.c (CI links those without regenerating them)."""
+    sources = {"emitted": emit_pattern_tables(PATTERNS)}
+    for path in sorted((REPO_ROOT / "models").glob("*/generated/proclist.c")):
+        text = path.read_text()
+        if "static const V2Pattern v2_patterns" in text:
+            sources[str(path.relative_to(REPO_ROOT))] = text
+    assert len(sources) > 1, "no committed v2 proclist.c found"
+    for where, src in sources.items():
+        match = _function_body(src, "static int v2_match(")
+        touchup = _function_body(src, "void touchup_a(const Lattice *lat")
+        for body in (match, touchup):
+            assert "lattice_site_at_ijk(" not in body, f"{where}: per-row grid lookup"
+            assert "V2_OPS[" not in body, f"{where}: per-row rotation"
+        assert "v2_ball_off[" in touchup and "v2_patops[" in touchup, where

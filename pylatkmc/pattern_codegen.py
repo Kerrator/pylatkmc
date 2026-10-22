@@ -8,16 +8,20 @@ Instead this module emits:
 
 - **Packed static tables**: one canonical-frame row set per pattern
   (``V2DeltaRow`` / ``V2CtxRow``) plus the 16 D4h integer matrices; each
-  oriented process is a ``(pattern, op, member)`` triple and the matcher
-  rotates offsets on the fly, so the tables stay ~10² KB instead of ~10⁰ MB.
-  ``v2_patops`` lists each unique ``(pattern, op)`` once with its member procs.
+  oriented process is a ``(pattern, op, member)`` triple, so the tables stay
+  ~10² KB instead of ~10⁰ MB. Every row offset is also numbered in the
+  **context ball** (the sorted union of all patterns' row offsets — the
+  patterns share essentially one ~225-site ball), whose 16 oriented copies
+  are baked as ``v2_ball_off``; ``v2_patops`` lists each unique
+  ``(pattern, op)`` once with its member procs.
 - **A generic matcher** (``v2_match`` + ``touchup_a``): screens on the
   anchor-site species (the ``(pattern, op)`` entries are sorted so each
-  species' entries form one contiguous range, per op), then matches each
-  ``(pattern, op)`` once — delta rows (exact before-state; the site must
-  exist) and context rows (``EMPTY`` = vacant OR absent, ``OCC_ANY`` = any
-  occupied) via ``lattice_site_at_ijk``, the O(1) integer site grid added to
-  the runtime for exactly this purpose — and on a match enrols every member
+  species' entries form one contiguous range, per op), gathers the anchor's
+  ball species once per op through the runtime's O(1) integer site grid
+  (the same wrapped-cell arithmetic as ``lattice_site_at_ijk``), then matches
+  each ``(pattern, op)`` once against that local array — delta rows (exact
+  before-state; the site must exist) and context rows (``EMPTY`` = vacant OR
+  absent, ``OCC_ANY`` = any occupied) — and on a match enrols every member
   proc. Reads through the stub site index ``n_sites`` are self-sentineling
   (``species[n_sites] == 255`` matches no exact species).
 - **A generic apply** + one-line per-proc wrappers, because the runtime's
@@ -29,8 +33,9 @@ The emitted ``proclist.h`` is byte-identical to the v0.3 one (same template):
 
 Determinism: patterns arrive sorted by ``class_id`` (translator contract);
 processes are sorted by ``(anchor species code, pattern name)``, then member,
-then op index; ``v2_patops`` is sorted by ``(anchor species code, op,
-pattern)``; every table is emitted in that fixed order with fixed formatting.
+then op index; the ball is a sorted offset list and ``v2_patops`` is sorted
+by ``(anchor species code, op, pattern)``; every table is emitted in that
+fixed order with fixed formatting.
 """
 
 from __future__ import annotations
@@ -228,8 +233,22 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     # proc-id range (see _proc_list).
     order, procs = _proc_list(patterns)
 
+    # ---- the context ball ------------------------------------------------
+    # Every canonical row offset of any pattern, sorted; each row also stores
+    # its ball index. touchup_a reads the anchor's ball species ONCE per op
+    # and matches every (pattern, op) against that local array, instead of
+    # rotating and wrapping every row of every proc.
+    ball = sorted(
+        {r.off for p in patterns for r in p.delta} | {c.off for p in patterns for c in p.context}
+    )
+    if len(ball) > 32767:
+        raise ValueError(f"context ball of {len(ball)} offsets overflows the int16 row index")
+    ball_idx = {off: b for b, off in enumerate(ball)}
+
     delta_rows: list[str] = []
     ctx_rows: list[str] = []
+    delta_ball: list[str] = []
+    ctx_ball: list[str] = []
     pattern_defs: list[str] = []
     max_delta = 0
 
@@ -240,10 +259,12 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
             delta_rows.append(
                 f"{{{r.off[0]},{r.off[1]},{r.off[2]},{_sp(r.before)},{_sp(r.after)}}},"
             )
+            delta_ball.append(f"{ball_idx[r.off]},")
         for c in pat.context:
             ctx_rows.append(
                 f"{{{c.off[0]},{c.off[1]},{c.off[2]},{_pred_symbol(c.kind, c.species)}}},"
             )
+            ctx_ball.append(f"{ball_idx[c.off]},")
         max_delta = max(max_delta, len(pat.delta))
         v_origin, v_dest = _vacancy_rows(pat)
         pattern_defs.append(
@@ -260,6 +281,23 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
         "    {" + ",".join(str(m[r][c]) for r in range(3) for c in range(3)) + "},"
         for m in mats
     ]
+
+    # ---- oriented ball offsets: v2_ball_off[g][b] = op g applied to ball[b]
+    # The D4h ops permute/negate the in-plane components and negate k, so
+    # every oriented offset stays inside the per-anchor wrap tables, which
+    # span [-reach, reach] per axis (checked here, not assumed).
+    reach_ij, reach_k = pattern_reach(patterns)
+    ball_off_lines: list[str] = []
+    for g, m in enumerate(mats):
+        offs: list[str] = []
+        for off in ball:
+            o = [m[r][0] * off[0] + m[r][1] * off[1] + m[r][2] * off[2] for r in range(3)]
+            if max(abs(o[0]), abs(o[1])) > reach_ij or abs(o[2]) > reach_k:
+                raise ValueError(f"op {g} takes ball offset {off} outside the pattern reach")
+            offs.append(f"{{{o[0]},{o[1]},{o[2]}}},")
+        ball_off_lines.append(f"  {{ /* op {g} */")
+        ball_off_lines.extend(_chunk_lines(offs, 8))
+        ball_off_lines.append("  },")
 
     # ---- unique (pattern, op) entries, by anchor species and op ----------
     # v2_patop_begin[sp*n_ops + g] .. v2_patop_begin[sp*n_ops + g + 1] is the
@@ -279,14 +317,16 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("/* ---- v2 data-driven pattern tables (EventClass catalogue) ----")
     a(" *")
     a(" * Each pattern stores its canonical-frame rows ONCE; each process is a")
-    a(" * (pattern, D4h op, rate member) triple and the matcher rotates offsets")
-    a(" * on the fly. Offsets are integer FCC cells (a/2 units) relative to the")
-    a(" * pattern anchor, resolved through the runtime's integer site grid")
-    a(" * (lattice_site_at_ijk). Absent sites resolve to the stub index")
-    a(" * n_sites, where species[] holds the 255 sentinel. */")
+    a(" * (pattern, D4h op, rate member) triple. Offsets are integer FCC cells")
+    a(" * relative to the pattern anchor, resolved through the runtime's")
+    a(" * integer site grid. Absent sites resolve to the stub index n_sites,")
+    a(" * where species[] holds the 255 sentinel. */")
     a(f"#define V2_PRED_EMPTY   {PRED_EMPTY}u  /* vacant OR absent site */")
     a(f"#define V2_PRED_OCC_ANY {PRED_OCC_ANY}u  /* any occupied species */")
     a(f"#define V2_MAX_DELTA    {max_delta}")
+    a(f"#define V2_BALL_N       {len(ball)}  /* context-ball offsets (all patterns' rows) */")
+    a(f"#define V2_REACH_IJ     {reach_ij}  /* max |di|, |dj| of any oriented row */")
+    a(f"#define V2_REACH_K      {reach_k}  /* max |dk| of any oriented row */")
     a("")
     a("typedef struct { int8_t di, dj, dk; uint8_t before, after; } V2DeltaRow;")
     a("typedef struct { int8_t di, dj, dk; uint8_t pred; } V2CtxRow;")
@@ -322,6 +362,22 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     )
     a("};")
     a("")
+    a("/* The context ball: the sorted union of every pattern's row offsets.")
+    a(" * v2_ball_off[g][b] is ball offset b under op g (V2_OPS[g] applied at")
+    a(" * codegen); op 0 is the identity, i.e. the canonical offsets. */")
+    a(f"static const int8_t v2_ball_off[{n_ops}][V2_BALL_N][3] = {{")
+    out.extend(ball_off_lines)
+    a("};")
+    a("")
+    a("/* Ball index of each delta / context row (index-aligned with")
+    a(" * v2_delta_rows / v2_ctx_rows). */")
+    a(f"static const int16_t v2_delta_ball[{max(1, len(delta_ball))}] = {{")
+    out.extend(_chunk_lines(delta_ball, 16) or ["    0"])
+    a("};")
+    a(f"static const int16_t v2_ctx_ball[{max(1, len(ctx_ball))}] = {{")
+    out.extend(_chunk_lines(ctx_ball, 16) or ["    0"])
+    a("};")
+    a("")
     a("/* Each unique (pattern, op) ONCE, with its member procs proc0 + m*stride")
     a(" * (one per harvested rate member; they share the pattern's geometry).")
     a(" * Sorted by (anchor species code, op, pattern): entries")
@@ -334,29 +390,19 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     out.extend(_chunk_lines([f"{b}," for b in patop_begin], 17))
     a("};")
     a("")
-    a("/* ---- generic matcher: one (pattern, op R) at one anchor site ---- */")
-    a("static int v2_match(const Lattice *lat, const State *st, int site,")
-    a("                    const V2Pattern *pt, const int8_t *R)")
+    a("/* ---- generic matcher ----")
+    a(" * ball[b] holds the species at the anchor's ball offset b under the")
+    a(" * (pattern, op)'s op; every row is a lookup into that local array. */")
+    a("static int v2_match(const V2Pattern *pt, const uint8_t *ball)")
     a("{")
-    a("    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];")
-    a("    for (int32_t r = 0; r < pt->delta_n; ++r) {")
-    a("        const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];")
-    a("        int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;")
-    a("        int32_t dj = R[3]*dr->di + R[4]*dr->dj + R[5]*dr->dk;")
-    a("        int32_t dk = R[6]*dr->di + R[7]*dr->dj + R[8]*dr->dk;")
-    a("        int32_t rs = lattice_site_at_ijk(lat, c0[0]+di, c0[1]+dj, c0[2]+dk);")
+    a("    for (int32_t r = pt->delta_begin; r < pt->delta_begin + pt->delta_n; ++r) {")
     a("        /* Delta sites must EXIST with the exact before-state; the stub's")
     a("         * 255 sentinel never equals a real species code. */")
-    a("        if (st->species[rs] != dr->before) return 0;")
+    a("        if (ball[v2_delta_ball[r]] != v2_delta_rows[r].before) return 0;")
     a("    }")
-    a("    for (int32_t r = 0; r < pt->ctx_n; ++r) {")
-    a("        const V2CtxRow *cr = &v2_ctx_rows[pt->ctx_begin + r];")
-    a("        int32_t di = R[0]*cr->di + R[1]*cr->dj + R[2]*cr->dk;")
-    a("        int32_t dj = R[3]*cr->di + R[4]*cr->dj + R[5]*cr->dk;")
-    a("        int32_t dk = R[6]*cr->di + R[7]*cr->dj + R[8]*cr->dk;")
-    a("        int32_t rs = lattice_site_at_ijk(lat, c0[0]+di, c0[1]+dj, c0[2]+dk);")
-    a("        uint8_t v = st->species[rs];")
-    a("        uint8_t p = cr->pred;")
+    a("    for (int32_t r = pt->ctx_begin; r < pt->ctx_begin + pt->ctx_n; ++r) {")
+    a("        uint8_t v = ball[v2_ctx_ball[r]];")
+    a("        uint8_t p = v2_ctx_rows[r].pred;")
     a("        if (p == V2_PRED_EMPTY) {")
     a("            /* Harvest-side EMPTY cannot distinguish a vacant lattice site")
     a("             * from vacuum beyond the slab; match either. */")
@@ -377,10 +423,36 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a(f"    if (sp >= {n_sp}u) return;")
     a(f"    const int32_t *qb = &v2_patop_begin[(size_t)sp * {n_ops}];")
     a(f"    if (qb[0] == qb[{n_ops}]) return;  /* no pattern is anchored on this species */")
+    a("    /* Wrapped grid coordinates of the anchor cell +- reach on each axis,")
+    a("     * pre-multiplied by the grid strides: the same modulo arithmetic as")
+    a("     * lattice_site_at_ijk (so absent cells still read the stub), done once")
+    a("     * per anchor instead of six modulos per row. */")
+    a("    const int32_t nx = lat->grid_nx, ny = lat->grid_ny, nz = lat->grid_nz;")
+    a("    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];")
+    a("    size_t wi[2 * V2_REACH_IJ + 1], wj[2 * V2_REACH_IJ + 1], wk[2 * V2_REACH_K + 1];")
+    a("    for (int32_t d = -V2_REACH_IJ; d <= V2_REACH_IJ; ++d) {")
+    a("        int32_t i = c0[0] + d, j = c0[1] + d;")
+    a("        wi[d + V2_REACH_IJ] = (size_t)(((i % nx) + nx) % nx) * (size_t)ny * (size_t)nz;")
+    a("        wj[d + V2_REACH_IJ] = (size_t)(((j % ny) + ny) % ny) * (size_t)nz;")
+    a("    }")
+    a("    for (int32_t d = -V2_REACH_K; d <= V2_REACH_K; ++d) {")
+    a("        int32_t k = c0[2] + d;")
+    a("        wk[d + V2_REACH_K] = (size_t)(((k % nz) + nz) % nz);")
+    a("    }")
+    a("    uint8_t ball[V2_BALL_N];")
     a(f"    for (int32_t g = 0; g < {n_ops}; ++g) {{")
+    a("        if (qb[g] == qb[g + 1]) continue;")
+    a("        /* The anchor's ball species under op g, read once for every")
+    a("         * (pattern, op g) entry below. */")
+    a("        for (int32_t b = 0; b < V2_BALL_N; ++b) {")
+    a("            const int8_t *o = v2_ball_off[g][b];")
+    a("            ball[b] = st->species[lat->site_grid[wi[o[0] + V2_REACH_IJ]")
+    a("                                                 + wj[o[1] + V2_REACH_IJ]")
+    a("                                                 + wk[o[2] + V2_REACH_K]]];")
+    a("        }")
     a("        for (int32_t q = qb[g]; q < qb[g + 1]; ++q) {")
     a("            const V2PatOp *po = &v2_patops[q];")
-    a("            if (!v2_match(lat, st, site, &v2_patterns[po->pat], V2_OPS[g])) continue;")
+    a("            if (!v2_match(&v2_patterns[po->pat], ball)) continue;")
     a("            /* One match enrols every member proc of this (pattern, op). */")
     a("            for (int32_t m = 0; m < po->n_members; ++m)")
     a("                avail_sites_add(as, po->proc0 + m * po->stride, site);")
