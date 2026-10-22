@@ -72,6 +72,18 @@ All notable changes to pylatkmc are documented here, following
   (a trap is reported by `kmc_run: trapped at step N`, as before), and rank 0
   adds `K of M replicas failed (setup or run error); exit status 1`.
   (large-system-scaling/01)
+- **`tools/build_initial_config.py` scales to 1e6+ sites.** It used to copy
+  the positions into 9 xy images, run one `cKDTree.query_ball_point` per site
+  from a Python loop and pack the CSR from per-edge Python lists (1e5 sites:
+  29 s, 1.0 GB peak RSS). It now builds the slab with numpy, does one periodic
+  KD-tree pair search (`cKDTree(boxsize=...)`, z kept non-periodic, single
+  thread) and packs the CSR with numpy only (`neighbour_csr`): 1e5 sites in
+  3 s / 136 MB, 1e6 sites in 13 s / 0.58 GB. The output is byte-identical
+  for every shape, including 1- and 2-site-wide cells and the RNG draws
+  (species, vacancies); `tests/unit_py/test_build_initial_config.py` checks it
+  against verbatim copies of the replaced routines and digests of the old
+  tool's files. `compute_neighbors_with_pbc` stays for
+  `tools/xyz_to_kmcinit.py`. (large-system-scaling/14)
 
 ### Fixed
 
@@ -116,6 +128,13 @@ All notable changes to pylatkmc are documented here, following
   64-bit values before narrowing, so a negative count that would wrap to a
   valid int32 is `-EPROTO`. All five models' `proclist.c` are regenerated
   (index expressions only; `proclist.h` unchanged). (large-system-scaling/06)
+- `tools/build_initial_config.py` (and `tools/xyz_to_kmcinit.py`, which
+  shares its slab builder) with more than 128 layers (`nz` +
+  `n_adatom_layers`): the `.kmcinit` stores `layer_index` as int8, so layer
+  128 raised a bare `OverflowError` on NumPy 2 and wrapped silently on NumPy
+  1.x, corrupting the site_class and vacancy-candidate masks. Such a slab is
+  now refused with a `ValueError` naming the 128-layer format limit; 128
+  layers and fewer are unchanged. (large-system-scaling/14)
 
 Candidates for v0.4 (none committed):
 
