@@ -43,5 +43,9 @@ double rng_next_double(Rng *rng) {
 
 void rng_next2(Rng *rng, double *r1, double *r2) {
     *r1 = rng_next_double(rng);
-    *r2 = rng_next_double(rng);
+    /* r2 feeds dt = -log(r2)/r_tot, so an exact 0 (p = 2^-53 per draw) would
+     * make dt = +inf. Redraw it: a stream that never draws 0 is unchanged. */
+    do {
+        *r2 = rng_next_double(rng);
+    } while (*r2 == 0.0);
 }

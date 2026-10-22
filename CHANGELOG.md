@@ -61,6 +61,11 @@ All notable changes to pylatkmc are documented here, following
   its 512-byte buffer (`-ENAMETOOLONG`) and an existing non-directory where a
   directory must go (`-ENOTDIR`; it used to pass as an existing directory and
   the run failed later at its first file open). (large-system-scaling/02)
+- `dt = -log(r2)/r_tot` became `+inf` when the RNG drew `r2 = 0` exactly
+  (p = 2^-53 per step): an infinite clock and a non-JSON `inf` in the
+  summaries. `rng_next2` now redraws an exact zero (`r2` in (0, 1)); no draw
+  is remapped, so every fixed-seed trajectory that never drew 0 is bitwise
+  unchanged. (large-system-scaling/03)
 
 Candidates for v0.4 (none committed):
 
