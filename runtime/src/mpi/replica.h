@@ -34,7 +34,9 @@ typedef struct {
 
 int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nranks);
 
-/* Runs one replica. On return, rep->stats is populated. */
+/* Runs one replica. On return, rep->stats is populated and
+ * rep->stats.run_rc equals the return value: 0 = completed, -ENODATA =
+ * trapped (no event left), anything else = a setup or step failure. */
 int replica_run(ReplicaContext *rep, const InputConfig *cfg);
 
 /* Collective. Rank 0 gathers per-replica stats and writes

@@ -219,6 +219,19 @@ rank. After `kmc_run` returns, rank 0 collects each replica's
 `ReplicaStats` via `MPI_Gather` and writes `aggregate_summary.json`
 to `output_root/`.
 
+Failure handling (`runtime/src/main.c`, `replica.c`):
+
+- **`run_rc` per replica.** `0` = reached `max_steps` / `max_time_s`;
+  `-ENODATA` (-61) = trapped (no event left); anything else is a failure: a
+  setup error inside `replica_run` (unreadable `.kmcinit`, `avail_sites`
+  ENOMEM, a geometry refused by the v2 reach checks, ...), recorded as that
+  replica's `run_rc` although `kmc_run` never ran, or a failed step.
+  `aggregate_summary.json` counts `run_rc == 0` as `n_success` and everything
+  else, traps included, as `n_failed`.
+- **Exit status.** 0 when every replica completed or trapped (a normal
+  physical end); 1 on every rank when any replica failed setup or its run, so
+  sweeps and job queues see failures such as an OOM on some ranks.
+
 ---
 
 ## Model spec (TOML)

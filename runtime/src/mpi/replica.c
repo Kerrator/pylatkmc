@@ -143,10 +143,10 @@ static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
     fclose(fp);
 }
 
-int replica_run(ReplicaContext *rep, const InputConfig *cfg)
+/* Setup + kmc_run. Every early return below is a setup failure; replica_run
+ * records whatever this returns in rep->stats.run_rc. */
+static int replica_setup_and_run(ReplicaContext *rep, const InputConfig *cfg)
 {
-    if (!rep || !cfg) return -EINVAL;
-
     Lattice       lat = {0};
     State         st  = {0};
     AvailSites   *as  = NULL;
@@ -341,6 +341,17 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     state_free(&st);
     lattice_free(&lat);
     return run_rc;
+}
+
+int replica_run(ReplicaContext *rep, const InputConfig *cfg)
+{
+    if (!rep) return -EINVAL;
+    int rc = cfg ? replica_setup_and_run(rep, cfg) : -EINVAL;
+    /* Record EVERY outcome, setup failures included: a setup failure returns
+     * before kmc_run, and a run_rc left at its memset 0 would let
+     * replica_aggregate count this never-run replica as a success. */
+    rep->stats.run_rc = rc;
+    return rc;
 }
 
 /* Small helper — mean and sample std over an array. */

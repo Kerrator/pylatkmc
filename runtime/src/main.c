@@ -54,15 +54,20 @@ int main(int argc, char **argv) {
     }
 
     rc = replica_run(&rep, &cfg);
-    /* Pre-M1: run() returns -ENOSYS. Treat that as a successful scaffold
-     * smoke test; M1 will return 0 on real completion. */
-    if (rc != 0 && rc != -ENOSYS) {
-        fprintf(stderr, "[rank %d] replica_run failed: %d\n", rank, rc);
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
+    /* Process exit status (sweeps, job queues): a replica that completed or
+     * trapped (-ENODATA: no event left, a normal physical end, already
+     * reported by kmc_run) succeeds. Any other result, a setup failure (an
+     * unreadable .kmcinit, ENOMEM, a refused geometry, ...) or a failed step,
+     * fails the job on every rank. The reduction is also the barrier before
+     * the aggregate. */
+    int run_failed = (rc != 0 && rc != -ENODATA), n_run_failed = 0;
+    if (run_failed) fprintf(stderr, "[rank %d] replica_run failed: %d\n", rank, rc);
+    MPI_Allreduce(&run_failed, &n_run_failed, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     replica_aggregate(&rep, &cfg);
+    if (rank == 0 && n_run_failed > 0)
+        fprintf(stderr, "%d of %d replica%s failed (setup or run error); exit status 1\n",
+                n_run_failed, nranks, nranks == 1 ? "" : "s");
 
     MPI_Finalize();
-    return 0;
+    return n_run_failed > 0 ? 1 : 0;
 }
