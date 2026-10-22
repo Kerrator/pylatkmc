@@ -57,7 +57,8 @@ pylatkmc-gen build models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
 # → models/ni_fe_cr_v1/generated/proclist.c (5k+ lines)
 # → models/ni_fe_cr_v1/generated/proclist.h
 
-# 3. Compile the binary
+# 3. Compile the binary (tuned for this machine's CPU: -march=native;
+#    on a cluster add -DPYLATKMC_NATIVE=OFF, see docs/ARCHITECTURE.md → Build)
 cmake -B build -DMODEL=ni_fe_cr_v1
 cmake --build build -j 4
 # → build/pylatkmc_ni_fe_cr_v1

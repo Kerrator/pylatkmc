@@ -6,7 +6,61 @@ All notable changes to pylatkmc are documented here, following
 
 ## [Unreleased]
 
+### Changed
+
+- **Process exit status reports replica failures** (large-system-scaling/01, /02).
+  A rank whose replica setup fails (unreadable or oversized `.kmcinit`, ENOMEM,
+  a refused geometry, …) now records the error code as its `run_rc`, so
+  `aggregate_summary.json` counts it under `n_failed` (it was counted as a
+  success with zeroed statistics), and the job exits non-zero on every rank.
+  A failed step (a rejected v2 apply, see below) does the same. A replica that
+  completes, or traps (`run_rc = -ENODATA`, no event left), still exits 0 —
+  the box job queue marks any non-zero exit as a failed job. Startup
+  (`input_config_load` + `replica_init`) is now agreed collectively: if any
+  rank fails it, all ranks exit non-zero before running instead of the other
+  ranks hanging in the post-run collectives until walltime. An `output_root`
+  that overflows the 512-byte replica directory buffer now fails startup
+  instead of being silently truncated.
+- **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
+  total rate the step's dt and selection used — measured procs **plus** the
+  surrogate channel (large-system-scaling/04). It used to log the measured
+  channel alone (`0.0` on surrogate-only steps), so `k_tot != 1/<dt>`. Builds
+  without a surrogate model log the same values as before, byte for byte.
+  Analyses that rebuild rates or residence times from this column on
+  surrogate-build output must expect the new (correct) total.
+- **v2 models refuse a periodic axis shorter than `2·reach+1` grid planes** at
+  startup (large-system-scaling/05), next to the existing vacuum-gap check: on
+  such an axis pattern offsets `+d` and `d − dim` hit the same site (an
+  8×8-surface slab has 16 in-plane planes against `2·8+1 = 17`), so context
+  rows tested their own periodic image. Use ≥ 9 surface sites per in-plane
+  row for the shipped v2 models (`PYLATKMC_V2_MAX_REACH_IJ = 8`).
+
+### Fixed
+
+- **A rejected v2 apply no longer passes as a no-op step** (large-system-scaling/05).
+  The generated `v2_apply` discarded `state_apply_actions`' return code, so a
+  rejected event left the state untouched while the clock advanced. It now
+  returns `STATE_APPLY_REJECTED` (`state.h`) through the unchanged `ApplyFn`
+  signature and `kmc_step_once` fails the step (`-EINVAL`, clock not
+  advanced, the run stops with that `run_rc`). The v0.3 apply functions are
+  unchanged (the documented dissolution under-budget plateau).
+- **`dt` can no longer be `+inf`** (large-system-scaling/03): `rng_next2`
+  redraws an exact `r2 = 0.0` (p = 2⁻⁵³ per step); every non-zero draw is
+  returned unchanged, so fixed-seed trajectories are bitwise identical.
+- **Large-lattice index overflow** (large-system-scaling/06): the generated C
+  indexes `coord_table` and `site_ijk` in `size_t` (`site * 23` overflowed
+  `int` above ~93M sites); `initconfig_load` rejects `n_sites` / `nn1_count` /
+  `nn2_count` beyond `INT32_MAX` with `-EOVERFLOW` instead of truncating them
+  (a header claiming `2³² + N` sites loaded silently as `N`). Every model's
+  `proclist.c` is regenerated (index expressions only on v0.3 models).
+
 ### Added
+
+- **`PYLATKMC_NATIVE` CMake option** (large-system-scaling/07). Default `ON`
+  keeps today's `-march=native` flags. `-DPYLATKMC_NATIVE=OFF` builds portable
+  binaries for clusters whose compute nodes have older CPUs than the login
+  node (DRAC); add `-DCMAKE_C_FLAGS=-march=x86-64-v3` to target a known ISA
+  level instead.
 
 - **Electrochemical dissolution events (Erlebacher/MESOSIM).** A new analytical,
   non-conservative event type: a surface atom leaves the lattice (its site

@@ -403,7 +403,9 @@ Per-step pykmc.out columns (v0.2 schema):
 
 `proc_id` is the integer index from the generated
 `enum { P_<name>, ..., N_PROCS }` in proclist.c — cross-reference to
-map back to a Process name.
+map back to a Process name. `k_tot` is the total rate the step's `dt`
+and event selection used: on a Phase C surrogate build that includes the
+surrogate channel (such a fire logs `proc_id = -1`).
 
 ## See also
 

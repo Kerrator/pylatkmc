@@ -219,6 +219,24 @@ rank. After `kmc_run` returns, rank 0 collects each replica's
 `ReplicaStats` via `MPI_Gather` and writes `aggregate_summary.json`
 to `output_root/`.
 
+Failure handling (`runtime/src/main.c`):
+
+- **Startup is agreed collectively.** `input_config_load` and
+  `replica_init` (replica directory creation) run on every rank, then an
+  `MPI_Allreduce` checks them: if any rank failed, every rank exits with
+  status 1 before running, so a rank-local failure (an `output_root` one
+  node can't write) can't leave the others hanging in the post-run
+  collectives.
+- **`run_rc` per replica.** `0` = reached `max_steps` / `max_time_s`;
+  `-ENODATA` (-61) = trapped (no event left); anything else is a failure:
+  a setup error inside `replica_run` (unreadable or oversized `.kmcinit`,
+  ENOMEM, a geometry the v2 reach guard refuses, …) or a failed step (e.g.
+  a rejected v2 apply). `aggregate_summary.json` counts `run_rc == 0` as
+  `n_success` and everything else, traps included, as `n_failed`.
+- **Exit status.** 0 when every replica completed or trapped; 1 on every
+  rank if any replica failed in another way, so sweeps and job queues see
+  setup failures such as an OOM on some ranks.
+
 ---
 
 ## Model spec (TOML)
@@ -259,6 +277,20 @@ CMake `file(GLOB)` picks up:
 - `models/<MODEL>/generated/*.c` (proclist.c)
 - Compiles them into `pylatkmc_lib` (static archive)
 - Links `runtime/src/main.c` against it → final binary
+
+The runtime library compiles with `-O3 -march=native` by default, i.e. tuned
+for the CPU of the machine that builds it. On a cluster (DRAC) whose compute
+nodes can have older CPUs than the login node, build a portable binary
+instead, optionally pinned to a known ISA level:
+
+```bash
+cmake -B build -DMODEL=ni_fe_cr_v1 -DPYLATKMC_NATIVE=OFF            # portable
+cmake -B build -DMODEL=ni_fe_cr_v1 -DPYLATKMC_NATIVE=OFF \
+      -DCMAKE_C_FLAGS=-march=x86-64-v3                              # AVX2-class nodes
+```
+
+`PYLATKMC_NATIVE` is a cached option (like `MODEL`): re-run the configure
+step to change it.
 
 ---
 
