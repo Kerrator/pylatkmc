@@ -67,12 +67,23 @@ int initconfig_load(const char *path, Lattice *lat_out, State *st_out,
 
     (void)version_ll;  /* reserved for future format migrations */
 
+    /* Sites and CSR edges are int32_t throughout the runtime: reject counts
+     * that don't fit instead of truncating them (a header claiming 2^32 + N
+     * sites would otherwise load silently as N). Range-check the 64-bit
+     * values BEFORE narrowing, so out-of-range negatives can't wrap either. */
+    if (n_sites_ll > INT32_MAX || nn1_count_ll > INT32_MAX || nn2_count_ll > INT32_MAX) {
+        fprintf(stderr, "initconfig_load: %s: n_sites=%lld, nn1_count=%lld, "
+                "nn2_count=%lld exceed the runtime's int32 limit (%d)\n",
+                path, n_sites_ll, nn1_count_ll, nn2_count_ll, INT32_MAX);
+        kmcfmt_unmap(&map);
+        return -EOVERFLOW;
+    }
+    if (n_sites_ll <= 0 || nn1_count_ll < 0 || nn2_count_ll < 0) {
+        kmcfmt_unmap(&map); return -EPROTO;
+    }
     int32_t N   = (int32_t)n_sites_ll;
     int32_t M1  = (int32_t)nn1_count_ll;
     int32_t M2  = (int32_t)nn2_count_ll;
-    if (N <= 0 || M1 < 0 || M2 < 0) {
-        kmcfmt_unmap(&map); return -EPROTO;
-    }
 
     /* Compute payload offsets. */
     const unsigned char *pl = (const unsigned char *)map.payload;

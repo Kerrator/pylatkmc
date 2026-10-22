@@ -112,7 +112,7 @@ def test_apply_actions_anchor_uses_site_directly() -> None:
     # The anchor StateAction's .site field is `site` (not a coord_table lookup).
     assert ".site = site," in out
     # The +x StateAction's .site field uses coord_table.
-    assert "coord_table[site * N_NEIGHBOUR_CODES + NC_NN1_PX]" in out
+    assert "coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX]" in out
 
 
 def test_apply_actions_multi_site_emits_n_assignments() -> None:

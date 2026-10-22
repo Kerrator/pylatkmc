@@ -22196,7 +22196,7 @@ static int v2_match(const Lattice *lat, const State *st, int site,
 {
     const V2Pattern *pt = &v2_patterns[pr->pat];
     const int8_t *R = V2_OPS[pr->op];
-    const int16_t *c0 = &lat->site_ijk[3 * site];
+    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
     for (int32_t r = 0; r < pt->delta_n; ++r) {
         const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];
         int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;
@@ -22253,7 +22253,7 @@ static HopOutcome v2_apply(State *st, const Lattice *lat, int32_t proc,
     const V2Proc *pr = &v2_procs[proc];
     const V2Pattern *pt = &v2_patterns[pr->pat];
     const int8_t *R = V2_OPS[pr->op];
-    const int16_t *c0 = &lat->site_ijk[3 * site];
+    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
     StateAction acts[V2_MAX_DELTA];
     for (int32_t r = 0; r < pt->delta_n; ++r) {
         const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];
