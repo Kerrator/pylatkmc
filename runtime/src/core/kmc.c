@@ -124,7 +124,8 @@ static int apply_event(KmcContext *ctx, int32_t proc, int32_t site)
 }
 
 int kmc_step_once(KmcContext *ctx,
-                  int32_t *out_proc, int32_t *out_site, double *out_dt)
+                  int32_t *out_proc, int32_t *out_site, double *out_dt,
+                  double *out_rtot)
 {
     if (!ctx || !ctx->lat || !ctx->st || !ctx->as || !ctx->af || !ctx->rng)
         return -EINVAL;
@@ -199,6 +200,7 @@ int kmc_step_once(KmcContext *ctx,
     if (out_proc) *out_proc = proc;
     if (out_site) *out_site = site;
     if (out_dt)   *out_dt   = dt;
+    if (out_rtot) *out_rtot = r_tot;
     return 0;
 }
 
@@ -245,8 +247,9 @@ int kmc_run(KmcContext *ctx)
         if (cfg->max_time_s > 0 && ctx->st->time_s >= cfg->max_time_s) break;
 
         int32_t proc_done = -1, site_done = -1;
-        double  dt_done   = 0.0;
-        int step_rc = kmc_step_once(ctx, &proc_done, &site_done, &dt_done);
+        double  dt_done   = 0.0, rtot_done = 0.0;
+        int step_rc = kmc_step_once(ctx, &proc_done, &site_done, &dt_done,
+                                    &rtot_done);
         if (step_rc == -ENODATA) {
             fprintf(stderr, "kmc_run: trapped at step %llu\n",
                     (unsigned long long)ctx->st->step);
@@ -263,10 +266,13 @@ int kmc_run(KmcContext *ctx)
                                      ctx->temperature_K, ctx->overpotential_phi_eV)
                     : 0.0;
                 double Ea_eV   = (proc_done >= 0) ? pylatkmc_rate_table[proc_done].Ea_eV : 0.0;
+                /* k_tot = the total rate this step's dt and selection used:
+                 * measured + surrogate channel (the measured channel alone
+                 * on builds without a surrogate model). */
                 pykmc_out_write_row(&out_log,
                                      ctx->st->step, ctx->st->time_s, dt_done,
                                      ctx->st->n_vac,
-                                     avail_sites_r_tot(ctx->as),
+                                     rtot_done,
                                      k_event, Ea_eV,
                                      proc_done, site_done);
             }

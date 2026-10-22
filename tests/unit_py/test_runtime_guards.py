@@ -474,7 +474,7 @@ int pylatkmc_test_step_rejected(double *time_s, unsigned long long *step)
     memset(&cfg, 0, sizeof cfg);
     KmcContext ctx = { .lat = &lat, .st = &st, .as = as, .af = af, .rng = &rng,
                        .cfg = &cfg, .temperature_K = 500.0 };
-    int rc = kmc_step_once(&ctx, NULL, NULL, NULL);
+    int rc = kmc_step_once(&ctx, NULL, NULL, NULL, NULL);
     *time_s = st.time_s;
     *step = (unsigned long long)st.step;
     active_filter_free(af);

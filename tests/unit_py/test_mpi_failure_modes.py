@@ -10,6 +10,8 @@ Release, -j2, temp build dirs) and launches them with at most 2 ranks:
   non-zero exit instead of hanging in the post-run collectives.
 - 05: a v2 model refuses, at startup, a periodic axis shorter than
   2*reach+1 grid planes (the 8x8-surface box); a 9x9 box still runs.
+- 04: on a surrogate build, pykmc.out's k_tot column is the total rate the
+  step's dt used (measured + surrogate), never 0 on a surrogate-only step.
 
 Every launch gets a private TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open MPI
 singleton sharing /tmp/ompi.* can disturb unrelated jobs) and a hard timeout
@@ -302,3 +304,29 @@ def test_periodic_axis_of_2_reach_plus_1_runs(
     res, out = nicr_box9_run
     assert res.returncode == 0, res.stderr
     assert (out / "replica_0000" / "pykmc.out").is_file()
+
+
+# ---------------------------------------------------------------------------
+# 04 — k_tot on a surrogate build is the total rate used for dt
+# ---------------------------------------------------------------------------
+
+
+def test_ktot_is_the_total_rate_used_for_dt_on_a_surrogate_build(
+    nicr_box9_run: tuple[subprocess.CompletedProcess[str], Path],
+) -> None:
+    res, out = nicr_box9_run
+    assert res.returncode == 0, res.stderr
+    rows = [
+        line.split()
+        for line in (out / "replica_0000" / "pykmc.out").read_text().splitlines()
+        if line and not line.startswith("#")
+    ]
+    assert len(rows) == 10
+    # cols: step time_s dt_s n_vac k_tot k_event Ea_eV proc_id site
+    assert any(r[7] == "-1" for r in rows), "expected surrogate-channel fires"
+    for r in rows:
+        dt, k_tot = float(r[2]), float(r[4])
+        # dt = -log(r2)/k_tot with r2 in (0, 1): dt*k_tot = -log(r2) lies in
+        # (0, -log(2^-53) ~ 36.7]. The measured-only column was 0 on these steps.
+        assert k_tot > 0.0, r
+        assert 0.0 < dt * k_tot < 37.0, r
