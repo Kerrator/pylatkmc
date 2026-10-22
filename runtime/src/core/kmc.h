@@ -65,7 +65,9 @@ typedef struct {
  *   8. update unwrapped_xyz for the moved vacancy (single-vacancy hop heuristic)
  *
  * Writes (proc, site, dt) to the out parameters if non-NULL. Returns
- * 0 on success, -ENODATA if trapped (r_tot == 0), -EINVAL on bad args.
+ * 0 on success, -ENODATA if trapped (r_tot == 0), -EINVAL on bad args or when
+ * the selected event's actions were rejected (no state change, clock not
+ * advanced).
  */
 int kmc_step_once(KmcContext *ctx,
                   int32_t *out_proc, int32_t *out_site, double *out_dt);

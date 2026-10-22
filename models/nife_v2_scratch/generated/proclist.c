@@ -22243,7 +22243,8 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)
  *
  * The runtime calls pylatkmc_apply_table[proc](st, lat, site) — a
  * signature frozen by the committed v0.3 proclists — so each proc gets
- * a one-line wrapper binding its proc id into the generic apply. */
+ * a one-line wrapper binding its proc id into the generic apply. A
+ * rejected apply comes back as STATE_APPLY_REJECTED (state.h). */
 typedef struct { int v_origin; int v_dest; } HopOutcome;
 typedef HopOutcome (*ApplyFn)(State *st, const Lattice *lat, int site);
 
@@ -22264,8 +22265,14 @@ static HopOutcome v2_apply(State *st, const Lattice *lat, int32_t proc,
         acts[r].before = dr->before;
         acts[r].after  = dr->after;
     }
-    (void)state_apply_actions(st, acts, pt->delta_n, SP_VACANT);
     HopOutcome ho = { -1, -1 };
+    if (state_apply_actions(st, acts, pt->delta_n, SP_VACANT) != 0) {
+        /* Rejected (delta rows collide or a before-state mismatches); the
+         * state is untouched. Report it so kmc.c fails the step instead
+         * of counting a no-op event with an advancing clock. */
+        ho.v_origin = ho.v_dest = STATE_APPLY_REJECTED;
+        return ho;
+    }
     if (pt->v_origin_row >= 0) ho.v_origin = acts[pt->v_origin_row].site;
     if (pt->v_dest_row   >= 0) ho.v_dest   = acts[pt->v_dest_row].site;
     return ho;

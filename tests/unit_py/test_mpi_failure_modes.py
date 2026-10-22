@@ -1,17 +1,20 @@
 """MPI-level regression tests for replica failure handling (large-system-scaling WP1).
 
-Builds ni_example from its COMMITTED proclist (CMake, Release, -j2, temp
-build dir) and launches it with at most 2 ranks:
+Builds ni_example and nicr_v2_scratch from their COMMITTED proclists (CMake,
+Release, -j2, temp build dirs) and launches them with at most 2 ranks:
 
 - 01: a replica whose setup fails is counted as failed in
   aggregate_summary.json and the job exits non-zero; a replica that traps (no
   event left — a normal physical end) still exits 0.
 - 02: when only ONE rank fails startup, every rank terminates promptly with a
   non-zero exit instead of hanging in the post-run collectives.
+- 05: a v2 model refuses, at startup, a periodic axis shorter than
+  2*reach+1 grid planes (the 8x8-surface box); a 9x9 box still runs.
 
 Every launch gets a private TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open MPI
 singleton sharing /tmp/ompi.* can disturb unrelated jobs) and a hard timeout
-that tears the whole job down. Skipped without cmake / mpirun.
+that tears the whole job down. Skipped without cmake / mpirun (or numpy+scipy
+for the generated .kmcinit boxes).
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ import os
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
@@ -29,6 +33,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TOOLS = REPO_ROOT / "tools"
 NI_SLAB_1VAC = REPO_ROOT / "models" / "ni_example" / "examples" / "slab_ni_1vac.kmcinit"
 NI_SLAB_0VAC = REPO_ROOT / "models" / "ni_dissolution_demo" / "examples" / "slab_ni_0vac.kmcinit"
 
@@ -216,3 +221,84 @@ def test_one_rank_startup_failure_terminates_every_rank(
     assert f"[rank 1] {stage} failed" in res.stderr
     assert "startup failed on 1 of 2 ranks" in res.stderr
     assert not list(good_out.rglob("pykmc.out")), "no replica may run"
+
+
+# ---------------------------------------------------------------------------
+# 05 — a periodic axis shorter than 2*reach+1 is refused at startup
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def nicr_binary(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return _build("nicr_v2_scratch", tmp_path_factory.mktemp("nicr"))
+
+
+def _nicr_box(tmp: Path, n: int) -> Path:
+    """Random Ni90Cr10 n x n x 10 slab + 8 vacuum layers (as the golden boxes)."""
+    pytest.importorskip("numpy")
+    pytest.importorskip("scipy")
+    out = tmp / f"box{n}.kmcinit"
+    subprocess.run(
+        [
+            sys.executable,
+            str(TOOLS / "build_initial_config.py"),
+            "--nx",
+            str(n),
+            "--ny",
+            str(n),
+            "--nz",
+            "10",
+            "--composition",
+            "Ni90_Cr10",
+            "--n-vacancies",
+            "2",
+            "--vacuum-layers",
+            "8",
+            "--seed",
+            "7",
+            "-o",
+            str(out),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return out
+
+
+def test_short_periodic_axis_is_refused_at_startup(
+    nicr_binary: Path, mpi_env: dict[str, str], tmp_path: Path
+) -> None:
+    # 8 surface sites per row => grid_nx = 16 < 2*reach+1 = 17 (reach_ij = 8):
+    # offsets +8 and -8 alias to the same site.
+    out = tmp_path / "out"
+    ini = _ini(tmp_path / "in.ini", _nicr_box(tmp_path, 8), out, temperature_K=600.0)
+    res = _mpirun([(nicr_binary, ini)], mpi_env)
+    assert res is not None, "job hung"
+    assert res.returncode != 0
+    assert "periodic with only 16 grid planes" in res.stderr
+    assert "reach" in res.stderr
+    assert not list(out.rglob("pykmc.out")), "the run must be refused before any step"
+
+
+@pytest.fixture(scope="module")
+def nicr_box9_run(
+    nicr_binary: Path, mpi_env: dict[str, str], tmp_path_factory: pytest.TempPathFactory
+) -> tuple[subprocess.CompletedProcess[str], Path]:
+    """10 logged steps on a 9x9 box (grid_nx = 18 >= 17: allowed)."""
+    tmp = tmp_path_factory.mktemp("box9")
+    out = tmp / "out"
+    ini = _ini(
+        tmp / "in.ini", _nicr_box(tmp, 9), out, max_steps=10, sample_every=1, temperature_K=600.0
+    )
+    res = _mpirun([(nicr_binary, ini)], mpi_env)
+    assert res is not None, "job hung"
+    return res, out
+
+
+def test_periodic_axis_of_2_reach_plus_1_runs(
+    nicr_box9_run: tuple[subprocess.CompletedProcess[str], Path],
+) -> None:
+    res, out = nicr_box9_run
+    assert res.returncode == 0, res.stderr
+    assert (out / "replica_0000" / "pykmc.out").is_file()

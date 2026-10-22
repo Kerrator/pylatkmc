@@ -84,4 +84,11 @@ int state_apply_actions(State *st,
                         int32_t n_actions,
                         uint8_t vacant_species);
 
+/* HopOutcome value (in both v_origin and v_dest) that a generated apply
+ * function returns when state_apply_actions rejected its actions, leaving the
+ * state untouched. Distinct from -1 ("not a single-vacancy hop"): kmc.c fails
+ * the step instead of counting a no-op event with an advancing clock. Emitted
+ * by the v2 pattern path; the v0.3 apply functions still discard the rc. */
+#define STATE_APPLY_REJECTED (-2)
+
 #endif /* LATKMC_STATE_H */
