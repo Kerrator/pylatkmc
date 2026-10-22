@@ -109,7 +109,8 @@ CLI_CASES = {
     "golden_nicr_random": (
         "--nx 10 --ny 10 --nz 10 --composition Ni90_Cr10 --n-vacancies 4 --vacuum-layers 8 --seed 7"
     ),
-    # models/ni_example/README.md and the two shipped 6x6x4 example slabs
+    # models/ni_example/README.md's command, and the ones that built the shipped
+    # ni_example / ni_dissolution_demo 6x6x4 example slabs
     "readme_6x6x4": "--nx 6 --ny 6 --nz 4 --element Ni --n-vacancies 5 --vacuum-layers 1",
     "ni_example_slab": "--nx 6 --ny 6 --nz 4 --n-vacancies 1 --vacuum-layers 1.0 --seed 42",
     "ni_dissolution_demo_slab": "--nx 6 --ny 6 --nz 4 --n-vacancies 0 --vacuum-layers 1.0",
