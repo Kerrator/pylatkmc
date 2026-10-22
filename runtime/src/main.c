@@ -38,17 +38,26 @@ int main(int argc, char **argv) {
     }
 
     InputConfig cfg;
+    ReplicaContext rep;
     int rc = input_config_load(&cfg, argv[1]);
     if (rc != 0 && rc != -ENOSYS /* pre-M1 stub */) {
-        if (rank == 0) fprintf(stderr, "input_config_load failed: %d\n", rc);
-        MPI_Finalize();
-        return 1;
+        fprintf(stderr, "[rank %d] input_config_load failed: %d\n", rank, rc);
+    } else {
+        rc = replica_init(&rep, &cfg, rank, nranks);
+        if (rc != 0)
+            fprintf(stderr, "[rank %d] replica_init failed: %d\n", rank, rc);
     }
 
-    ReplicaContext rep;
-    rc = replica_init(&rep, &cfg, rank, nranks);
-    if (rc != 0) {
-        fprintf(stderr, "[rank %d] replica_init failed: %d\n", rank, rc);
+    /* Agree on startup collectively: a rank that failed alone and exited
+     * would leave the others blocked in the collectives after their runs
+     * (the job hangs until walltime). If any rank failed, all exit non-zero
+     * before running. */
+    int init_failed = (rc != 0), n_init_failed = 0;
+    MPI_Allreduce(&init_failed, &n_init_failed, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    if (n_init_failed > 0) {
+        if (rank == 0)
+            fprintf(stderr, "startup failed on %d of %d rank%s; no replica was run\n",
+                    n_init_failed, nranks, nranks == 1 ? "" : "s");
         MPI_Finalize();
         return 1;
     }

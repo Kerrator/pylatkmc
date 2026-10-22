@@ -6,6 +6,8 @@ build dir) and launches it with at most 2 ranks:
 - 01: a replica whose setup fails is counted as failed in
   aggregate_summary.json and the job exits non-zero; a replica that traps (no
   event left — a normal physical end) still exits 0.
+- 02: when only ONE rank fails startup, every rank terminates promptly with a
+  non-zero exit instead of hanging in the post-run collectives.
 
 Every launch gets a private TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open MPI
 singleton sharing /tmp/ompi.* can disturb unrelated jobs) and a hard timeout
@@ -187,3 +189,30 @@ def test_completed_or_trapped_run_exits_zero(
     assert res is not None, "job hung"
     assert res.returncode == 0, res.stderr
     assert [r["run_rc"] for r in _aggregate(out)["replicas"]] == [run_rc] * 2
+
+
+# ---------------------------------------------------------------------------
+# 02 — one rank failing startup must not hang the others
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("stage", ["replica_init", "input_config_load"])
+def test_one_rank_startup_failure_terminates_every_rank(
+    ni_binary: Path, mpi_env: dict[str, str], tmp_path: Path, stage: str
+) -> None:
+    if not NI_SLAB_1VAC.is_file():
+        pytest.skip(f"example slab missing: {NI_SLAB_1VAC}")
+    good_out = tmp_path / "out"
+    good = _ini(tmp_path / "good.ini", NI_SLAB_1VAC, good_out)
+    if stage == "replica_init":
+        blocker = tmp_path / "blocker"  # a regular FILE: no output dir below it
+        blocker.write_text("not a directory\n")
+        bad = _ini(tmp_path / "bad.ini", NI_SLAB_1VAC, blocker / "out")
+    else:
+        bad = tmp_path / "no_such_input.ini"
+    res = _mpirun([(ni_binary, good), (ni_binary, bad)], mpi_env, timeout=60.0)
+    assert res is not None, "rank 0 hung after rank 1 failed startup"
+    assert res.returncode != 0
+    assert f"[rank 1] {stage} failed" in res.stderr
+    assert "startup failed on 1 of 2 ranks" in res.stderr
+    assert not list(good_out.rglob("pykmc.out")), "no replica may run"
