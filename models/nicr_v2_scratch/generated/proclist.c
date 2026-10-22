@@ -2443,7 +2443,8 @@ static const RateConst rate_table[N_PROCS] = {
 /* ---- v2 data-driven pattern tables (EventClass catalogue) ----
  *
  * Each pattern stores its canonical-frame rows ONCE; each process is a
- * (pattern, D4h op) pair and the matcher rotates offsets on the fly.
+ * (pattern, member, D4h op) triple and the matcher rotates offsets on
+ * the fly, once per (pattern, op).
  * Offsets are integer FCC cells (a/2 units) relative to the pattern
  * anchor, resolved through the runtime's integer site grid
  * (lattice_site_at_ijk). Absent sites resolve to the stub index
@@ -2455,9 +2456,11 @@ static const RateConst rate_table[N_PROCS] = {
 typedef struct { int8_t di, dj, dk; uint8_t before, after; } V2DeltaRow;
 typedef struct { int8_t di, dj, dk; uint8_t pred; } V2CtxRow;
 typedef struct {
-    int32_t delta_begin, delta_n, ctx_begin, ctx_n;
-    int8_t  v_origin_row, v_dest_row;   /* MSD bookkeeping; -1 = n/a */
-    uint8_t anchor_sp, _pad;
+    int32_t  delta_begin, delta_n, ctx_begin, ctx_n;
+    int32_t  proc_begin, proc_n;        /* procs: member-major, then op */
+    uint16_t op_mask;                   /* bit g: V2_OPS[g] is an orientation */
+    int8_t   v_origin_row, v_dest_row;  /* MSD bookkeeping; -1 = n/a */
+    uint8_t  anchor_sp, _pad;
 } V2Pattern;
 typedef struct { int32_t pat; uint8_t op; uint8_t _pad[3]; } V2Proc;
 
@@ -3083,28 +3086,28 @@ static const V2CtxRow v2_ctx_rows[4700] = {
 };
 
 static const V2Pattern v2_patterns[22] = {
-    {0,2,0,223,0,1,SP_VACANT,0}, /* v2_0d09b393f9bd */
-    {2,2,223,182,0,1,SP_VACANT,0}, /* v2_10ef60a845b4 */
-    {4,2,405,223,0,1,SP_VACANT,0}, /* v2_26c2140ebe91 */
-    {6,2,628,223,0,1,SP_VACANT,0}, /* v2_2986630951ae */
-    {8,2,851,223,0,1,SP_VACANT,0}, /* v2_42e47d365453 */
-    {10,2,1074,223,0,1,SP_VACANT,0}, /* v2_495cf921eed3 */
-    {12,2,1297,182,0,1,SP_VACANT,0}, /* v2_49d7e80c1000 */
-    {14,2,1479,223,0,1,SP_VACANT,0}, /* v2_4cfeb2290eb6 */
-    {16,2,1702,223,0,1,SP_VACANT,0}, /* v2_58d9d39d42b1 */
-    {18,2,1925,223,0,1,SP_VACANT,0}, /* v2_63ce4ba7a933 */
-    {20,2,2148,182,0,1,SP_VACANT,0}, /* v2_6c84711407be */
-    {22,2,2330,223,0,1,SP_VACANT,0}, /* v2_7f09fbb31b4b */
-    {24,2,2553,182,0,1,SP_VACANT,0}, /* v2_848d884e0b9c */
-    {26,2,2735,223,0,1,SP_VACANT,0}, /* v2_a06883e7e3ec */
-    {28,2,2958,223,0,1,SP_VACANT,0}, /* v2_ac1ec20c1e42 */
-    {30,2,3181,223,0,1,SP_VACANT,0}, /* v2_ac2488f17a71 */
-    {32,2,3404,223,0,1,SP_VACANT,0}, /* v2_b0c1631a2c8b */
-    {34,2,3627,182,0,1,SP_VACANT,0}, /* v2_c9b342b84a28 */
-    {36,3,3809,222,0,2,SP_VACANT,0}, /* v2_cbedb3a2e8a7 */
-    {39,2,4031,223,0,1,SP_VACANT,0}, /* v2_e6569363d0ce */
-    {41,2,4254,223,0,1,SP_VACANT,0}, /* v2_e6ee7dfaf8ab */
-    {43,2,4477,223,0,1,SP_VACANT,0}, /* v2_f54db603d0b1 */
+    {0,2,0,223,0,16,0xffff,0,1,SP_VACANT,0}, /* v2_0d09b393f9bd */
+    {2,2,223,182,16,32,0xffff,0,1,SP_VACANT,0}, /* v2_10ef60a845b4 */
+    {4,2,405,223,48,96,0xffff,0,1,SP_VACANT,0}, /* v2_26c2140ebe91 */
+    {6,2,628,223,144,32,0xffff,0,1,SP_VACANT,0}, /* v2_2986630951ae */
+    {8,2,851,223,176,400,0xffff,0,1,SP_VACANT,0}, /* v2_42e47d365453 */
+    {10,2,1074,223,576,16,0xffff,0,1,SP_VACANT,0}, /* v2_495cf921eed3 */
+    {12,2,1297,182,592,64,0xffff,0,1,SP_VACANT,0}, /* v2_49d7e80c1000 */
+    {14,2,1479,223,656,448,0xffff,0,1,SP_VACANT,0}, /* v2_4cfeb2290eb6 */
+    {16,2,1702,223,1104,16,0xffff,0,1,SP_VACANT,0}, /* v2_58d9d39d42b1 */
+    {18,2,1925,223,1120,16,0xffff,0,1,SP_VACANT,0}, /* v2_63ce4ba7a933 */
+    {20,2,2148,182,1136,16,0xffff,0,1,SP_VACANT,0}, /* v2_6c84711407be */
+    {22,2,2330,223,1152,48,0xffff,0,1,SP_VACANT,0}, /* v2_7f09fbb31b4b */
+    {24,2,2553,182,1200,16,0xffff,0,1,SP_VACANT,0}, /* v2_848d884e0b9c */
+    {26,2,2735,223,1216,48,0xffff,0,1,SP_VACANT,0}, /* v2_a06883e7e3ec */
+    {28,2,2958,223,1264,48,0xffff,0,1,SP_VACANT,0}, /* v2_ac1ec20c1e42 */
+    {30,2,3181,223,1312,48,0xffff,0,1,SP_VACANT,0}, /* v2_ac2488f17a71 */
+    {32,2,3404,223,1360,448,0xffff,0,1,SP_VACANT,0}, /* v2_b0c1631a2c8b */
+    {34,2,3627,182,1808,64,0xffff,0,1,SP_VACANT,0}, /* v2_c9b342b84a28 */
+    {36,3,3809,222,1872,16,0xffff,0,2,SP_VACANT,0}, /* v2_cbedb3a2e8a7 */
+    {39,2,4031,223,1888,448,0xffff,0,1,SP_VACANT,0}, /* v2_e6569363d0ce */
+    {41,2,4254,223,2336,48,0xffff,0,1,SP_VACANT,0}, /* v2_e6ee7dfaf8ab */
+    {43,2,4477,223,2384,16,0xffff,0,1,SP_VACANT,0}, /* v2_f54db603d0b1 */
 };
 
 static const V2Proc v2_procs[N_PROCS] = {
@@ -3410,17 +3413,16 @@ static const V2Proc v2_procs[N_PROCS] = {
     {21,8,{0,0,0}}, {21,9,{0,0,0}}, {21,10,{0,0,0}}, {21,11,{0,0,0}}, {21,12,{0,0,0}}, {21,13,{0,0,0}}, {21,14,{0,0,0}}, {21,15,{0,0,0}},
 };
 
-/* Proc-id ranges by anchor-site species code (procs are sorted so each
- * species' processes are contiguous): scan only the bucket matching
+/* Pattern ranges by anchor-site species code (patterns are sorted so
+ * each species' patterns are contiguous): match only the bucket for
  * st->species[site]. */
-static const int32_t v2_bucket_begin[5] = {0,2400,2400,2400,2400};
+static const int32_t v2_pattern_bucket_begin[5] = {0,22,22,22,22};
 
-/* ---- generic matcher ---- */
+/* ---- generic matcher: does pattern pt match at site under V2_OPS[op]? ---- */
 static int v2_match(const Lattice *lat, const State *st, int site,
-                    const V2Proc *pr)
+                    const V2Pattern *pt, int op)
 {
-    const V2Pattern *pt = &v2_patterns[pr->pat];
-    const int8_t *R = V2_OPS[pr->op];
+    const int8_t *R = V2_OPS[op];
     const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
     for (int32_t r = 0; r < pt->delta_n; ++r) {
         const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];
@@ -3458,9 +3460,20 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)
     if (!lat->site_grid || !lat->site_ijk) return;  /* grid not built */
     uint8_t sp = st->species[site];
     if (sp >= 4u) return;
-    for (int32_t p = v2_bucket_begin[sp]; p < v2_bucket_begin[sp + 1]; ++p) {
-        if (v2_match(lat, st, site, &v2_procs[p]))
-            avail_sites_add(as, p, site);
+    int32_t t_end = v2_pattern_bucket_begin[sp + 1];
+    for (int32_t t = v2_pattern_bucket_begin[sp]; t < t_end; ++t) {
+        const V2Pattern *pt = &v2_patterns[t];
+        uint32_t ops = 0;  /* bit g: the pattern matches under V2_OPS[g] */
+        for (int g = 0; g < 16; ++g)
+            if (((pt->op_mask >> g) & 1u) && v2_match(lat, st, site, pt, g))
+                ops |= 1u << g;
+        if (ops == 0) continue;
+        /* Enrol every member proc of each matched (pattern, op), walking
+         * the pattern's procs in id order: the avail_sites_add sequence
+         * is the one a per-proc scan produces. */
+        for (int32_t p = pt->proc_begin; p < pt->proc_begin + pt->proc_n; ++p)
+            if ((ops >> v2_procs[p].op) & 1u)
+                avail_sites_add(as, p, site);
     }
 }
 
