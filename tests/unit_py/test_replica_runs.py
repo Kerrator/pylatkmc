@@ -7,6 +7,9 @@ Builds models with CMake (into pytest tmp dirs) and launches each case with
   physical end) exit 0, since job queues treat any non-zero exit as a failed
   job; a setup failure (missing .kmcinit) is counted as failed in
   aggregate_summary.json and exits non-zero (01).
+- ni_example: one rank failing replica_init makes every rank exit non-zero
+  promptly, instead of the others blocking in MPI collectives until walltime
+  (02).
 
 Skips without cmake / MPI / mpirun. Every launch gets a private TMPDIR +
 OMPI_MCA_orte_tmpdir_base, two ranks, and MPIEXEC_TIMEOUT, so a hang fails
@@ -143,3 +146,16 @@ def test_setup_failure_counts_as_failed_and_exits_nonzero(
     agg = _aggregate(tmp_path)
     assert (agg["n_success"], agg["n_failed"]) == (0, 2)
     assert [r["run_rc"] for r in agg["replicas"]] == [-errno.ENOENT] * 2
+
+
+def test_init_failure_on_one_rank_fails_every_rank_promptly(
+    ni_example_bin: Path, tmp_path: Path
+) -> None:
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "replica_0001").write_text("")  # a file where rank 1's replica dir must go
+    res, wall = _launch(ni_example_bin, _ini(tmp_path, NI_SLAB_1VAC))
+    assert wall < LAUNCH_TIMEOUT_S, "job hung: the healthy rank blocked in an MPI collective"
+    assert res.returncode != 0
+    assert "[rank 1] replica_init failed" in res.stderr
+    assert not (out / "replica_0000" / "pykmc.out").exists(), "rank 0 ran without rank 1"

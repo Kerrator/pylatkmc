@@ -221,6 +221,10 @@ to `output_root/`.
 
 Failure handling (`runtime/src/main.c`, `replica.c`):
 
+- All ranks agree on the init status (`input_config_load`, `replica_init`)
+  with an `MPI_Allreduce` before any replica runs. If one rank fails, every
+  rank exits 1 and no replica runs, instead of the healthy ranks blocking in
+  `MPI_Gather` until walltime.
 - A setup failure inside `replica_run` (unreadable `.kmcinit`, `avail_sites`
   ENOMEM, a geometry refused by the v2 reach checks, ...) is recorded as that
   replica's `run_rc`, so the aggregate counts it in `n_failed`.

@@ -38,17 +38,23 @@ int main(int argc, char **argv) {
     }
 
     InputConfig cfg;
-    int rc = input_config_load(&cfg, argv[1]);
-    if (rc != 0 && rc != -ENOSYS /* pre-M1 stub */) {
-        if (rank == 0) fprintf(stderr, "input_config_load failed: %d\n", rc);
-        MPI_Finalize();
-        return 1;
-    }
-
     ReplicaContext rep;
-    rc = replica_init(&rep, &cfg, rank, nranks);
-    if (rc != 0) {
-        fprintf(stderr, "[rank %d] replica_init failed: %d\n", rank, rc);
+    int rc = input_config_load(&cfg, argv[1]);
+    int init_ok = (rc == 0 || rc == -ENOSYS /* pre-M1 stub */);
+    if (!init_ok) {
+        fprintf(stderr, "[rank %d] input_config_load failed: %d\n", rank, rc);
+    } else {
+        rc = replica_init(&rep, &cfg, rank, nranks);
+        init_ok = (rc == 0);
+        if (!init_ok) fprintf(stderr, "[rank %d] replica_init failed: %d\n", rank, rc);
+    }
+    /* Agree on the init status before anyone runs: a rank that bailed out
+     * alone would leave the others blocked in MPI_Gather (replica_aggregate)
+     * until walltime. */
+    MPI_Allreduce(MPI_IN_PLACE, &init_ok, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    if (!init_ok) {
+        if (rank == 0)
+            fprintf(stderr, "initialisation failed on at least one rank; no replica ran\n");
         MPI_Finalize();
         return 1;
     }

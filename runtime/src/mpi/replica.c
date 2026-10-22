@@ -35,10 +35,13 @@
 
 static int ensure_dir(const char *path) {
     struct stat st;
-    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) return 0;
+    if (stat(path, &st) == 0) return S_ISDIR(st.st_mode) ? 0 : -ENOTDIR;
     if (mkdir(path, 0755) == 0) return 0;
-    if (errno == EEXIST) return 0;
-    return -errno;
+    int err = errno;
+    /* EEXIST: another rank created it between our stat and mkdir. */
+    if (err == EEXIST)
+        return (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : -ENOTDIR;
+    return -err;
 }
 
 int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nranks)
@@ -48,10 +51,11 @@ int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nran
     rep->rank   = rank;
     rep->nranks = nranks;
     rep->stats.rank = rank;
-    snprintf(rep->out_dir, sizeof(rep->out_dir),
-             "%s/replica_%04d", cfg->output_root, rank);
-    int rc = ensure_dir(cfg->output_root); if (rc != 0 && rc != -EEXIST) return rc;
-    rc     = ensure_dir(rep->out_dir);     if (rc != 0 && rc != -EEXIST) return rc;
+    int n = snprintf(rep->out_dir, sizeof(rep->out_dir),
+                     "%s/replica_%04d", cfg->output_root, rank);
+    if (n < 0 || (size_t)n >= sizeof(rep->out_dir)) return -ENAMETOOLONG;
+    int rc = ensure_dir(cfg->output_root); if (rc != 0) return rc;
+    rc     = ensure_dir(rep->out_dir);     if (rc != 0) return rc;
     return 0;
 }
 
