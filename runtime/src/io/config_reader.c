@@ -142,7 +142,9 @@ int input_config_load(InputConfig *out, const char *path)
     fclose(fp);
 
     /* run.traj_every defaults to sample_every (the trajectory cadence before
-     * the key existed), whichever order the two keys appear in. */
+     * the key existed), whichever order the two keys appear in. UINT64_MAX
+     * marks it unset, so a value that parses to it (e.g. -1) also follows
+     * sample_every. */
     if (out->traj_every == UINT64_MAX) out->traj_every = out->sample_every;
 
     /* Resolve relative paths against the input file's directory. */

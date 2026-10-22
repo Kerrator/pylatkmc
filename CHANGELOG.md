@@ -40,13 +40,14 @@ All notable changes to pylatkmc are documented here, following
   binary built on a login node can die with an illegal instruction on older
   compute nodes. The configure summary prints the setting; README.md and
   docs/ARCHITECTURE.md (Build) document it. (large-system-scaling/07)
-- **`run.traj_every` INI key**: the `trajkmc.xyz` frame cadence, separate from
-  `sample_every` (which keeps setting the `pykmc.out` / `phasec.out` rows). A
-  frame writes every atom as text (~50 MB at 1e6 sites), so large runs can log
-  densely and keep frames sparse. Default: `sample_every`, so an input without
-  the key writes byte-identical outputs; `0` writes only the t=0 frame. The
-  key changes which frames are written, never their content or the dynamics.
-  (large-system-scaling/15)
+- **`[run] traj_every` input key**: the `trajkmc.xyz` frame cadence, separate
+  from `sample_every` (which keeps setting the `pykmc.out` / `phasec.out`
+  rows). A frame writes every atom as text (~50 MB at 1e6 sites), so large
+  runs can log densely and keep frames sparse. Default: `sample_every`,
+  whichever order the keys come in, so an input without the key writes
+  byte-identical outputs; `0` writes only the t=0 frame. The key changes which
+  frames are written, never their content or the dynamics. docs/ARCHITECTURE.md
+  (Run) and docs/HOW_IT_WORKS.md (7.8) document it. (large-system-scaling/15)
 
 ### Changed
 
@@ -82,15 +83,18 @@ All notable changes to pylatkmc are documented here, following
 - **`tools/build_initial_config.py` scales to 1e6+ sites.** It used to copy
   the positions into 9 xy images, run one `cKDTree.query_ball_point` per site
   from a Python loop and pack the CSR from per-edge Python lists (1e5 sites:
-  29 s, 1.0 GB peak RSS). It now builds the slab with numpy, does one periodic
-  KD-tree pair search (`cKDTree(boxsize=...)`, z kept non-periodic, single
-  thread) and packs the CSR with numpy only (`neighbour_csr`): 1e5 sites in
-  3 s / 136 MB, 1e6 sites in 13 s / 0.58 GB. The output is byte-identical
-  for every shape, including 1- and 2-site-wide cells and the RNG draws
-  (species, vacancies); `tests/unit_py/test_build_initial_config.py` checks it
-  against verbatim copies of the replaced routines and digests of the old
-  tool's files. `compute_neighbors_with_pbc` stays for
-  `tools/xyz_to_kmcinit.py`. (large-system-scaling/14)
+  20 s, 1.0 GB peak RSS on one core). It now builds the slab with numpy, does
+  one periodic KD-tree pair search (`cKDTree(boxsize=...)`, z kept
+  non-periodic, single thread) and packs the CSR with numpy only
+  (`neighbour_csr`): 1e5 sites in 1.5 s / 136 MB, 1e6 sites in 9 s / 0.58 GB.
+  The `.kmcinit` (and stdout) is byte-identical for every input the old tool
+  accepted, including 1- and 2-site-wide cells and the RNG draws (species,
+  vacancies); `tests/unit_py/test_build_initial_config.py` checks it against a
+  frozen copy of the old tool. The per-site functions stay, unchanged in name,
+  signature and result: `compute_neighbors_with_pbc` for
+  `tools/xyz_to_kmcinit.py` (whose output is unchanged), and
+  `classify_direction` / `adj_to_csr` for scripts that import this tool as a
+  module; `main()` no longer uses them. (large-system-scaling/14)
 
 ### Fixed
 
@@ -140,8 +144,11 @@ All notable changes to pylatkmc are documented here, following
   `n_adatom_layers`): the `.kmcinit` stores `layer_index` as int8, so layer
   128 raised a bare `OverflowError` on NumPy 2 and wrapped silently on NumPy
   1.x, corrupting the site_class and vacancy-candidate masks. Such a slab is
-  now refused with a `ValueError` naming the 128-layer format limit; 128
-  layers and fewer are unchanged. (large-system-scaling/14)
+  now refused before anything is written: `build_fcc100_slab` raises a
+  `ValueError` naming the 128-layer format limit, which
+  `build_initial_config.py` prints as a one-line `error:` (exit 1). 128
+  layers and fewer are unchanged, and so are the existing `nz` / vacuum /
+  adatom-layer argument errors. No format change. (large-system-scaling/14)
 
 Candidates for v0.4 (none committed):
 
