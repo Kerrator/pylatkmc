@@ -161,6 +161,20 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
 For ni_fe_cr_v1's 358 Processes, the tree depth is ~7 levels and
 `touchup_a` is ~5000 lines.
 
+v2 (pattern-table) models — `[rate_data].event_class_table` — emit no
+tree: `pattern_codegen.py` writes packed per-pattern row tables and a
+generic matcher instead. A proc is a (pattern, D4h op, rate member)
+triple. `touchup_a` screens on the anchor's species, reads the
+species of the anchor's context ball (the sorted union of all the
+patterns' row offsets, ~225 sites, baked in its 16 orientations as
+`v2_ball_off`) once per op into a local array, and tests each unique
+(pattern, op) of `v2_patops` once against it, enrolling every member
+proc of that (pattern, op) on a match. The context-ball wrap is the
+same modulo arithmetic as `lattice_site_at_ijk`, done once per anchor:
+a context `EMPTY` row matches a vacant or absent (stub, 255) site,
+`OCC_ANY` any real species, and delta rows need the exact before-state
+on an existing site.
+
 ---
 
 ## The execution plane: runtime per-step loop

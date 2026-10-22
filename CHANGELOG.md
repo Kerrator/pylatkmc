@@ -43,6 +43,26 @@ All notable changes to pylatkmc are documented here, following
 
 ### Changed
 
+- **v2 matcher throughput.** The generated v2 `touchup_a` now matches each
+  unique (pattern, op) once per anchor and, on a match, enrols every member
+  proc of it (`v2_patops`); it used to loop over procs and re-match the whole
+  pattern once per harvested member (5.2x redundant on `nife_v2_scratch`:
+  14,976 procs over 2,880 (pattern, op); 6.8x on `nicr_v2_scratch`)
+  (large-system-scaling/08). It also reads the anchor's context-ball species
+  once per orientation into a local array (the patterns share one ~225-site
+  ball, baked in its 16 orientations as `v2_ball_off`; every row stores its
+  ball index), instead of rotating every row of every proc with a 3x3 multiply
+  and wrapping it through `lattice_site_at_ijk` (six modulos)
+  (large-system-scaling/09). The wrap is the same modulo arithmetic, done once
+  per anchor and axis, so absent cells still read the stub and EMPTY / OCC_ANY
+  / strict delta rows mean what they did. The enrolled (proc, site) set and
+  every proc's site order are unchanged, so fixed-seed runs are byte-identical
+  (golden cases ALL-IDENTICAL). Touchup time per step on the golden painted
+  slabs (1 rank): `nife_painted` ~21-24 ms -> ~0.32 ms, `nicr_painted` ~10 ms
+  -> ~0.16 ms, `nicr_random` ~1.5 ms -> ~0.06 ms. The `nife_v2_scratch` and
+  `nicr_v2_scratch` proclists are regenerated (`v2_bucket_begin` is replaced
+  by `v2_patops` / `v2_patop_begin`, plus `v2_ball_off`, `v2_delta_ball`,
+  `v2_ctx_ball`); the v0.3 proclists are unchanged.
 - **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
   total rate the step's `dt` was drawn from and its event selected against
   (measured + surrogate channel). It used to log the measured channel only
