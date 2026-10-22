@@ -161,6 +161,28 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site) {
 For ni_fe_cr_v1's 358 Processes, the tree depth is ~7 levels and
 `touchup_a` is ~5000 lines.
 
+### v2 models: pattern tables and one generic matcher
+
+A v2 model (`[rate_data].event_class_table`) has no decision tree:
+`pylatkmc/pattern_codegen.py` emits packed pattern tables and one generic
+`touchup_a`. A v2 proc is a (pattern, member, D4h op) triple, ordered by
+pattern (anchor species, name), then member, then op. At an anchor whose
+species has patterns, `touchup_a`:
+
+1. resolves the anchor's context ball once through `lattice_site_at_ijk`
+   (`v2_ball`: every row offset of every pattern under every D4h op, 381 sites
+   for nife_v2_scratch), so no row is rotated or wrapped per pattern;
+2. builds, per row offset and predicate class (exact species; `EMPTY` =
+   vacant or absent; `OCC_ANY` = any occupied), the 16-bit mask of the ops
+   under which that site passes;
+3. matches each pattern under all of its ops at once (the AND of its rows'
+   masks) and, for each matched (pattern, op), enrols every member proc,
+   walking the pattern's procs in id order.
+
+So each (pattern, op) is matched once per anchor, not once per member, and the
+`avail_sites_add` sequence is the one a proc-by-proc scan would make
+(large-system-scaling/08, 09).
+
 ---
 
 ## The execution plane: runtime per-step loop
