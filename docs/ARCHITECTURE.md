@@ -183,6 +183,17 @@ So each (pattern, op) is matched once per anchor, not once per member, and the
 `avail_sites_add` sequence is the one a proc-by-proc scan would make
 (large-system-scaling/08, 09).
 
+On a Phase C surrogate build (a baked `[rate_data].surrogate_model`), step 3
+also records, for each matched (pattern, op), whether it moves the vacancy
+from the anchor itself (its `v_origin` row) to a site one raw `site_ijk` step
+away along surrogate direction `d` (its `v_dest` row), both rows resolved as
+`v2_apply` resolves them; if so it sets bit `d` of the anchor's `avail_sites`
+cover word (`v2_record_covers`, `v2_cover_dirs` in the `surr_dirs` order).
+The surrogate channel's de-dup against the measured channel
+(`pylatkmc_measured_covers_hop`, asked for each vacancy x 1NN candidate every
+step) then reads one word instead of probing every proc's enrolment
+(large-system-scaling/10). Builds without a surrogate model emit no cover code.
+
 Step 3 relies on each pattern's procs being one contiguous id range
 (`V2Pattern.proc_begin`/`proc_n`), and on the patterns being grouped by anchor
 species (the `v2_pattern_bucket_begin` buckets). `emit_pattern_tables` raises
@@ -238,7 +249,9 @@ int kmc_step_once(KmcContext *ctx,
 - **`AvailSites`** — per-step event-availability index. Dual-index
   `site_at[proc][k]` + `slot_of[proc][site]` for O(1) add/del. Plus
   `rates[proc]` (set once at startup) and `cum_rates[proc]` (refreshed
-  per step).
+  per step), and a 16-bit cover word per site that the generated touchup
+  may set and `avail_sites_clear` zeroes with the enrolments (the surrogate
+  channel's measured-hop de-dup, above).
 - **`ActiveFilter`** — bitmap + packed list of "sites worth running
   touchup at". Static mask (geometry-derived) + dynamic mask (vacancies
   and their 1NN).

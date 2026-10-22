@@ -66,6 +66,32 @@ All notable changes to pylatkmc are documented here, following
   `V2_PRED_*` are replaced by `v2_match_rows` / `V2_CLS_*` and `v2_ball`, so
   external tools that parse a v2 `proclist.c` must follow.
   (large-system-scaling/08, 09)
+- **Phase C surrogate channel throughput.** Two per-step costs of a surrogate
+  build no longer grow with the model size or the run length. Fixed-seed
+  outputs are bitwise identical (`pykmc.out`, `trajkmc.xyz`, `phasec.out`,
+  `flag_registry.csv`, the summaries). Measured on one core, a step of the
+  golden `nicr_painted` slab drops from 3.50 to 2.90 ms and one of
+  `nicr_random` from 1.46 to 1.30 ms; most of what is left is the surrogate
+  feature evaluation itself.
+  - The de-dup against the measured channel (`pylatkmc_measured_covers_hop`,
+    asked for every vacancy x 1NN candidate every step) scanned all N_PROCS
+    through `avail_sites_is_enrolled`. The v2 `touchup_a` of a surrogate build
+    now records, while it enrols an anchor's procs, which surrogate hop
+    directions they move the anchor's vacancy along, in a new per-site
+    `avail_sites` cover word (`avail_sites_cover_add` / `avail_sites_cover`,
+    zeroed by `avail_sites_clear`; 6 bytes per site). The check reads that
+    word and gives the old answer for every candidate in every state. Only the
+    `nicr_v2_scratch` proclist is regenerated (it gains `v2_cover_dirs` and
+    `v2_record_covers`); builds without a surrogate model emit no cover code
+    and their proclists are byte-identical. (large-system-scaling/10)
+  - The flag-registry lookup (per live candidate and per fired one) scanned
+    the registry linearly; `flag_registry_capacity` defaults to 65536. An
+    open-addressing index beside the registry array (2 x capacity slots
+    rounded up to a power of two, 512 KB per replica at the default) makes it
+    O(1). The array (registry index = first-seen order), the silent cap at
+    capacity and every field are unchanged. With a full default registry, a
+    step of 128 candidates costs about 5 us instead of 10 ms.
+    (large-system-scaling/11)
 - **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
   total rate the step's `dt` was drawn from and its event selected against
   (measured + surrogate channel). It used to log the measured channel only
