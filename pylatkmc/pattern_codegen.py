@@ -240,7 +240,7 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     max_delta = 0
     proc_begin = 0
 
-    for pi in order:
+    for t, pi in enumerate(order):
         pat = patterns[pi]
         d_begin, r_begin = len(delta_rows), len(match_rows)
         for r in pat.delta:
@@ -258,6 +258,19 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
                 raise ValueError(f"{pat.name}: orientation op {op} is not one of the 16 D4h ops")
             op_mask |= 1 << op
         n_pat_procs = len(_members(pat)) * len(pat.orientation_ops)
+        # touchup_a enrols a matched pattern by walking this proc range and
+        # testing each proc's op bit, so the range must hold this pattern's
+        # procs only, each on one of its ops. A drift (a _proc_list reorder)
+        # would enrol the wrong procs or none (silent never-fire): refuse it.
+        span = procs[proc_begin : proc_begin + n_pat_procs]
+        if len(span) != n_pat_procs or any(
+            p_t != t or not (op_mask >> p_op) & 1 for (p_t, p_op, _m, _pi) in span
+        ):
+            raise RuntimeError(
+                f"{pat.name}: v2 procs {proc_begin}..{proc_begin + n_pat_procs - 1} "
+                f"are not this pattern's (member, op) procs; the proc order drifted "
+                f"from the contiguous per-pattern ranges touchup_a walks"
+            )
         pattern_defs.append(
             f"    {{{d_begin},{len(pat.delta)},{r_begin},{len(match_rows) - r_begin},"
             f"{proc_begin},{n_pat_procs},0x{op_mask:04x},{v_origin},{v_dest},"
@@ -265,15 +278,21 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
         )
         proc_begin += n_pat_procs
     n_procs = len(procs)  # == N_PROCS; the enum is emitted by emit_v2_enum
-    assert proc_begin == n_procs
+    if proc_begin != n_procs:
+        raise RuntimeError(
+            f"v2 pattern proc ranges cover {proc_begin} procs, the proc list has {n_procs}"
+        )
 
     # ---- per-species pattern buckets -----------------------------------
     # v2_pattern_bucket_begin[sp] .. v2_pattern_bucket_begin[sp+1] is the
     # range of patterns whose anchor species code is sp. Species codes come
     # from events_base.h.
+    sp_codes = [_SP_CODE[patterns[pi].anchor_species] for pi in order]
+    if sp_codes != sorted(sp_codes):
+        raise RuntimeError("v2 patterns are not grouped by anchor species; the buckets would drift")
     bucket_begin = [0] * (n_sp + 1)
-    for pi in order:
-        bucket_begin[_SP_CODE[patterns[pi].anchor_species] + 1] += 1
+    for code in sp_codes:
+        bucket_begin[code + 1] += 1
     for i in range(n_sp):
         bucket_begin[i + 1] += bucket_begin[i]
 

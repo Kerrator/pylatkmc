@@ -17,6 +17,7 @@
   occupied). That holds on a periodic slab with vacuum (both surfaces, the
   periodic seams, every site an anchor; the matches read stub cells and cross
   the seams) and on a box smaller than the pattern reach, where offsets alias.
+- Codegen refuses a proc order that the enrolment walk cannot follow.
 
 The generated proclist.c is compiled behind a test prelude that counts the grid
 lookups and the matcher evaluations of the generated code and logs every
@@ -520,6 +521,54 @@ def test_ball_tables_cover_every_oriented_row() -> None:
     assert all(
         ball[rot[k][g]] == _rotate(mats[g], keys[k]) for k in range(n_keys) for g in range(16)
     )
+
+
+def test_proc_order_drift_is_refused_at_codegen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """touchup_a enrols a matched pattern by walking its contiguous proc range
+    and testing each proc's op bit, and matches only the anchor species'
+    pattern bucket. emit_pattern_tables refuses a proc list or pattern order
+    that breaks either, instead of emitting a matcher that enrols the wrong
+    procs or none."""
+    pytest.importorskip("numpy")
+    from pylatkmc import pattern_codegen as pc
+
+    patterns = _patterns(MULTI)
+    pc.emit_pattern_tables(patterns)  # the real order passes
+    real_proc_list = pc._proc_list
+
+    def drifted(edit):
+        def proc_list(pats):
+            order, procs = real_proc_list(pats)
+            return order, edit(list(procs))
+
+        return proc_list
+
+    def swap_ends(procs):  # the first and the last pattern trade a proc
+        procs[0], procs[-1] = procs[-1], procs[0]
+        return procs
+
+    def foreign_op(procs):  # a p_cr_hop proc on an op the pattern does not have
+        cr = next(t for t, op, _m, pi in procs if patterns[pi].name == "p_cr_hop")
+        i = next(i for i, e in enumerate(procs) if e[0] == cr)
+        procs[i] = (cr, 1, *procs[i][2:])
+        return procs
+
+    for edit, match in (
+        (swap_ends, "drifted"),
+        (foreign_op, "drifted"),
+        (lambda procs: procs[:-1], "drifted"),
+        (lambda procs: [*procs, procs[-1]], "cover"),
+    ):
+        monkeypatch.setattr(pc, "_proc_list", drifted(edit))
+        with pytest.raises(RuntimeError, match=match):
+            pc.emit_pattern_tables(patterns)
+    monkeypatch.setattr(pc, "_proc_list", real_proc_list)
+    # Patterns by name alone mix the Vacant and Ni buckets.
+    monkeypatch.setattr(
+        pc, "_order", lambda pats: sorted(range(len(pats)), key=lambda i: pats[i].name)
+    )
+    with pytest.raises(RuntimeError, match="grouped by anchor species"):
+        pc.emit_pattern_tables(patterns)
 
 
 def test_committed_v2_proclists_use_the_ball_matcher() -> None:
