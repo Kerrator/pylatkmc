@@ -432,26 +432,59 @@ int surrogate_ctx_init(SurrCtx *ctx, const Surrogate *model, int32_t n_sites,
     ctx->cap_cand = 256;
     ctx->cand = calloc((size_t)ctx->cap_cand, sizeof *ctx->cand);
     ctx->flags = calloc((size_t)ctx->capacity, sizeof *ctx->flags);
-    if (!ctx->cand || !ctx->flags) { surrogate_ctx_free(ctx); return -ENOMEM; }
+    /* At most capacity of the >= 2*capacity slots ever fill, so a probe
+     * always reaches an empty slot. calloc: every slot starts empty. */
+    size_t n_slots = 1;
+    while (n_slots < 2 * (size_t)ctx->capacity) n_slots <<= 1;
+    ctx->flag_slots = calloc(n_slots, sizeof *ctx->flag_slots);
+    ctx->flag_slot_mask = n_slots - 1;
+    if (!ctx->cand || !ctx->flags || !ctx->flag_slots) {
+        surrogate_ctx_free(ctx);
+        return -ENOMEM;
+    }
     return 0;
 }
 
 void surrogate_ctx_free(SurrCtx *ctx)
 {
     if (!ctx) return;
-    free(ctx->cand); free(ctx->flags);
-    ctx->cand = NULL; ctx->flags = NULL;
+    free(ctx->cand); free(ctx->flags); free(ctx->flag_slots);
+    ctx->cand = NULL; ctx->flags = NULL; ctx->flag_slots = NULL;
 }
 
+/* Deterministic slot hash of a registry key: the pair packed into 64 bits,
+ * the direction folded in, then the murmur3 fmix64 finaliser (fixed-width
+ * arithmetic only, so the same slots on every run and platform). It only
+ * places index entries; the registry (index = insertion order) never
+ * depends on it. */
+static inline size_t flag_hash(int32_t lo, int32_t hi, int32_t dir)
+{
+    uint64_t h = ((uint64_t)(uint32_t)lo << 32) | (uint64_t)(uint32_t)hi;
+    h ^= (uint64_t)(uint32_t)dir * 0x9E3779B97F4A7C15ull;
+    h ^= h >> 33; h *= 0xFF51AFD7ED558CCDull;
+    h ^= h >> 33; h *= 0xC4CEB9FE1A85EC53ull;
+    h ^= h >> 33;
+    return (size_t)h;
+}
+
+/* The registry entry of (min(a,b), max(a,b), dir): the existing one, else a
+ * new one appended at index n_flags, else NULL once the registry is full
+ * (silently capped; checked after the probe, so a dropped key is never
+ * indexed). O(1) expected via flag_slots (large-system-scaling/11); the
+ * entries, their order and the capped behaviour are those of a linear scan
+ * of flags[]. */
 static SurrFlag *flag_lookup(SurrCtx *ctx, int32_t a, int32_t b, int32_t dir)
 {
     int32_t lo = a < b ? a : b, hi = a < b ? b : a;
-    for (int32_t i = 0; i < ctx->n_flags; ++i) {
-        SurrFlag *f = &ctx->flags[i];
-        if (f->used && f->site_a == lo && f->site_b == hi && f->dir_idx == dir)
+    size_t h = flag_hash(lo, hi, dir) & ctx->flag_slot_mask;
+    while (ctx->flag_slots[h] != 0) {   /* linear probing */
+        SurrFlag *f = &ctx->flags[ctx->flag_slots[h] - 1];
+        if (f->site_a == lo && f->site_b == hi && f->dir_idx == dir)
             return f;
+        h = (h + 1) & ctx->flag_slot_mask;
     }
     if (ctx->n_flags >= ctx->capacity) return NULL;   /* full: drop silently-capped */
+    ctx->flag_slots[h] = ctx->n_flags + 1;   /* h: the empty slot that ended the probe */
     SurrFlag *f = &ctx->flags[ctx->n_flags++];
     f->used = 1; f->site_a = lo; f->site_b = hi; f->dir_idx = dir;
     f->first_step = 0; f->n_enrolled_steps = 0; f->n_fired = 0;
