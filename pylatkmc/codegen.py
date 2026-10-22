@@ -484,12 +484,19 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
         k0_Hz=rd.k0_Hz,
     )
     n_procs = n_procs_of(patterns)
+    # A baked surrogate channel de-dups against the measured procs touchup_a
+    # enrols: the touchup records their hop directions through this hook.
+    enrol_hook = None
+    if esym_model is not None:
+        from pylatkmc.surrogate_codegen import COVERED_HOP_HOOK
+
+        enrol_hook = COVERED_HOP_HOOK
     body = (
         emit_v2_enum(patterns)
         + "\n"
         + emit_v2_rate_table(patterns)
         + "\n"
-        + emit_pattern_tables(patterns)
+        + emit_pattern_tables(patterns, enrol_hook=enrol_hook)
     )
     # Channel-(a) machine-readable provenance (phase C only; byte-identical
     # aggregate/schema-1 output otherwise).

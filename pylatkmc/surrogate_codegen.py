@@ -487,6 +487,11 @@ def emit_surrogate_tables(model: EsymModel) -> str:
     a(f'const char *const pylatkmc_dE_model_version = {_c_str(model.dE_model_version)};')
     a('const char *const pylatkmc_nu0_pair_policy = "harvested_pair";')
     a("")
+    # One avail_sites tag bit per baked hop direction (uint32_t tags).
+    assert len(dirs) <= 32, "covered-hop tags hold at most 32 hop directions"
+    a("/* One avail_sites tag bit per baked hop direction (surr_dirs). */")
+    a(f"#define SURR_N_HOP_DIRS {len(dirs)}")
+    a("")
     a(_MEASURED_COVERS_C)
     return "\n".join(out) + "\n"
 
@@ -495,38 +500,64 @@ def _c_str(s: str) -> str:
     return '"' + str(s).replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
-#: The measured-channel de-dup helper (surrogate.c calls it). Emitted into
-#: proclist.c AFTER the pattern tables so it can read v2_patterns / V2_OPS /
-#: v2_procs / v2_delta_rows and avail_sites_is_enrolled directly.
-_MEASURED_COVERS_C = r"""/* Does any enrolled MEASURED proc already do the vacancy move vac_site→neigh_site
- * (v_origin at vac_site, v_dest at neigh_site)? Used to de-dup the surrogate
- * channel against channel (a). O(N_PROCS) per call (fine for the smoke). */
-static int32_t surr_proc_vsite(const Lattice *lat, int32_t anchor, int32_t proc, int row)
+#: The touchup enrolment hook that records covered hops (``emit_pattern_tables``
+#: ``enrol_hook``); defined in ``_MEASURED_COVERS_C``.
+COVERED_HOP_HOOK = "surr_tag_covered"
+
+#: The measured-channel de-dup (surrogate.c calls pylatkmc_measured_covers_hop).
+#: Emitted into proclist.c AFTER the pattern tables and surr_dirs so it can read
+#: V2_OPS / v2_delta_rows and the baked hop directions directly.
+_MEASURED_COVERS_C = r"""/* Measured-channel de-dup (large-system-scaling/10): is a MEASURED proc
+ * enrolled at vac_site that moves the vacancy from vac_site (its v_origin) along
+ * baked hop direction dir_idx (its v_dest at vac_site + surr_dirs[dir_idx])?
+ * touchup_a records the answer while it enrols: surr_tag_covered runs once per
+ * matched pattern and sets bit d of the anchor's avail_sites tag iff, under one
+ * of the matched ops, the pattern's v_origin row resolves to the anchor and its
+ * v_dest row to the real site at runtime offset surr_dirs[d]. The rows resolve
+ * through the site grid as in v2_apply, a pattern without a unique vacancy
+ * origin and destination (row -1) never covers, and avail_sites_clear drops
+ * the tags with the enrolments, so the check is one tag read with the truth
+ * value of a scan over every proc enrolled at vac_site. */
+static void surr_tag_covered(const Lattice *lat, AvailSites *as, int site,
+                             const V2Pattern *pt, uint32_t ops)
 {
-    if (row < 0) return -1;
-    const V2Proc *pr = &v2_procs[proc];
-    const V2Pattern *pt = &v2_patterns[pr->pat];
-    const int8_t *R = V2_OPS[pr->op];
-    const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + row];
-    const int16_t *c0 = &lat->site_ijk[(size_t)anchor * 3];
-    int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;
-    int32_t dj = R[3]*dr->di + R[4]*dr->dj + R[5]*dr->dk;
-    int32_t dk = R[6]*dr->di + R[7]*dr->dj + R[8]*dr->dk;
-    return lattice_site_at_ijk(lat, c0[0]+di, c0[1]+dj, c0[2]+dk);
-}
-int pylatkmc_measured_covers_hop(const Lattice *lat, const State *st,
-                                 const AvailSites *as,
-                                 int32_t vac_site, int32_t neigh_site)
-{
-    (void)st;
-    for (int32_t p = 0; p < N_PROCS; ++p) {
-        if (avail_sites_is_enrolled(as, p, vac_site) != 1) continue;
-        const V2Pattern *pt = &v2_patterns[v2_procs[p].pat];
-        int32_t vo = surr_proc_vsite(lat, vac_site, p, pt->v_origin_row);
-        int32_t vd = surr_proc_vsite(lat, vac_site, p, pt->v_dest_row);
-        if (vo == vac_site && vd == neigh_site) return 1;
+    if (pt->v_origin_row < 0 || pt->v_dest_row < 0) return;
+    const V2DeltaRow *ro = &v2_delta_rows[pt->delta_begin + pt->v_origin_row];
+    const V2DeltaRow *rd = &v2_delta_rows[pt->delta_begin + pt->v_dest_row];
+    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
+    uint32_t bits = 0;
+    for (int32_t g = 0; g < 16; ++g) {
+        if (!((ops >> g) & 1u)) continue;
+        const int8_t *R = V2_OPS[g];
+        int32_t vo = lattice_site_at_ijk(lat,
+            c0[0] + R[0]*ro->di + R[1]*ro->dj + R[2]*ro->dk,
+            c0[1] + R[3]*ro->di + R[4]*ro->dj + R[5]*ro->dk,
+            c0[2] + R[6]*ro->di + R[7]*ro->dj + R[8]*ro->dk);
+        if (vo != site) continue;
+        int32_t vd = lattice_site_at_ijk(lat,
+            c0[0] + R[0]*rd->di + R[1]*rd->dj + R[2]*rd->dk,
+            c0[1] + R[3]*rd->di + R[4]*rd->dj + R[5]*rd->dk,
+            c0[2] + R[6]*rd->di + R[7]*rd->dj + R[8]*rd->dk);
+        if (vd >= lat->n_sites) continue;   /* the absent stub: no candidate */
+        /* A candidate's direction is its raw site_ijk difference (no wrap),
+         * matched against the baked offsets exactly as surrogate_rebuild
+         * matches it, so bit d is set iff vd is that candidate's site. */
+        const int16_t *c1 = &lat->site_ijk[(size_t)vd * 3];
+        int32_t du = c1[0] - c0[0], dv = c1[1] - c0[1], dw = c1[2] - c0[2];
+        for (int32_t d = 0; d < SURR_N_HOP_DIRS; ++d) {
+            const SurrDir *D = &surr_dirs[d];
+            if (D->ru_dir == du && D->rv_dir == dv && D->rw_dir == dw) {
+                bits |= 1u << d;
+                break;
+            }
+        }
     }
-    return 0;
+    avail_sites_tag_or(as, (int32_t)site, bits);
+}
+int pylatkmc_measured_covers_hop(const AvailSites *as, int32_t vac_site, int32_t dir_idx)
+{
+    if (dir_idx < 0 || dir_idx >= SURR_N_HOP_DIRS) return 0;
+    return (int)((avail_sites_tag(as, vac_site) >> dir_idx) & 1u);
 }
 """
 
@@ -581,14 +612,15 @@ def emit_surrogate_externs(model: EsymModel) -> str:
         "extern const char *const pylatkmc_surrogate_model_version;\n"
         "extern const char *const pylatkmc_dE_model_version;\n"
         "extern const char *const pylatkmc_nu0_pair_policy;\n"
-        "/* measured-channel de-dup helper (defined in proclist.c) */\n"
-        "int pylatkmc_measured_covers_hop(const struct Lattice *lat,\n"
-        "        const struct State *st, const struct AvailSites *as,\n"
-        "        int32_t vac_site, int32_t neigh_site);\n"
+        "/* measured-channel de-dup (defined in proclist.c): 1 iff a measured proc\n"
+        " * enrolled at vac_site moves the vacancy along baked direction dir_idx */\n"
+        "int pylatkmc_measured_covers_hop(const struct AvailSites *as,\n"
+        "        int32_t vac_site, int32_t dir_idx);\n"
     )
 
 
 __all__ = (
+    "COVERED_HOP_HOOK",
     "DIRECTIONS",
     "DirGeom",
     "R_CTX_A",

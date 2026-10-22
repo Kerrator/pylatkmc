@@ -201,12 +201,20 @@ def ball_tables(patterns: list[LatticePattern]) -> tuple[list[Offset], int, list
     return ball, len(keys), rot
 
 
-def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
+def emit_pattern_tables(patterns: list[LatticePattern], *, enrol_hook: str | None = None) -> str:
     """Emit the packed pattern tables + generic matcher + apply machinery.
 
     Returns the C source fragment that replaces the v0.3 process enum /
     apply-function / decision-tree emission. The caller wraps it with the
     proclist.c preamble, the rate table, and the public-linkage glue.
+
+    ``enrol_hook`` names a C function ``void hook(const Lattice *lat,
+    AvailSites *as, int site, const V2Pattern *pt, uint32_t ops)`` that
+    ``touchup_a`` calls once per matched pattern, after enrolling its procs,
+    with the ops it matched under. The caller emits the definition later in
+    proclist.c (the surrogate channel's covered-hop tags,
+    ``surrogate_codegen.COVERED_HOP_HOOK``). ``None`` (the default) emits no
+    call, so models without a hook are byte-identical.
     """
     if not patterns:
         return (
@@ -423,6 +431,13 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("    return ops;")
     a("}")
     a("")
+    if enrol_hook is not None:
+        decl = f"static void {enrol_hook}("
+        a("/* Called once per matched pattern, after its procs are enrolled, with the")
+        a(" * ops it matched under (defined further down in this file). */")
+        a(f"{decl}const Lattice *lat, AvailSites *as, int site,")
+        a(f"{' ' * len(decl)}const V2Pattern *pt, uint32_t ops);")
+        a("")
     a("void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)")
     a("{")
     a("    if (!lat->site_grid || !lat->site_ijk) return;  /* grid not built */")
@@ -443,6 +458,8 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("        for (int32_t p = pt->proc_begin; p < pt->proc_begin + pt->proc_n; ++p)")
     a("            if ((ops >> v2_procs[p].op) & 1u)")
     a("                avail_sites_add(as, p, site);")
+    if enrol_hook is not None:
+        a(f"        {enrol_hook}(lat, as, site, pt, ops);")
     a("    }")
     a("}")
     a("")

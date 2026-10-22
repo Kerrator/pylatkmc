@@ -26,10 +26,9 @@
 
 #include "events_base.h"   /* SP_VACANT, SP_NI, SP_FE, SP_CR */
 
-/* Covered-hop check emitted into proclist.c (measured-channel de-dup). */
-int pylatkmc_measured_covers_hop(const Lattice *lat, const State *st,
-                                 const AvailSites *as,
-                                 int32_t vac_site, int32_t neigh_site);
+/* Covered-hop check emitted into proclist.c (measured-channel de-dup): one
+ * read of the hop-direction tag touchup_a left on vac_site. */
+int pylatkmc_measured_covers_hop(const AvailSites *as, int32_t vac_site, int32_t dir_idx);
 
 /* ---- feature category codes (v2: the closed lex-sorted alphabet C,E,F,N,U,W) ----
  *
@@ -482,8 +481,9 @@ double surrogate_rebuild(SurrCtx *ctx, const Lattice *lat, const State *st,
                 if (D->ru_dir == du && D->rv_dir == dv && D->rw_dir == dw) { dir_idx = d; break; }
             }
             if (dir_idx < 0) continue;
-            /* de-dup vs the measured channel */
-            if (as && pylatkmc_measured_covers_hop(lat, st, as, v, n)) continue;
+            /* de-dup vs the measured channel (O(1): touchup_a tagged v with the
+             * hop directions of the measured procs it enrolled there) */
+            if (as && pylatkmc_measured_covers_hop(as, v, dir_idx)) continue;
 
             SurrEval ev;
             if (surrogate_eval(S, lat, st, v, dir_idx, sp, T_K,

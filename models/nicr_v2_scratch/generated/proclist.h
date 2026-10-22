@@ -56,10 +56,10 @@ extern const Surrogate *const pylatkmc_surrogate;
 extern const char *const pylatkmc_surrogate_model_version;
 extern const char *const pylatkmc_dE_model_version;
 extern const char *const pylatkmc_nu0_pair_policy;
-/* measured-channel de-dup helper (defined in proclist.c) */
-int pylatkmc_measured_covers_hop(const struct Lattice *lat,
-        const struct State *st, const struct AvailSites *as,
-        int32_t vac_site, int32_t neigh_site);
+/* measured-channel de-dup (defined in proclist.c): 1 iff a measured proc
+ * enrolled at vac_site moves the vacancy along baked direction dir_idx */
+int pylatkmc_measured_covers_hop(const struct AvailSites *as,
+        int32_t vac_site, int32_t dir_idx);
 
 /* Number of Processes in this model. Defined by the generated enum
  * in proclist.c; exposed here as a const for sizeof / loop bounds. */
