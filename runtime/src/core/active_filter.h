@@ -40,7 +40,7 @@
  *   active_filter_compute_static(af, lat);             // once at startup
  *
  *   for each KMC step:
- *       active_filter_rescan(af, lat, st);
+ *       active_filter_rescan(af, lat, st);             // or _rescan_vacancies
  *       avail_sites_clear(as);
  *       for i in [0, active_filter_n_active(af)):
  *           touchup_a(active_filter_site_at(af, i));   // generated code
@@ -76,6 +76,21 @@ int  active_filter_compute_static(ActiveFilter *af, const Lattice *lat);
 void active_filter_rescan(ActiveFilter *af,
                           const Lattice *lat,
                           const State *st);
+
+/* Vacancy-only rescan: the active list is exactly the vacant sites of the
+ * list active_filter_rescan builds, in the same relative order: the static
+ * vacancies by ascending site index, then the others at their first
+ * appearance in the vac_list walk (a vacancy can first appear as the 1NN of
+ * a vacancy ahead of it in vac_list). For a model whose Processes all
+ * anchor on a vacancy (PYLATKMC_ANCHOR_SPECIES_MASK in the generated
+ * proclist.h), touchup_a enrols nothing anywhere else, so touching up this
+ * list builds the same avail_sites lists, slot for slot, as the full
+ * rescan. Requires the State invariant that vac_list holds every vacant
+ * site. O(n_vac * <degree>) plus a sort of the static vacancies; no pass
+ * over the static sites. */
+void active_filter_rescan_vacancies(ActiveFilter *af,
+                                    const Lattice *lat,
+                                    const State *st);
 
 /* Manual marking (for incremental rebuild after an event).
  * `mark`: idempotently sets the site active and appends to active_list if

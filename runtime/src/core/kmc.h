@@ -56,7 +56,8 @@ typedef struct {
 } KmcContext;
 
 /* One rejection-free step:
- *   1. active_filter_rescan(af, lat, st)
+ *   1. active_filter_rescan(af, lat, st), or active_filter_rescan_vacancies
+ *      when the generated PYLATKMC_ANCHOR_SPECIES_MASK is vacancy-only
  *   2. avail_sites_clear(as)
  *   3. for each active site: touchup_a(lat, st, as, site)
  *   4. avail_sites_refresh_cum_rates(as)

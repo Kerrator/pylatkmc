@@ -5,6 +5,9 @@
  *   1. active_filter_rescan(af, lat, st)
  *      → marks every vacant site, every 1NN of vacant, and every static
  *        (geometry-derived) low-coordination site
+ *      (active_filter_rescan_vacancies instead when every Process anchors
+ *       on a vacancy: then only the vacant sites can enrol anything, and it
+ *       lists exactly those, in the same order)
  *
  *   2. avail_sites_clear(as)
  *      → wipes all enrolments from the previous step (rates stay)
@@ -53,9 +56,18 @@
  * pylatkmc_n_procs, etc. — and, on a Phase C surrogate build, defines
  * PYLATKMC_HAS_SURROGATE + the surrogate externs. */
 #include "proclist.h"
+#include "events_base.h"   /* SP_VACANT (PYLATKMC_ANCHOR_SPECIES_MASK names SP_* bits) */
 
 #ifdef PYLATKMC_HAS_SURROGATE
 #include "surrogate.h"
+#endif
+
+/* Bit (1u << SP_<X>) of the generated PYLATKMC_ANCHOR_SPECIES_MASK is set iff
+ * touchup_a can enrol a Process at a site holding species X. A proclist
+ * generated before the mask existed does not define it: assume any species
+ * may anchor, i.e. the full rescan. */
+#ifndef PYLATKMC_ANCHOR_SPECIES_MASK
+#define PYLATKMC_ANCHOR_SPECIES_MASK (~0u)
 #endif
 
 /* Min-image displacement on one axis. */
@@ -133,8 +145,15 @@ int kmc_step_once(KmcContext *ctx,
     if (!ctx || !ctx->lat || !ctx->st || !ctx->as || !ctx->af || !ctx->rng)
         return -EINVAL;
 
-    /* 1. Rescan the active set. */
-    active_filter_rescan(ctx->af, ctx->lat, ctx->st);
+    /* 1. Rescan the active set. When every Process anchors on a vacancy,
+     * touchup_a enrols nothing at any other site, so only the vacant sites
+     * are listed, in the order the full rescan lists them: the avail_sites
+     * lists, and so the selected events, stay bitwise identical, without a
+     * touchup at every surface site each step. */
+    if ((PYLATKMC_ANCHOR_SPECIES_MASK & ~(1u << SP_VACANT)) == 0u)
+        active_filter_rescan_vacancies(ctx->af, ctx->lat, ctx->st);
+    else
+        active_filter_rescan(ctx->af, ctx->lat, ctx->st);
 
     /* 2. Wipe last step's enrolments. */
     avail_sites_clear(ctx->as);

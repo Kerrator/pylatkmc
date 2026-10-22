@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "events_base.h"   /* SP_VACANT */
+
 struct ActiveFilter {
     int32_t  n_sites;
     int32_t  bulk_threshold;
@@ -168,6 +170,54 @@ void active_filter_rescan(ActiveFilter *af,
         active_filter_mark(af, s);
         for (int32_t i = lat->nn1_offsets[s]; i < lat->nn1_offsets[s + 1]; ++i) {
             active_filter_mark(af, lat->nn1_indices[i]);
+        }
+    }
+}
+
+static int _cmp_site(const void *a, const void *b)
+{
+    int32_t x = *(const int32_t *)a, y = *(const int32_t *)b;
+    return (x > y) - (x < y);
+}
+
+/* Internal: list `site` if it is a vacancy (active_filter_mark's effect,
+ * restricted to the sites a vacancy-anchored touchup can enrol). */
+static inline void _mark_vacant(ActiveFilter *af, const State *st, int32_t site)
+{
+    if (site < 0 || site >= af->n_sites || st->species[site] != SP_VACANT) return;
+    af->is_active[site] = 1;
+    _append(af, site);
+}
+
+void active_filter_rescan_vacancies(ActiveFilter *af,
+                                    const Lattice *lat,
+                                    const State *st)
+{
+    if (!af) return;
+    _drop_all(af);
+    if (!st || st->n_vac <= 0 || !st->vac_list || !st->species) return;
+
+    /* 1. The static vacancies, ascending: active_filter_rescan seeds every
+     *    static site in site order before it walks vac_list. */
+    for (int32_t v = 0; v < st->n_vac; ++v) {
+        int32_t s = st->vac_list[v];
+        if (s >= 0 && s < af->n_sites && af->static_mask[s]) _mark_vacant(af, st, s);
+    }
+    if (af->n_active > 1) {
+        qsort(af->active_list, (size_t)af->n_active, sizeof *af->active_list, _cmp_site);
+        for (int32_t i = 0; i < af->n_active; ++i) af->list_idx[af->active_list[i]] = i;
+    }
+
+    if (!lat || !lat->nn1_offsets || !lat->nn1_indices) return;
+
+    /* 2. The rest at their first appearance in active_filter_rescan's walk:
+     *    each vacancy in vac_list order, then its 1NN in CSR order. */
+    for (int32_t v = 0; v < st->n_vac; ++v) {
+        int32_t s = st->vac_list[v];
+        if (s < 0 || s >= af->n_sites) continue;
+        _mark_vacant(af, st, s);
+        for (int32_t i = lat->nn1_offsets[s]; i < lat->nn1_offsets[s + 1]; ++i) {
+            _mark_vacant(af, st, lat->nn1_indices[i]);
         }
     }
 }
