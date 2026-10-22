@@ -11,6 +11,7 @@ test_mpi_failure_modes.py):
 - 06: ``initconfig_load`` rejects header counts beyond int32 instead of
   truncating them; the emitters index ``coord_table`` / ``site_ijk`` in
   ``size_t`` (committed proclists included).
+- 07: the ``PYLATKMC_NATIVE`` CMake option (default ON keeps today's flags).
 
 Each test skips cleanly without cc / cmake (or numpy+scipy for the kmcinit
 fixture).
@@ -21,6 +22,7 @@ from __future__ import annotations
 import ctypes
 import errno
 import importlib.util
+import json
 import math
 import re
 import shutil
@@ -511,3 +513,43 @@ def test_rejected_apply_fails_the_step_without_advancing_the_clock(tmp_path: Pat
     rc = lib.pylatkmc_test_step_rejected(ctypes.byref(time_s), ctypes.byref(step))
     assert rc == -errno.EINVAL
     assert (time_s.value, step.value) == (0.0, 0), "a rejected event must not tick the clock"
+
+
+# ---------------------------------------------------------------------------
+# 07 — PYLATKMC_NATIVE: ON (default) keeps today's flags, OFF is portable
+# ---------------------------------------------------------------------------
+
+
+def _lib_compile_command(build: Path, *defs: str) -> str:
+    """Configure (no build) and return the compile command of a runtime source."""
+    if shutil.which("cmake") is None:
+        pytest.skip("cmake not on PATH")
+    res = subprocess.run(
+        [
+            "cmake",
+            "-S",
+            str(REPO_ROOT),
+            "-B",
+            str(build),
+            "-DMODEL=ni_example",
+            "-DCMAKE_BUILD_TYPE=Release",
+            "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+            *defs,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if res.returncode != 0:
+        if "MPI" in res.stderr:
+            pytest.skip(f"MPI not available: {res.stderr[:200]}")
+        raise AssertionError(f"cmake configure failed:\n{res.stdout}\n{res.stderr}")
+    commands = json.loads((build / "compile_commands.json").read_text())
+    return next(c["command"] for c in commands if c["file"].endswith("core/kmc.c"))
+
+
+def test_pylatkmc_native_option(tmp_path: Path) -> None:
+    default = _lib_compile_command(tmp_path / "default")
+    portable = _lib_compile_command(tmp_path / "portable", "-DPYLATKMC_NATIVE=OFF")
+    assert "-O3 -march=native -Wall -Wextra -Wpedantic" in default  # unchanged flags
+    assert "-march=native" not in portable
+    assert "-O3 -Wall -Wextra -Wpedantic" in portable
