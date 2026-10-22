@@ -18,141 +18,43 @@ temp dirs) and launches them with at most 2 ranks:
   2*reach+1 grid planes (a reach x reach surface: the 8x8 box for reach 8),
   and still runs one cell pair wider.
 
-Every launch gets a private, short TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open
-MPI singleton sharing /tmp/ompi.* can disturb unrelated jobs) and a hard
-timeout that tears the whole job down, so a hang fails the test instead of
-blocking the suite; MPIEXEC_TIMEOUT is a backstop should the test process die
-mid-launch. Skipped without mpirun / cmake / an MPI toolchain (and without
-numpy + scipy for the boxes tools/build_initial_config.py generates).
+Builds and launches go through _mpi_harness: every launch gets a private,
+short TMPDIR / OMPI_MCA_orte_tmpdir_base (an Open MPI singleton sharing
+/tmp/ompi.* can disturb unrelated jobs) and a hard timeout that tears the
+whole job down, so a hang fails the test instead of blocking the suite.
+Skipped without mpirun / cmake / an MPI toolchain (and without numpy + scipy
+for the boxes tools/build_initial_config.py generates).
 """
 
 from __future__ import annotations
 
 import errno
 import json
-import os
 import re
-import shutil
-import signal
 import subprocess
 import sys
-import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+from ._mpi_harness import build_model, mpirun, private_mpi_env
 
 REPO_ROOT = Path(__file__).resolve().parents[2]  # pylatkmc/
 NI_SLAB_1VAC = REPO_ROOT / "models" / "ni_example" / "examples" / "slab_ni_1vac.kmcinit"
 NI_SLAB_0VAC = REPO_ROOT / "models" / "ni_dissolution_demo" / "examples" / "slab_ni_0vac.kmcinit"
 NICR_PROCLIST_H = REPO_ROOT / "models" / "nicr_v2_scratch" / "generated" / "proclist.h"
 BUILD_INITIAL_CONFIG = REPO_ROOT / "tools" / "build_initial_config.py"
-LAUNCH_TIMEOUT_S = 120.0
-
-
-def _teardown(proc: subprocess.Popen[str]) -> None:
-    """Tear down a job that outlived its timeout. On Linux, SIGKILL every
-    process in mpirun's session while mpirun is still unreaped (so the session
-    id cannot have been reused): Open MPI gives each rank its own process
-    group, so killing mpirun alone would orphan them. Elsewhere, ask mpirun to
-    forward SIGTERM to its ranks."""
-    if Path("/proc/self/stat").exists():
-        for stat in Path("/proc").glob("[0-9]*/stat"):
-            try:
-                fields = stat.read_text().rsplit(")", 1)[1].split()
-                if int(fields[3]) == proc.pid:  # state ppid pgrp SESSION ...
-                    os.kill(int(stat.parent.name), signal.SIGKILL)
-            except (OSError, IndexError, ValueError):
-                continue
-    else:
-        proc.terminate()
-    try:
-        proc.communicate(timeout=15)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
-
-
-def _mpirun(
-    apps: list[tuple[Path, Path]], env: dict[str, str], timeout: float = LAUNCH_TIMEOUT_S
-) -> subprocess.CompletedProcess[str] | None:
-    """Launch one single-rank app context per (binary, ini): MPMD, so ranks can
-    get different inputs. Returns None if the job outlived ``timeout``, after
-    tearing it down."""
-    cmd = ["mpirun", "--oversubscribe", "--bind-to", "none"]
-    for i, (binary, ini) in enumerate(apps):
-        cmd += ([":"] if i else []) + ["-n", "1", str(binary), str(ini)]
-    proc = subprocess.Popen(
-        cmd,
-        env={**env, "MPIEXEC_TIMEOUT": str(int(timeout) + 30)},
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
-    try:
-        out, err = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        _teardown(proc)
-        return None
-    return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
 
 
 @pytest.fixture(scope="module")
 def mpi_env() -> Iterator[dict[str, str]]:
-    if shutil.which("mpirun") is None:
-        pytest.skip("mpirun not on PATH")
-    # A short private dir: Open MPI puts Unix sockets under it (paths are
-    # capped at 104 bytes on macOS, whose default TMPDIR is already long).
-    darwin = os.uname().sysname == "Darwin"
-    tmp = tempfile.mkdtemp(prefix="plk-ompi-", dir="/tmp" if darwin else None)
-    env = {
-        **os.environ,
-        "TMPDIR": tmp,
-        "OMPI_MCA_orte_tmpdir_base": tmp,
-        "OMP_NUM_THREADS": "1",
-    }
-    probe = _mpirun([(Path(shutil.which("true") or "/usr/bin/true"), Path("probe"))], env, 60.0)
-    if probe is None or probe.returncode != 0:
-        shutil.rmtree(tmp, ignore_errors=True)
-        pytest.skip(f"mpirun cannot launch a trivial job here: {probe and probe.stderr[:200]}")
-    yield env
-    shutil.rmtree(tmp, ignore_errors=True)
-
-
-def _build(model: str, tmp: Path) -> Path:
-    if shutil.which("cmake") is None:
-        pytest.skip("cmake not on PATH")
-    build = tmp / f"build_{model}"
-    cfg = subprocess.run(
-        [
-            "cmake",
-            "-S",
-            str(REPO_ROOT),
-            "-B",
-            str(build),
-            f"-DMODEL={model}",
-            "-DCMAKE_BUILD_TYPE=Release",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if cfg.returncode != 0:
-        if "MPI" in cfg.stderr:
-            pytest.skip(f"MPI not available: {cfg.stderr[:200]}")
-        raise AssertionError(f"cmake configure failed:\n{cfg.stdout}\n{cfg.stderr}")
-    bld = subprocess.run(
-        ["cmake", "--build", str(build), "-j", "2"], capture_output=True, text=True
-    )
-    assert bld.returncode == 0, f"cmake build failed:\n{bld.stdout}\n{bld.stderr}"
-    binary = build / f"pylatkmc_{model}"
-    assert binary.is_file(), f"expected binary at {binary}"
-    return binary
+    yield from private_mpi_env()
 
 
 @pytest.fixture(scope="module")
 def ni_binary(mpi_env: dict[str, str], tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _build("ni_example", tmp_path_factory.mktemp("ni"))
+    return build_model("ni_example", tmp_path_factory.mktemp("ni"))
 
 
 def _ini(
@@ -215,7 +117,7 @@ def test_setup_failure_counts_as_failed_and_exits_nonzero(
     stayed 0, the aggregate listed both ranks under n_success, exit 0."""
     out = tmp_path / "out"
     ini = _ini(tmp_path / "in.ini", tmp_path / "missing.kmcinit", out)
-    res = _mpirun([(ni_binary, ini)] * 2, mpi_env)
+    res = mpirun([(ni_binary, ini)] * 2, mpi_env)
     assert res is not None, "job hung"
     assert res.returncode != 0, res.stderr
     agg = _aggregate(out)
@@ -234,7 +136,7 @@ def test_setup_failure_on_one_rank_is_counted_and_fails_the_job(
     out = tmp_path / "out"
     good = _ini(tmp_path / "good.ini", NI_SLAB_1VAC, out)
     bad = _ini(tmp_path / "bad.ini", tmp_path / "missing.kmcinit", out)
-    res = _mpirun([(ni_binary, good), (ni_binary, bad)], mpi_env)
+    res = mpirun([(ni_binary, good), (ni_binary, bad)], mpi_env)
     assert res is not None, "job hung"
     assert res.returncode != 0, res.stderr
     agg = _aggregate(out)
@@ -263,7 +165,7 @@ def test_completed_or_trapped_run_exits_zero(
     if not slab.is_file():
         pytest.skip(f"example slab missing: {slab}")
     out = tmp_path / "out"
-    res = _mpirun([(ni_binary, _ini(tmp_path / "in.ini", slab, out))] * 2, mpi_env)
+    res = mpirun([(ni_binary, _ini(tmp_path / "in.ini", slab, out))] * 2, mpi_env)
     assert res is not None, "job hung"
     assert res.returncode == 0, res.stderr
     agg = _aggregate(out)
@@ -312,7 +214,7 @@ def test_one_rank_startup_failure_terminates_every_rank(
         out.mkdir()
         (out / "replica_0001").write_text("")
         bad = good
-    res = _mpirun([(ni_binary, good), (ni_binary, bad)], mpi_env, timeout=60.0)
+    res = mpirun([(ni_binary, good), (ni_binary, bad)], mpi_env, timeout=60.0)
     assert res is not None, "rank 0 hung after rank 1 failed startup"
     assert res.returncode != 0
     assert f"[rank 1] {stage} failed" in res.stderr
@@ -327,7 +229,7 @@ def test_one_rank_startup_failure_terminates_every_rank(
 
 @pytest.fixture(scope="module")
 def nicr_binary(mpi_env: dict[str, str], tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return _build("nicr_v2_scratch", tmp_path_factory.mktemp("nicr"))
+    return build_model("nicr_v2_scratch", tmp_path_factory.mktemp("nicr"))
 
 
 def _nicr_reach() -> tuple[int, int]:
@@ -388,7 +290,7 @@ def nicr_wide_run(
     tmp = tmp_path_factory.mktemp("nicr_wide")
     out = tmp / "out"
     ini = _ini(tmp / "in.ini", _nicr_box(tmp, reach_ij + 1), out, temperature_K=600.0)
-    res = _mpirun([(nicr_binary, ini)] * 2, mpi_env)
+    res = mpirun([(nicr_binary, ini)] * 2, mpi_env)
     assert res is not None, "job hung"
     return res, out
 
@@ -417,7 +319,7 @@ def test_short_periodic_axis_is_refused_at_startup(
     reach_ij, _ = _nicr_reach()
     out = tmp_path / "out"
     ini = _ini(tmp_path / "in.ini", _nicr_box(tmp_path, reach_ij), out, temperature_K=600.0)
-    res = _mpirun([(nicr_binary, ini)] * 2, mpi_env)
+    res = mpirun([(nicr_binary, ini)] * 2, mpi_env)
     assert res is not None, "job hung"
     assert res.returncode != 0
     assert f"axis 0 is periodic (no vacuum gap) with only {2 * reach_ij} grid planes" in res.stderr
