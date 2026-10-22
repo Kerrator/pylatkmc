@@ -101,19 +101,34 @@ static void update_msd(const Lattice *lat, State *st, int32_t v_origin, int32_t 
     }
 }
 
-/* Apply the selected measured Process at the given anchor site. */
-static void apply_event(KmcContext *ctx, int32_t proc, int32_t site)
+/* Apply the selected measured Process at the given anchor site. Returns 0,
+ * or -EINVAL when the apply function reports PYLATKMC_HOP_REJECTED (v2 pattern
+ * path: state_apply_actions rejected the event and the state is untouched),
+ * so the step fails instead of counting a no-op event with an advancing
+ * clock. */
+static int apply_event(KmcContext *ctx, int32_t proc, int32_t site)
 {
     State *st = ctx->st;
     const Lattice *lat = ctx->lat;
 
     HopOutcome ho = pylatkmc_apply_table[proc](st, lat, site);
+    if (ho.v_origin == PYLATKMC_HOP_REJECTED) {
+        fprintf(stderr,
+                "kmc_step_once: step %llu: state_apply_actions rejected proc %d "
+                "at site %d (a delta row's before-state does not match, two rows "
+                "resolve to one site, or the vacancy budget is full); stopping "
+                "the run instead of logging a no-op step\n",
+                (unsigned long long)st->step, proc, site);
+        return -EINVAL;
+    }
     if (pylatkmc_rate_table[proc].is_electrochemical) st->n_dissolution++;
     update_msd(lat, st, ho.v_origin, ho.v_dest);
+    return 0;
 }
 
 int kmc_step_once(KmcContext *ctx,
-                  int32_t *out_proc, int32_t *out_site, double *out_dt)
+                  int32_t *out_proc, int32_t *out_site, double *out_dt,
+                  double *out_r_tot)
 {
     if (!ctx || !ctx->lat || !ctx->st || !ctx->as || !ctx->af || !ctx->rng)
         return -EINVAL;
@@ -159,7 +174,8 @@ int kmc_step_once(KmcContext *ctx,
     if (target < pat_rtot || surr_rtot <= 0.0) {
         int rc = avail_sites_select(ctx->as, target, &proc, &site);
         if (rc != 0) return rc;
-        apply_event(ctx, proc, site);
+        rc = apply_event(ctx, proc, site);
+        if (rc != 0) return rc;
 #ifdef PYLATKMC_HAS_SURROGATE
         if (ctx->surr)
             surrogate_note_measured(ctx->surr, pylatkmc_proc_v6_ea[proc],
@@ -184,9 +200,10 @@ int kmc_step_once(KmcContext *ctx,
     ctx->st->time_s += dt;
     ctx->st->step   += 1;
 
-    if (out_proc) *out_proc = proc;
-    if (out_site) *out_site = site;
-    if (out_dt)   *out_dt   = dt;
+    if (out_proc)  *out_proc  = proc;
+    if (out_site)  *out_site  = site;
+    if (out_dt)    *out_dt    = dt;
+    if (out_r_tot) *out_r_tot = r_tot;
     return 0;
 }
 
@@ -233,8 +250,8 @@ int kmc_run(KmcContext *ctx)
         if (cfg->max_time_s > 0 && ctx->st->time_s >= cfg->max_time_s) break;
 
         int32_t proc_done = -1, site_done = -1;
-        double  dt_done   = 0.0;
-        int step_rc = kmc_step_once(ctx, &proc_done, &site_done, &dt_done);
+        double  dt_done   = 0.0, r_tot_done = 0.0;
+        int step_rc = kmc_step_once(ctx, &proc_done, &site_done, &dt_done, &r_tot_done);
         if (step_rc == -ENODATA) {
             fprintf(stderr, "kmc_run: trapped at step %llu\n",
                     (unsigned long long)ctx->st->step);
@@ -251,10 +268,13 @@ int kmc_run(KmcContext *ctx)
                                      ctx->temperature_K, ctx->overpotential_phi_eV)
                     : 0.0;
                 double Ea_eV   = (proc_done >= 0) ? pylatkmc_rate_table[proc_done].Ea_eV : 0.0;
+                /* k_tot = the total rate dt and selection used (measured +
+                 * surrogate channel); identical to the measured r_tot on a
+                 * build without the surrogate channel. */
                 pykmc_out_write_row(&out_log,
                                      ctx->st->step, ctx->st->time_s, dt_done,
                                      ctx->st->n_vac,
-                                     avail_sites_r_tot(ctx->as),
+                                     r_tot_done,
                                      k_event, Ea_eV,
                                      proc_done, site_done);
             }

@@ -169,7 +169,8 @@ For ni_fe_cr_v1's 358 Processes, the tree depth is ~7 levels and
 
 ```c
 int kmc_step_once(KmcContext *ctx,
-                  int32_t *out_proc, int32_t *out_site, double *out_dt)
+                  int32_t *out_proc, int32_t *out_site, double *out_dt,
+                  double *out_r_tot)
 {
     active_filter_rescan(ctx->af, ctx->lat, ctx->st);
     avail_sites_clear(ctx->as);
@@ -219,6 +220,30 @@ rank. After `kmc_run` returns, rank 0 collects each replica's
 `ReplicaStats` via `MPI_Gather` and writes `aggregate_summary.json`
 to `output_root/`.
 
+Failure handling (`runtime/src/main.c`, `replica.c`):
+
+- **Startup is agreed collectively.** `input_config_load` and `replica_init`
+  (replica directory creation) run on every rank, then an `MPI_Allreduce`
+  checks them: if any rank failed, every rank exits 1 before any replica
+  runs, so a rank-local failure (an `output_root` one node can't write, a
+  replica path too long for its 512-byte buffer, a file where a replica
+  directory must go) can't leave the healthy ranks blocked in `MPI_Gather`
+  until walltime.
+- **`run_rc` per replica.** `0` = reached `max_steps` / `max_time_s`;
+  `-ENODATA` (-61) = trapped (no event left); anything else is a failure: a
+  setup error inside `replica_run` (unreadable `.kmcinit`, `avail_sites`
+  ENOMEM, a geometry refused by the v2 reach checks, ...), recorded as that
+  replica's `run_rc` although `kmc_run` never ran, or a failed step (e.g. a
+  rejected v2 apply, see Run below).
+  `aggregate_summary.json` counts `run_rc == 0` as `n_success` and everything
+  else, traps included, as `n_failed`.
+- **Exit status.** 0 when every replica completed or trapped (a normal
+  physical end); 1 on every rank when any replica failed setup or its run, so
+  sweeps and job queues see failures such as an OOM on some ranks. A final
+  `MPI_Barrier` keeps every rank alive until rank 0 has written
+  `aggregate_summary.json`, so a launcher that kills the job on the first
+  non-zero exit cannot truncate it.
+
 ---
 
 ## Model spec (TOML)
@@ -260,6 +285,24 @@ CMake `file(GLOB)` picks up:
 - Compiles them into `pylatkmc_lib` (static archive)
 - Links `runtime/src/main.c` against it → final binary
 
+`-DPYLATKMC_NATIVE=ON` (the default) compiles the runtime library with
+`-O3 -march=native`, tuned for the build host: the default flags, and so
+fixed-seed outputs, are unchanged. **Cluster (DRAC) builds:** configure with
+`-DPYLATKMC_NATIVE=OFF`, because a `-march=native` binary built on a login node
+can stop with an illegal-instruction error on compute nodes with older CPUs.
+Add `-DCMAKE_C_FLAGS=-march=x86-64-v3` to target a known baseline (AVX2 + FMA:
+Haswell / Zen or newer, GCC >= 11 or Clang >= 12; check the oldest node type of
+the cluster you run on):
+
+```bash
+cmake -B build -DMODEL=<model> -DPYLATKMC_NATIVE=OFF        # portable
+cmake -B build -DMODEL=<model> -DPYLATKMC_NATIVE=OFF \
+      -DCMAKE_C_FLAGS=-march=x86-64-v3                      # AVX2-class nodes
+```
+
+`PYLATKMC_NATIVE` is a cached option (like `MODEL`): re-run the configure step
+to change it.
+
 ---
 
 ## Run
@@ -274,6 +317,19 @@ cat output/aggregate_summary.json
 T, and the RNG seed. See
 [`runtime/src/io/config_reader.h`](../runtime/src/io/config_reader.h)
 for the field set.
+
+v2 (pattern-table) models refuse two geometries at startup, because the
+integer site grid wraps every axis: a vacuum gap thinner than the pattern
+reach, and a periodic (vacuum-free) axis shorter than `2*reach+1` grid planes
+(offsets would alias onto each other or onto the anchor). The reach is
+`PYLATKMC_V2_MAX_REACH_{IJ,K}` in the model's `generated/proclist.h`; an
+in-plane grid axis has two planes per surface 1NN spacing, so reach 8 needs at
+least a 9×9 surface. Both refusals fail the replica with `run_rc = -EINVAL`
+before its first step (and the job exits 1). At run time, a v2 event whose
+delta rows `state_apply_actions` rejects (a before-state that no longer
+matches, two rows on one site, a full vacancy budget) makes the generated
+apply return `PYLATKMC_HOP_REJECTED` (`state.h`); `kmc_step_once` then fails
+the step with `-EINVAL` before the clock ticks, instead of logging a no-op.
 
 ---
 

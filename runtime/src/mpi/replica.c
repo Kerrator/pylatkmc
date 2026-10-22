@@ -33,12 +33,18 @@
  * we add BCC/HCP we'll plumb this through ModelSpec. */
 #define PYLATKMC_FCC_BULK_NN1   12
 
+/* 0 if `path` is (or now is) a directory; an existing non-directory is
+ * -ENOTDIR, not success, so replica_init fails up front instead of the run
+ * failing later at its first file open. */
 static int ensure_dir(const char *path) {
     struct stat st;
-    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) return 0;
+    if (stat(path, &st) == 0) return S_ISDIR(st.st_mode) ? 0 : -ENOTDIR;
     if (mkdir(path, 0755) == 0) return 0;
-    if (errno == EEXIST) return 0;
-    return -errno;
+    int err = errno;
+    /* EEXIST: another rank created it between our stat and mkdir. */
+    if (err == EEXIST)
+        return (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) ? 0 : -ENOTDIR;
+    return -err;
 }
 
 int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nranks)
@@ -48,10 +54,13 @@ int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nran
     rep->rank   = rank;
     rep->nranks = nranks;
     rep->stats.rank = rank;
-    snprintf(rep->out_dir, sizeof(rep->out_dir),
-             "%s/replica_%04d", cfg->output_root, rank);
-    int rc = ensure_dir(cfg->output_root); if (rc != 0 && rc != -EEXIST) return rc;
-    rc     = ensure_dir(rep->out_dir);     if (rc != 0 && rc != -EEXIST) return rc;
+    int n = snprintf(rep->out_dir, sizeof(rep->out_dir),
+                     "%s/replica_%04d", cfg->output_root, rank);
+    /* A truncated out_dir would silently point (some) ranks at a wrong,
+     * possibly shared directory: fail instead (main.c fails every rank). */
+    if (n < 0 || (size_t)n >= sizeof(rep->out_dir)) return -ENAMETOOLONG;
+    int rc = ensure_dir(cfg->output_root); if (rc != 0) return rc;
+    rc     = ensure_dir(rep->out_dir);     if (rc != 0) return rc;
     return 0;
 }
 
@@ -143,10 +152,10 @@ static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
     fclose(fp);
 }
 
-int replica_run(ReplicaContext *rep, const InputConfig *cfg)
+/* Setup + kmc_run. Every early return below is a setup failure; replica_run
+ * records whatever this returns in rep->stats.run_rc. */
+static int replica_setup_and_run(ReplicaContext *rep, const InputConfig *cfg)
 {
-    if (!rep || !cfg) return -EINVAL;
-
     Lattice       lat = {0};
     State         st  = {0};
     AvailSites   *as  = NULL;
@@ -184,17 +193,21 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
 
 #ifdef PYLATKMC_V2_MAX_REACH_K
     /* v2 pattern offsets resolve with wrap on every axis. Wrap is correct
-     * for a periodic (fully occupied) axis, and harmless when the empty gap
-     * (vacuum) is at least the pattern reach — offsets past the surface then
-     * hit empty grid cells (the stub) before they can reach the far surface.
-     * A thinner gap would silently alias patterns across the vacuum, so
-     * refuse it up front. The reach macros come from the generated
-     * proclist.h (v2 models only; v0.3 proclists don't define them). */
+     * for a periodic (fully occupied) axis at least 2*reach+1 grid planes
+     * long, and harmless when the empty gap (vacuum) is at least the pattern
+     * reach — offsets past the surface then hit empty grid cells (the stub)
+     * before they can reach the far surface. A thinner gap would silently
+     * alias patterns across the vacuum, and on a shorter periodic axis the
+     * offsets d and d - dim resolve to the same site (context rows test
+     * their own periodic image, delta rows can collide), so refuse both up
+     * front. The reach macros come from the generated proclist.h (v2 models
+     * only; v0.3 proclists don't define them). */
     {
         static const int axis_reach[3] = {
             PYLATKMC_V2_MAX_REACH_IJ, PYLATKMC_V2_MAX_REACH_IJ,
             PYLATKMC_V2_MAX_REACH_K,
         };
+        const int axis_dim[3] = { lat.grid_nx, lat.grid_ny, lat.grid_nz };
         for (int ax = 0; ax < 3; ++ax) {
             int gap = lattice_max_empty_axis_run(&lat, ax);
             if (gap < 0) {
@@ -211,6 +224,18 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
                         "wrap across the gap and silently match the far surface. "
                         "Thicken the vacuum in the initial configuration.\n",
                         rep->rank, ax, gap, axis_reach[ax]);
+                state_free(&st); lattice_free(&lat);
+                return -EINVAL;
+            }
+            if (gap == 0 && axis_dim[ax] < 2 * axis_reach[ax] + 1) {
+                fprintf(stderr,
+                        "[rank %d] axis %d is periodic (no vacuum gap) with only "
+                        "%d grid planes, fewer than 2*reach+1 = %d for the v2 "
+                        "pattern reach (%d): pattern offsets would wrap onto each "
+                        "other or onto the anchor and silently match periodic "
+                        "images. Enlarge the box along this axis.\n",
+                        rep->rank, ax, axis_dim[ax], 2 * axis_reach[ax] + 1,
+                        axis_reach[ax]);
                 state_free(&st); lattice_free(&lat);
                 return -EINVAL;
             }
@@ -341,6 +366,17 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     state_free(&st);
     lattice_free(&lat);
     return run_rc;
+}
+
+int replica_run(ReplicaContext *rep, const InputConfig *cfg)
+{
+    if (!rep) return -EINVAL;
+    int rc = cfg ? replica_setup_and_run(rep, cfg) : -EINVAL;
+    /* Record EVERY outcome, setup failures included: a setup failure returns
+     * before kmc_run, and a run_rc left at its memset 0 would let
+     * replica_aggregate count this never-run replica as a success. */
+    rep->stats.run_rc = rc;
+    return rc;
 }
 
 /* Small helper — mean and sample std over an array. */

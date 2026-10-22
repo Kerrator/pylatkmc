@@ -24,6 +24,14 @@ set(MODEL "ni_fe_cr_v1" CACHE STRING "Model name under models/ to compile")
 # explicitly — but you will NOT get a working binary without codegen.
 option(REQUIRE_GENERATED "Fail if models/<MODEL>/generated/ is empty" ON)
 
+# -march=native tunes the code for the CPU of the BUILD host. That is right
+# for local runs, but a binary built on a cluster login node can stop with
+# "Illegal instruction" on compute nodes with older CPUs. For cluster (DRAC)
+# builds configure with -DPYLATKMC_NATIVE=OFF (portable), optionally adding a
+# known ISA level: -DCMAKE_C_FLAGS=-march=x86-64-v3. The default ON keeps
+# local builds, and their fixed-seed outputs, exactly as before.
+option(PYLATKMC_NATIVE "Compile with -march=native (tune for the build host's CPU)" ON)
+
 # --------------------------------------------------------------
 # Dependencies
 # --------------------------------------------------------------
@@ -105,7 +113,7 @@ target_include_directories(pylatkmc_lib PUBLIC
 target_link_libraries(pylatkmc_lib PUBLIC MPI::MPI_C m)
 
 target_compile_options(pylatkmc_lib PRIVATE
-    -O3 -march=native -Wall -Wextra -Wpedantic
+    -O3 $<$<BOOL:${PYLATKMC_NATIVE}>:-march=native> -Wall -Wextra -Wpedantic
     $<$<CONFIG:Debug>:-O0 -g -fsanitize=address,undefined>
 )
 target_link_options(pylatkmc_lib PRIVATE
@@ -141,3 +149,4 @@ message(STATUS "  MODEL_DIR        = ${PYLATKMC_MODEL_DIR}")
 message(STATUS "  GEN_DIR          = ${PYLATKMC_GEN_DIR}")
 message(STATUS "  generated .c     = ${_n_gen_c} file(s)")
 message(STATUS "  CMAKE_BUILD_TYPE = ${CMAKE_BUILD_TYPE}")
+message(STATUS "  PYLATKMC_NATIVE  = ${PYLATKMC_NATIVE}")

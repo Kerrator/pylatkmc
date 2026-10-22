@@ -33,6 +33,89 @@ All notable changes to pylatkmc are documented here, following
   - Tests: `test_dissolution_rate.py`, `test_dissolution_translate.py`, and a
     build+run `test_dissolution_smoke.py` (verifies a dissolution fires, a
     vacancy is created, and the first-event rate scales as `exp(Phi/kT)`).
+- **`PYLATKMC_NATIVE` CMake option** (default `ON` = the historical
+  `-O3 -march=native` flags, so local binaries and their fixed-seed outputs are
+  unchanged). Cluster (DRAC) builds should pass `-DPYLATKMC_NATIVE=OFF`
+  (optionally with `-DCMAKE_C_FLAGS=-march=x86-64-v3`): a `-march=native`
+  binary built on a login node can die with an illegal instruction on older
+  compute nodes. The configure summary prints the setting; README.md and
+  docs/ARCHITECTURE.md (Build) document it. (large-system-scaling/07)
+
+### Changed
+
+- **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
+  total rate the step's `dt` was drawn from and its event selected against
+  (measured + surrogate channel). It used to log the measured channel only
+  (`0.0` on surrogate-only steps), so `k_tot != 1/<dt>` there. Builds without
+  the surrogate channel (`PYLATKMC_HAS_SURROGATE` undefined: every v0.3 model
+  and `nife_v2_scratch`) and `surrogate_enable = 0` runs log exactly the same
+  bytes as before. Analyses that rebuild rates or residence times from this
+  column on surrogate-build output must expect the new (correct) total.
+  Downstream readers checked read-only on 2026-10-22, none of which reads
+  surrogate-build output today: the pub3 drivers that parse column 5
+  (`P6prep-rebuild-eval` `toy12/verify_toy12.py` and `v2test/v2cmp_analyze.py`,
+  whose v2 builds do not define `PYLATKMC_HAS_SURROGATE`; `P5-tier1`
+  `connectivity_metrics.py`, v0.3 runs); PyKMC_Analysis
+  `hybrid_actions/kmc_adapter_run_diagnostics.py` (reads the archived legacy
+  `latkmc` log); `lattice_map_events.py` and
+  `hybrid_actions/executed_event_site_map_export.py` parse off-lattice pyKMC's
+  own `pykmc.out` (`k_tot` = field 7), not this file; pub3 `ktot_shares.py`,
+  `tier2_generate.py` and the P4 scripts compute `k_tot` themselves.
+  (large-system-scaling/04)
+- **Process exit status.** The binary exits 1 on every rank when any rank's
+  replica failed setup (bad/missing `.kmcinit`, `avail_sites` ENOMEM, a refused
+  geometry, ...) or its run failed; a replica that completed or trapped
+  (`run_rc = -ENODATA`, no event left) still exits 0. Sweeps and job queues can
+  now see failures; the aggregate's `n_success` / `n_failed` semantics are
+  unchanged (a trapped replica was and is counted in `n_failed`). On stderr,
+  `[rank N] replica_run failed: <rc>` is now printed for real failures only
+  (a trap is reported by `kmc_run: trapped at step N`, as before), and rank 0
+  adds `K of M replicas failed (setup or run error); exit status 1`.
+  (large-system-scaling/01)
+
+### Fixed
+
+- A replica whose setup failed (any early return in `replica_run` before
+  `kmc_run`) was counted in `n_success` with `run_rc = 0`; it now records the
+  setup error in `run_rc` and counts as failed. (large-system-scaling/01)
+- One rank failing `input_config_load` / `replica_init` left the other ranks
+  blocked in MPI collectives until walltime. All ranks now agree on the
+  startup status (`MPI_Allreduce`) before any replica runs and exit 1
+  together; each failing rank prints its own error and rank 0 adds
+  `startup failed on K of M ranks; no replica was run`. `replica_init` also
+  rejects an `output_root` that would truncate the replica directory path in
+  its 512-byte buffer (`-ENAMETOOLONG`) and an existing non-directory where a
+  directory must go (`-ENOTDIR`; it used to pass as an existing directory and
+  the run failed later at its first file open). (large-system-scaling/02)
+- `dt = -log(r2)/r_tot` became `+inf` when the RNG drew `r2 = 0` exactly
+  (p = 2^-53 per step): an infinite clock and a non-JSON `inf` in the
+  summaries. `rng_next2` now redraws an exact zero (`r2` in (0, 1)); no draw
+  is remapped, so every fixed-seed trajectory that never drew 0 is bitwise
+  unchanged. (large-system-scaling/03)
+- v2 models: a periodic (vacuum-free) axis shorter than `2*reach+1` grid
+  planes let pattern offsets `+d` and `d - dim` resolve to the same site, so
+  context rows tested their own periodic image (an 8x8-surface slab has 16
+  in-plane planes against `2*8+1 = 17`). `replica.c` now refuses it at
+  startup, next to the vacuum-gap check (`run_rc = -EINVAL`, exit 1); use at
+  least 9 surface sites per in-plane row for the shipped v2 models
+  (`PYLATKMC_V2_MAX_REACH_IJ = 8`). The generated `v2_apply` no longer
+  discards `state_apply_actions`' result: a rejected event returns
+  `PYLATKMC_HOP_REJECTED` (`state.h`) through the unchanged `ApplyFn`
+  signature, and `kmc_step_once` fails the step (`-EINVAL`, state untouched,
+  clock not advanced) instead of counting a no-op event. The v0.3 apply path
+  is unchanged (the documented dissolution under-budget plateau).
+  `nife_v2_scratch` and `nicr_v2_scratch` proclists are regenerated.
+  (large-system-scaling/05)
+- **Large-lattice index overflow.** The emitted v0.3 decision tree indexed
+  `coord_table[site * N_NEIGHBOUR_CODES + nc]` in `int`, which overflows (UB)
+  above ~93M sites; the emitted index, and the v2 / surrogate
+  `site_ijk[3 * site]` lookups, are now computed in `size_t`.
+  `initconfig_load` refuses (`-EOVERFLOW`) a header whose `n_sites`,
+  `nn1_count` or `nn2_count` exceeds `INT32_MAX` instead of truncating it (a
+  header claiming `2^32 + N` sites loaded silently as `N`), checked on the
+  64-bit values before narrowing, so a negative count that would wrap to a
+  valid int32 is `-EPROTO`. All five models' `proclist.c` are regenerated
+  (index expressions only; `proclist.h` unchanged). (large-system-scaling/06)
 
 Candidates for v0.4 (none committed):
 

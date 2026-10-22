@@ -61,6 +61,9 @@ pylatkmc-gen build models/ni_fe_cr_v1/ni_fe_cr_v1.kmcspec.toml
 cmake -B build -DMODEL=ni_fe_cr_v1
 cmake --build build -j 4
 # → build/pylatkmc_ni_fe_cr_v1
+# On a cluster (DRAC), add -DPYLATKMC_NATIVE=OFF to the configure step: the
+# default -march=native binary can crash on compute nodes older than the
+# login node (see docs/ARCHITECTURE.md → Build).
 
 # 4. Run an example simulation
 cd models/ni_fe_cr_v1/examples

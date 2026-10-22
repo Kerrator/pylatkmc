@@ -82,15 +82,16 @@ def _coord_macro(coord: CoordOffset) -> str:
     """C expression for resolving a CoordOffset to an absolute site index.
 
     The runtime maintains, per Lattice, a flat lookup table:
-        lat->coord_table[site * N_NEIGHBOUR_CODES + nc]
+        lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + nc]
     populated at lattice load by `lattice_build_coord_table` (see
     runtime/src/core/lattice.c). This function emits the C expression
     that performs that lookup. For the anchor (`NC_ANCHOR`) it shortcuts
-    to `site` directly.
+    to `site` directly. The index is computed in `size_t`: in plain `int`,
+    `site * N_NEIGHBOUR_CODES` overflows above ~93M sites.
     """
     if coord.code == "NC_ANCHOR":
         return "site"
-    return f"lat->coord_table[site * N_NEIGHBOUR_CODES + {coord.code}]"
+    return f"lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + {coord.code}]"
 
 
 def _species_at(coord: CoordOffset) -> str:

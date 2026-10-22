@@ -22196,7 +22196,7 @@ static int v2_match(const Lattice *lat, const State *st, int site,
 {
     const V2Pattern *pt = &v2_patterns[pr->pat];
     const int8_t *R = V2_OPS[pr->op];
-    const int16_t *c0 = &lat->site_ijk[3 * site];
+    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
     for (int32_t r = 0; r < pt->delta_n; ++r) {
         const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];
         int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;
@@ -22243,7 +22243,8 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)
  *
  * The runtime calls pylatkmc_apply_table[proc](st, lat, site) — a
  * signature frozen by the committed v0.3 proclists — so each proc gets
- * a one-line wrapper binding its proc id into the generic apply. */
+ * a one-line wrapper binding its proc id into the generic apply. A
+ * rejected apply comes back as PYLATKMC_HOP_REJECTED (state.h). */
 typedef struct { int v_origin; int v_dest; } HopOutcome;
 typedef HopOutcome (*ApplyFn)(State *st, const Lattice *lat, int site);
 
@@ -22253,7 +22254,7 @@ static HopOutcome v2_apply(State *st, const Lattice *lat, int32_t proc,
     const V2Proc *pr = &v2_procs[proc];
     const V2Pattern *pt = &v2_patterns[pr->pat];
     const int8_t *R = V2_OPS[pr->op];
-    const int16_t *c0 = &lat->site_ijk[3 * site];
+    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
     StateAction acts[V2_MAX_DELTA];
     for (int32_t r = 0; r < pt->delta_n; ++r) {
         const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + r];
@@ -22264,7 +22265,13 @@ static HopOutcome v2_apply(State *st, const Lattice *lat, int32_t proc,
         acts[r].before = dr->before;
         acts[r].after  = dr->after;
     }
-    (void)state_apply_actions(st, acts, pt->delta_n, SP_VACANT);
+    if (state_apply_actions(st, acts, pt->delta_n, SP_VACANT) != 0) {
+        /* Rejected and nothing applied (a delta row no longer validates,
+         * two rows resolve to one site, or n_vac would leave its budget):
+         * tell kmc.c, which fails the step rather than log a no-op. */
+        HopOutcome rejected = { PYLATKMC_HOP_REJECTED, PYLATKMC_HOP_REJECTED };
+        return rejected;
+    }
     HopOutcome ho = { -1, -1 };
     if (pt->v_origin_row >= 0) ho.v_origin = acts[pt->v_origin_row].site;
     if (pt->v_dest_row   >= 0) ho.v_dest   = acts[pt->v_dest_row].site;
