@@ -293,7 +293,9 @@ def test_emitted_site_indices_are_size_t() -> None:
         "lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX]"
     )
     assert _coord_macro(CoordOffset(code="NC_ANCHOR")) == "site"
-    assert "&lat->site_ijk[(size_t)anchor * 3]" in _MEASURED_COVERS_C
+    # the covered-hop tagging (large-system-scaling/10): the anchor and v_dest
+    assert "&lat->site_ijk[(size_t)site * 3]" in _MEASURED_COVERS_C
+    assert "&lat->site_ijk[(size_t)vd * 3]" in _MEASURED_COVERS_C
     assert _INT_INDEX.search(_MEASURED_COVERS_C) is None
     v2 = _v2_hop_proclist_c()  # v2_match + v2_apply from pattern_codegen
     assert v2.count("&lat->site_ijk[(size_t)site * 3]") == 2
