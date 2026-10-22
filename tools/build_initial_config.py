@@ -139,8 +139,8 @@ def compute_neighbors_with_pbc(
     for 2NN). Sites don't include themselves.
 
     A per-site search over 9 xy image copies, kept for tools/xyz_to_kmcinit.py
-    (which relies on its hit order). It does not scale; this script's own
-    neighbour lists come from neighbour_csr.
+    (which relies on its hit order) and for scripts that import this tool. It
+    does not scale; main()'s neighbour lists come from neighbour_csr.
     """
     n = len(positions)
     cell_arr = np.asarray(cell, dtype=np.float64)
@@ -190,6 +190,43 @@ def classify_directions(disp: np.ndarray, nn_dist: float) -> np.ndarray:
         [DF_110_INPLANE, DF_100_INPLANE, DF_UNRESOLVED, DF_111_INTERLAYER, DF_001_EXCHANGE],
         DF_UNRESOLVED,
     ).astype(np.uint8)
+
+
+# classify_direction and adj_to_csr are the scalar, per-site API that scripts
+# importing this tool as a module call on compute_neighbors_with_pbc's lists
+# (main() no longer uses either of them). Keep their names, signatures and
+# results.
+
+
+def classify_direction(disp: np.ndarray, nn_dist: float) -> int:
+    """Classify a Cartesian edge displacement into a DF_* enum."""
+    return int(classify_directions(np.asarray(disp, dtype=np.float64), nn_dist))
+
+
+def adj_to_csr(
+    adj: list[list[tuple[int, np.ndarray]]],
+    classify_dir,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Deduplicate + sort each site's neighbour list, then pack into CSR.
+    Returns (offsets, indices, dir_family)."""
+    n = len(adj)
+    offsets = np.zeros(n + 1, dtype=np.int32)
+    all_items: list[tuple[int, int]] = []  # (neighbor_idx, dir_family)
+    for s, items in enumerate(adj):
+        seen: dict[int, int] = {}
+        for j, disp in items:
+            # PBC images can land the same neighbor j multiple times; prefer
+            # the minimum-image displacement (smallest magnitude).
+            df = classify_dir(disp)
+            if j in seen:
+                continue
+            seen[j] = df
+        sorted_neighbors = sorted(seen.items())
+        offsets[s + 1] = offsets[s] + len(sorted_neighbors)
+        all_items.extend(sorted_neighbors)
+    indices = np.array([it[0] for it in all_items], dtype=np.int32)
+    dir_family = np.array([it[1] for it in all_items], dtype=np.uint8)
+    return offsets, indices, dir_family
 
 
 def _pack_csr(
@@ -328,17 +365,28 @@ def main() -> int:
 
     a = A_LATTICE[args.element]
     nn_dist = a / np.sqrt(2.0)
-
-    positions, layer_index, site_class, cell = build_fcc100_slab(
-        args.nx,
-        args.ny,
-        args.nz,
-        nn_dist,
-        vacuum_layers=args.vacuum_layers,
-        n_adatom_layers=args.n_adatom_layers,
-    )
-    n_sites = positions.shape[0]
     nz_total = args.nz + args.n_adatom_layers
+
+    try:
+        positions, layer_index, site_class, cell = build_fcc100_slab(
+            args.nx,
+            args.ny,
+            args.nz,
+            nn_dist,
+            vacuum_layers=args.vacuum_layers,
+            n_adatom_layers=args.n_adatom_layers,
+        )
+    except ValueError as exc:
+        # The layer-count refusal (build_fcc100_slab's last check) exits with a
+        # one-line message. The nz / vacuum / adatom checks before it keep
+        # raising, as they always did.
+        layer_refusal = nz_total > MAX_LAYERS and not (
+            args.nz < 3 or args.vacuum_layers < 0 or args.n_adatom_layers < 0
+        )
+        if not layer_refusal:
+            raise
+        sys.exit(f"error: {exc}")
+    n_sites = positions.shape[0]
 
     # 1NN within 1.1*nn_dist; 2NN within sqrt(2)*nn_dist*1.05, 1NN excluded.
     (nn1_offsets, nn1_indices, nn1_dir), (nn2_offsets, nn2_indices, nn2_dir) = neighbour_csr(
