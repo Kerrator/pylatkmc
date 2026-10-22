@@ -122,6 +122,10 @@ def libavail(tmp_path_factory: pytest.TempPathFactory) -> ctypes.CDLL:
     lib.avail_sites_rate.argtypes = [ctypes.c_void_p, ctypes.c_int32]
     lib.avail_sites_cum_rate.restype = ctypes.c_double
     lib.avail_sites_cum_rate.argtypes = [ctypes.c_void_p, ctypes.c_int32]
+    lib.avail_sites_cover_add.restype = None
+    lib.avail_sites_cover_add.argtypes = [ctypes.c_void_p, ctypes.c_int32, ctypes.c_uint16]
+    lib.avail_sites_cover.restype = ctypes.c_uint16
+    lib.avail_sites_cover.argtypes = [ctypes.c_void_p, ctypes.c_int32]
 
     return lib
 
@@ -189,6 +193,12 @@ class _AvailSites:
 
     def cum_rate(self, p: int) -> float:
         return float(self.lib.avail_sites_cum_rate(self.h, p))
+
+    def cover_add(self, s: int, bits: int) -> None:
+        self.lib.avail_sites_cover_add(self.h, s, bits)
+
+    def cover(self, s: int) -> int:
+        return int(self.lib.avail_sites_cover(self.h, s))
 
 
 # ---------------------------------------------------------------------------
@@ -492,3 +502,35 @@ def test_select_skips_zero_rate_proc(libavail: ctypes.CDLL) -> None:
             rc, p, _ = a.select(t)
             assert rc == 0
             assert p != 1, "selector picked a zero-rate proc"
+
+
+# ---------------------------------------------------------------------------
+# Cover words (large-system-scaling/10)
+# ---------------------------------------------------------------------------
+
+
+def test_cover_words_live_and_die_with_the_enrolments(libavail: ctypes.CDLL) -> None:
+    """cover_add ORs into one site's word, clear zeroes every word (and only
+    clear: the enrolment calls leave them alone), bad sites and empty masks
+    are no-ops, and repeated clear rounds reuse the same storage."""
+    rng = random.Random(10)
+    n_sites = 64
+    with _AvailSites(libavail, 3, n_sites) as a:
+        assert [a.cover(s) for s in range(n_sites)] == [0] * n_sites
+        for _round in range(20):
+            want = [0] * n_sites
+            for _ in range(rng.randrange(80)):
+                s, bits = rng.randrange(n_sites), 1 << rng.randrange(16)
+                a.cover_add(s, bits)
+                want[s] |= bits
+                p = rng.randrange(3)
+                if not a.enrolled(p, s):
+                    a.add(p, s)
+            a.cover_add(5, 0)  # an empty mask changes nothing
+            a.cover_add(-1, 0xFFFF)  # bad sites change nothing ...
+            a.cover_add(n_sites, 0xFFFF)
+            assert a.cover(-1) == a.cover(n_sites) == 0  # ... and read as 0
+            assert [a.cover(s) for s in range(n_sites)] == want
+            a.clear()
+            assert [a.cover(s) for s in range(n_sites)] == [0] * n_sites
+            assert all(a.count(p) == 0 for p in range(3))
