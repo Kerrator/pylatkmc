@@ -160,7 +160,8 @@ void surrogate_ctx_free(SurrCtx *ctx);
 
 /* Rebuild the candidate list for the current state (after the pattern scan).
  * `as` is used to skip candidates already covered by an enrolled measured proc
- * (via the generated pylatkmc_measured_covers_hop). Returns Σ surrogate k. */
+ * (via the generated pylatkmc_measured_covers_hop, which reads the cover words
+ * the pattern scan recorded in `as`). Returns Σ surrogate k. */
 double surrogate_rebuild(SurrCtx *ctx, const Lattice *lat, const State *st,
                          const AvailSites *as, double T_K);
 

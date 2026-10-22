@@ -484,12 +484,19 @@ def _generate_v2(spec: ModelSpec, out: Path, spec_path: Path | None) -> list[Pat
         k0_Hz=rd.k0_Hz,
     )
     n_procs = n_procs_of(patterns)
+    # A surrogate build's touchup also records which surrogate hop directions
+    # its measured procs cover (the channel (b) de-dup reads that back in O(1)).
+    cover_dirs = None
+    if esym_model is not None:
+        from pylatkmc.surrogate_codegen import RUNTIME_DIRECTIONS
+
+        cover_dirs = RUNTIME_DIRECTIONS
     body = (
         emit_v2_enum(patterns)
         + "\n"
         + emit_v2_rate_table(patterns)
         + "\n"
-        + emit_pattern_tables(patterns)
+        + emit_pattern_tables(patterns, cover_dirs=cover_dirs)
     )
     # Channel-(a) machine-readable provenance (phase C only; byte-identical
     # aggregate/schema-1 output otherwise).

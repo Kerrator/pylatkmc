@@ -22,6 +22,9 @@ Instead this module emits:
   OR absent, ``OCC_ANY`` = any occupied. A matched ``(pattern, op)`` enrols
   every member proc. Reads through the stub site index ``n_sites`` are
   self-sentineling (``species[n_sites] == 255`` matches no exact species).
+  On a Phase C surrogate build (``cover_dirs``) it also records, in the
+  anchor's ``avail_sites`` cover word, which surrogate hop directions each
+  matched ``(pattern, op)`` moves the anchor's vacancy along.
 - **A generic apply** + one-line per-proc wrappers, because the runtime's
   ``pylatkmc_apply_table[proc](st, lat, site)`` call signature is frozen by
   committed v0.3 proclists.
@@ -36,6 +39,8 @@ order with fixed formatting.
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
 
 from pylatkmc.translator_v2 import LatticePattern, MemberRate, Offset, _apply, d4h_matrices
 
@@ -201,13 +206,69 @@ def ball_tables(patterns: list[LatticePattern]) -> tuple[list[Offset], int, list
     return ball, len(keys), rot
 
 
-def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
+def _cover_dir_lines(cover_dirs: Sequence[Offset]) -> list[str]:
+    """The measured-hop cover directions table and its lookup, as C lines.
+
+    ``v2_cover_dirs[d]`` is ``cover_dirs[d]``: bit ``d`` of an anchor's
+    ``avail_sites`` cover word means a matched (pattern, op) at that anchor
+    moves the vacancy one raw ``site_ijk`` step ``cover_dirs[d]``. Refuses a
+    list the 16-bit word or the int8 table cannot hold.
+    """
+    dirs = [(int(d[0]), int(d[1]), int(d[2])) for d in cover_dirs]
+    if (
+        not 0 < len(dirs) <= 16
+        or len(set(dirs)) != len(dirs)
+        or (0, 0, 0) in dirs
+        or any(not -128 <= c <= 127 for d in dirs for c in d)
+    ):
+        raise ValueError(
+            f"cover_dirs must be 1..16 distinct nonzero int8 offsets, got {cover_dirs!r}"
+        )
+    return [
+        "/* ---- measured-hop covers for the Phase C surrogate channel ----",
+        " * (large-system-scaling/10)",
+        " *",
+        " * v2_cover_dirs[d] is the runtime-frame offset of the surrogate",
+        " * channel's hop direction d (its surr_dirs order). Bit d of an anchor's",
+        " * avail_sites cover word is set while touchup_a enrols the anchor's",
+        " * procs (v2_record_covers) iff a matched (pattern, op) there moves the",
+        " * vacancy from the anchor to the site one raw site_ijk step",
+        " * v2_cover_dirs[d] away; pylatkmc_measured_covers_hop reads it. */",
+        f"#define V2_N_COVER_DIRS {len(dirs)}",
+        "static const int8_t v2_cover_dirs[V2_N_COVER_DIRS][3] = {",
+        *_chunk_lines([f"{{{u},{v},{w}}}," for (u, v, w) in dirs], 6),
+        "};",
+        "",
+        "/* The cover direction from site cell `from` to site cell `to` (a raw",
+        " * site_ijk difference, never wrapped), or -1. */",
+        "static int32_t v2_cover_dir(const int16_t *from, const int16_t *to)",
+        "{",
+        "    int32_t du = to[0] - from[0], dv = to[1] - from[1], dw = to[2] - from[2];",
+        "    for (int32_t d = 0; d < V2_N_COVER_DIRS; ++d)",
+        "        if (v2_cover_dirs[d][0] == du && v2_cover_dirs[d][1] == dv",
+        "            && v2_cover_dirs[d][2] == dw)",
+        "            return d;",
+        "    return -1;",
+        "}",
+    ]
+
+
+def emit_pattern_tables(
+    patterns: list[LatticePattern], *, cover_dirs: Sequence[Offset] | None = None
+) -> str:
     """Emit the packed pattern tables + generic matcher + apply machinery.
 
     Returns the C source fragment that replaces the v0.3 process enum /
     apply-function / decision-tree emission. The caller wraps it with the
     proclist.c preamble, the rate table, and the public-linkage glue.
+
+    ``cover_dirs`` (a Phase C surrogate build passes
+    ``surrogate_codegen.RUNTIME_DIRECTIONS``) makes ``touchup_a`` also record,
+    per anchor, which of those vacancy hops its matched procs perform, for
+    the surrogate channel's de-dup; ``None`` (every other build) emits
+    exactly the tables without it.
     """
+    covers = _cover_dir_lines(cover_dirs) if cover_dirs is not None else []
     if not patterns:
         return (
             "/* no patterns; v2 tables omitted */\n"
@@ -216,6 +277,7 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
             "static const ApplyFn apply_table[1] = { 0 };\n"
             "void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)\n"
             "{ (void)lat; (void)st; (void)as; (void)site; }\n"
+            + "".join(line + "\n" for line in covers)
         )
 
     # ---- flatten rows + build the process list -------------------------
@@ -423,6 +485,40 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("    return ops;")
     a("}")
     a("")
+    if covers:
+        out.extend(covers)
+        a("")
+        a("/* Record the cover bits of pattern pt matched under `ops` at `site`:")
+        a(" * its v_origin and v_dest rows resolve exactly as v2_apply resolves")
+        a(" * them, the hop must start at the anchor itself and end on a real site.")
+        a(" * A pattern whose vacancy rows are -1 covers nothing. */")
+        a("static void v2_record_covers(const Lattice *lat, AvailSites *as, int site,")
+        a("                             const V2Pattern *pt, uint32_t ops)")
+        a("{")
+        a("    if (pt->v_origin_row < 0 || pt->v_dest_row < 0) return;")
+        a("    const V2DeltaRow *ro = &v2_delta_rows[pt->delta_begin + pt->v_origin_row];")
+        a("    const V2DeltaRow *rd = &v2_delta_rows[pt->delta_begin + pt->v_dest_row];")
+        a("    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];")
+        a("    uint32_t bits = 0;")
+        a("    for (int32_t g = 0; g < 16; ++g) {")
+        a("        if (((ops >> g) & 1u) == 0) continue;")
+        a("        const int8_t *R = V2_OPS[g];")
+        a("        int32_t vo = lattice_site_at_ijk(lat,")
+        a("            c0[0] + R[0]*ro->di + R[1]*ro->dj + R[2]*ro->dk,")
+        a("            c0[1] + R[3]*ro->di + R[4]*ro->dj + R[5]*ro->dk,")
+        a("            c0[2] + R[6]*ro->di + R[7]*ro->dj + R[8]*ro->dk);")
+        a("        if (vo != site) continue;")
+        a("        int32_t vd = lattice_site_at_ijk(lat,")
+        a("            c0[0] + R[0]*rd->di + R[1]*rd->dj + R[2]*rd->dk,")
+        a("            c0[1] + R[3]*rd->di + R[4]*rd->dj + R[5]*rd->dk,")
+        a("            c0[2] + R[6]*rd->di + R[7]*rd->dj + R[8]*rd->dk);")
+        a("        if (vd >= lat->n_sites) continue;  /* the stub: no site */")
+        a("        int32_t d = v2_cover_dir(c0, &lat->site_ijk[(size_t)vd * 3]);")
+        a("        if (d >= 0) bits |= 1u << d;")
+        a("    }")
+        a("    if (bits != 0) avail_sites_cover_add(as, site, (uint16_t)bits);")
+        a("}")
+        a("")
     a("void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)")
     a("{")
     a("    if (!lat->site_grid || !lat->site_ijk) return;  /* grid not built */")
@@ -443,6 +539,8 @@ def emit_pattern_tables(patterns: list[LatticePattern]) -> str:
     a("        for (int32_t p = pt->proc_begin; p < pt->proc_begin + pt->proc_n; ++p)")
     a("            if ((ops >> v2_procs[p].op) & 1u)")
     a("                avail_sites_add(as, p, site);")
+    if covers:
+        a("        v2_record_covers(lat, as, site, pt, ops);")
     a("    }")
     a("}")
     a("")

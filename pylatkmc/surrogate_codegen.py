@@ -74,6 +74,12 @@ _R2_TRUNC: float = TRUNC_UNITS * TRUNC_UNITS
 #: The 12 crystal 1NN hop directions (|off|² == 2), in fixed sorted order.
 DIRECTIONS: tuple[Offset, ...] = tuple(sorted(NN1))
 
+#: The same directions in the RUNTIME frame (``DirGeom.runtime_dir``, the
+#: ``surr_dirs`` order): the raw ``site_ijk`` offsets the channel matches a
+#: vacancy's 1NN against, and the bit order of the measured-hop cover words
+#: the v2 touchup records for ``pylatkmc_measured_covers_hop``.
+RUNTIME_DIRECTIONS: tuple[Offset, ...] = tuple(to_runtime_frame(d) for d in DIRECTIONS)
+
 _NN1_SET = set(NN1)
 _NN2_SET = set(NN2)
 
@@ -496,37 +502,23 @@ def _c_str(s: str) -> str:
 
 
 #: The measured-channel de-dup helper (surrogate.c calls it). Emitted into
-#: proclist.c AFTER the pattern tables so it can read v2_patterns / V2_OPS /
-#: v2_procs / v2_delta_rows and avail_sites_is_enrolled directly.
+#: proclist.c AFTER the pattern tables, which a surrogate build emits with
+#: ``cover_dirs=RUNTIME_DIRECTIONS`` (codegen._generate_v2), so it can read
+#: v2_cover_dir and the cover words touchup_a recorded (large-system-scaling/10).
 _MEASURED_COVERS_C = r"""/* Does any enrolled MEASURED proc already do the vacancy move vac_site→neigh_site
  * (v_origin at vac_site, v_dest at neigh_site)? Used to de-dup the surrogate
- * channel against channel (a). O(N_PROCS) per call (fine for the smoke). */
-static int32_t surr_proc_vsite(const Lattice *lat, int32_t anchor, int32_t proc, int row)
-{
-    if (row < 0) return -1;
-    const V2Proc *pr = &v2_procs[proc];
-    const V2Pattern *pt = &v2_patterns[pr->pat];
-    const int8_t *R = V2_OPS[pr->op];
-    const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + row];
-    const int16_t *c0 = &lat->site_ijk[(size_t)anchor * 3];
-    int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;
-    int32_t dj = R[3]*dr->di + R[4]*dr->dj + R[5]*dr->dk;
-    int32_t dk = R[6]*dr->di + R[7]*dr->dj + R[8]*dr->dk;
-    return lattice_site_at_ijk(lat, c0[0]+di, c0[1]+dj, c0[2]+dk);
-}
+ * channel against channel (a). O(1): while touchup_a enrolled the procs at
+ * vac_site it set bit d of the site's avail_sites cover word for every such
+ * move to the site one raw site_ijk step v2_cover_dirs[d] away (the directions
+ * surrogate_rebuild matches neighbours against; no other pair is asked). */
 int pylatkmc_measured_covers_hop(const Lattice *lat, const State *st,
                                  const AvailSites *as,
                                  int32_t vac_site, int32_t neigh_site)
 {
     (void)st;
-    for (int32_t p = 0; p < N_PROCS; ++p) {
-        if (avail_sites_is_enrolled(as, p, vac_site) != 1) continue;
-        const V2Pattern *pt = &v2_patterns[v2_procs[p].pat];
-        int32_t vo = surr_proc_vsite(lat, vac_site, p, pt->v_origin_row);
-        int32_t vd = surr_proc_vsite(lat, vac_site, p, pt->v_dest_row);
-        if (vo == vac_site && vd == neigh_site) return 1;
-    }
-    return 0;
+    int32_t d = v2_cover_dir(&lat->site_ijk[(size_t)vac_site * 3],
+                             &lat->site_ijk[(size_t)neigh_site * 3]);
+    return d >= 0 && ((avail_sites_cover(as, vac_site) >> d) & 1u);
 }
 """
 
@@ -590,6 +582,7 @@ def emit_surrogate_externs(model: EsymModel) -> str:
 
 __all__ = (
     "DIRECTIONS",
+    "RUNTIME_DIRECTIONS",
     "DirGeom",
     "R_CTX_A",
     "bake_direction",
