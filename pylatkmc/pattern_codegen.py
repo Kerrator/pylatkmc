@@ -191,7 +191,9 @@ def ball_tables(patterns: list[LatticePattern]) -> tuple[list[Offset], int, list
     the same sites the per-row rotation did (``rot`` is exact integer math).
     """
     mats = d4h_matrices()
-    keys = sorted({r.off for p in patterns for r in (*p.delta, *p.context)})
+    keys = sorted(
+        {r.off for p in patterns for r in p.delta} | {c.off for p in patterns for c in p.context}
+    )
     images = {_apply(m, k) for m in mats for k in keys}
     ball = keys + sorted(images.difference(keys))
     index = {off: i for i, off in enumerate(ball)}
