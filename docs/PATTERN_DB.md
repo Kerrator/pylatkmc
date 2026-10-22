@@ -341,6 +341,16 @@ Del: take the entry's slot `k`, swap in the last entry, decrement.
 Direct port of kmos's Fortran `avail_sites(proc, k, switch)` array.
 Memory: ~12 MB for (n_procs=358, n_sites=4096); fine for v0.2.
 
+Each site also carries a 16-bit cover word with the lifetime of its
+enrolments: `avail_sites_cover_add(as, s, bits)` ORs bits in,
+`avail_sites_cover(as, s)` reads them, `avail_sites_clear` zeroes every word
+(6 bytes per site in all). Only a Phase C surrogate build's v2 touchup sets
+them: bit `d` of a vacancy's word means a measured proc enrolled there moves
+that vacancy one step along surrogate direction `d`, which is what the
+surrogate channel's de-dup reads (large-system-scaling/10). `avail_sites_del`
+leaves the words alone, so a caller that deletes a site's enrolments one by
+one must rebuild that site's word.
+
 ### state_apply_actions — atomic multi-site mutation
 
 `state_apply_actions(st, StateAction*, n, vacant_species)` validates

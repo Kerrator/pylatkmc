@@ -43,6 +43,13 @@ struct AvailSites {
     /* Per-proc cumulative running sum of rates[j] * n_sites_per_proc[j].
      * Populated by avail_sites_refresh_cum_rates. */
     double  *cum_rates;
+
+    /* Per-site cover word (see avail_sites.h "Cover words"), and the list
+     * of sites whose word is nonzero, so avail_sites_clear zeroes only
+     * those: cover_sites[0..n_cover), each site at most once. */
+    uint16_t *cover;
+    int32_t  *cover_sites;
+    int32_t   n_cover;
 };
 
 static inline size_t pair_idx(const AvailSites *as, int32_t proc, int32_t key)
@@ -67,9 +74,11 @@ int avail_sites_alloc(AvailSites **out, int32_t n_procs, int32_t n_sites)
     as->n_sites_per_proc = calloc((size_t)n_procs, sizeof *as->n_sites_per_proc);
     as->rates            = calloc((size_t)n_procs, sizeof *as->rates);
     as->cum_rates        = calloc((size_t)n_procs, sizeof *as->cum_rates);
+    as->cover            = calloc((size_t)n_sites, sizeof *as->cover);
+    as->cover_sites      = malloc((size_t)n_sites * sizeof *as->cover_sites);
 
     if (!as->site_at || !as->slot_of || !as->n_sites_per_proc
-        || !as->rates || !as->cum_rates) {
+        || !as->rates || !as->cum_rates || !as->cover || !as->cover_sites) {
         avail_sites_free(as);
         return -ENOMEM;
     }
@@ -91,6 +100,8 @@ void avail_sites_free(AvailSites *as)
     free(as->n_sites_per_proc);
     free(as->rates);
     free(as->cum_rates);
+    free(as->cover);
+    free(as->cover_sites);
     free(as);
 }
 
@@ -120,6 +131,8 @@ void avail_sites_clear(AvailSites *as)
         as->n_sites_per_proc[p] = 0;
         as->cum_rates[p] = 0.0;
     }
+    for (int32_t i = 0; i < as->n_cover; ++i) as->cover[as->cover_sites[i]] = 0;
+    as->n_cover = 0;
 }
 
 void avail_sites_add(AvailSites *as, int32_t proc, int32_t site)
@@ -249,4 +262,18 @@ double avail_sites_cum_rate(const AvailSites *as, int32_t proc)
 {
     if (!as || proc < 0 || proc >= as->n_procs) return 0.0;
     return as->cum_rates[proc];
+}
+
+void avail_sites_cover_add(AvailSites *as, int32_t site, uint16_t bits)
+{
+    if (!as || site < 0 || site >= as->n_sites || bits == 0) return;
+    /* A word turns nonzero once per clear, so each site is listed once. */
+    if (as->cover[site] == 0) as->cover_sites[as->n_cover++] = site;
+    as->cover[site] = (uint16_t)(as->cover[site] | bits);
+}
+
+uint16_t avail_sites_cover(const AvailSites *as, int32_t site)
+{
+    if (!as || site < 0 || site >= as->n_sites) return 0;
+    return as->cover[site];
 }

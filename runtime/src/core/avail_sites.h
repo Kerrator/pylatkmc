@@ -44,7 +44,8 @@
  * For (n_procs=358, n_sites=4096) this is ~12 MB total. We allocate
  * `site_at` and `slot_of` as full n_procs * n_sites tables — conservative
  * but trivial to index. If models ever exceed ~50 MB we can compress
- * `site_at` to be sparse-per-proc; not needed for v0.2.
+ * `site_at` to be sparse-per-proc; not needed for v0.2. The cover words
+ * below add 6 bytes per site.
  *
  * Caller pattern
  * --------------
@@ -61,6 +62,18 @@
  * once per KMC step. Incremental rebuild (only the touchup-stencil sites)
  * is a future optimisation — M1-style full-rebuild semantics are correct
  * and acceptable for v0.2.
+ *
+ * Cover words
+ * -----------
+ * Each site also carries a 16-bit "cover" word with the same lifetime as
+ * its enrolments: the generated v2 touchup ORs bits into its anchor's word
+ * (avail_sites_cover_add) while it enrols that anchor's procs, and
+ * avail_sites_clear zeroes every word. A Phase C surrogate build records
+ * there which 1NN vacancy hops the anchor's enrolled measured procs perform,
+ * so the surrogate channel's de-dup reads one word per candidate instead of
+ * probing every proc's enrolment (large-system-scaling/10). A caller that
+ * deletes a site's enrolments one by one (avail_sites_del) must rebuild
+ * that site's word itself.
  */
 
 typedef struct AvailSites AvailSites;
@@ -77,7 +90,8 @@ void avail_sites_free(AvailSites *as);
  * before `avail_sites_refresh_cum_rates`. Negative rates are rejected. */
 void avail_sites_set_rate(AvailSites *as, int32_t proc, double rate);
 
-/* Wipe all enrolments. Rates are NOT touched (they're a model constant). */
+/* Wipe all enrolments and cover words. Rates are NOT touched (they're a
+ * model constant). */
 void avail_sites_clear(AvailSites *as);
 
 /* O(1) add: append `site` to `proc`'s dense list. It is a programming
@@ -112,5 +126,11 @@ int32_t avail_sites_is_enrolled(const AvailSites *as, int32_t proc, int32_t site
 int32_t avail_sites_site_at   (const AvailSites *as, int32_t proc, int32_t k);
 double  avail_sites_rate      (const AvailSites *as, int32_t proc);
 double  avail_sites_cum_rate  (const AvailSites *as, int32_t proc);
+
+/* Cover words (see "Cover words" above). O(1). cover_add ORs `bits` into
+ * `site`'s word (a no-op for bits == 0 or a bad site); cover reads it
+ * (0 for a bad site). */
+void     avail_sites_cover_add(AvailSites *as, int32_t site, uint16_t bits);
+uint16_t avail_sites_cover    (const AvailSites *as, int32_t site);
 
 #endif /* PYLATKMC_AVAIL_SITES_H */
