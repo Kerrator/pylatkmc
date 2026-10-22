@@ -169,7 +169,8 @@ For ni_fe_cr_v1's 358 Processes, the tree depth is ~7 levels and
 
 ```c
 int kmc_step_once(KmcContext *ctx,
-                  int32_t *out_proc, int32_t *out_site, double *out_dt)
+                  int32_t *out_proc, int32_t *out_site, double *out_dt,
+                  double *out_r_tot)
 {
     active_filter_rescan(ctx->af, ctx->lat, ctx->st);
     avail_sites_clear(ctx->as);

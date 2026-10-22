@@ -1,4 +1,4 @@
-"""Binary-level tests: replica startup and process exit status.
+"""Binary-level tests: replica startup, process exit status, and the logged k_tot.
 
 Builds models with CMake (into pytest tmp dirs) and launches each case with
 `mpirun -n 2` (large-system-scaling WP1):
@@ -10,10 +10,12 @@ Builds models with CMake (into pytest tmp dirs) and launches each case with
 - ni_example: one rank failing replica_init makes every rank exit non-zero
   promptly, instead of the others blocking in MPI collectives until walltime
   (02).
+- nicr_v2_scratch (surrogate build): pykmc.out's k_tot is the total rate each
+  dt was drawn from, surrogate channel included (04).
 
-Skips without cmake / MPI / mpirun. Every launch gets a private TMPDIR +
-OMPI_MCA_orte_tmpdir_base, two ranks, and MPIEXEC_TIMEOUT, so a hang fails
-the test and mpirun reaps its own ranks.
+Skips without cmake / MPI / mpirun (and numpy for the v2 boxes). Every launch
+gets a private TMPDIR + OMPI_MCA_orte_tmpdir_base, two ranks, and
+MPIEXEC_TIMEOUT, so a hang fails the test and mpirun reaps its own ranks.
 """
 
 from __future__ import annotations
@@ -21,8 +23,10 @@ from __future__ import annotations
 import errno
 import json
 import os
+import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -32,6 +36,8 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]  # pylatkmc/
 NI_SLAB_1VAC = REPO_ROOT / "models" / "ni_example" / "examples" / "slab_ni_1vac.kmcinit"
 NI_SLAB_0VAC = REPO_ROOT / "models" / "ni_dissolution_demo" / "examples" / "slab_ni_0vac.kmcinit"
+NICR_PROCLIST_H = REPO_ROOT / "models" / "nicr_v2_scratch" / "generated" / "proclist.h"
+BUILD_INITIAL_CONFIG = REPO_ROOT / "tools" / "build_initial_config.py"
 LAUNCH_TIMEOUT_S = 60
 
 
@@ -66,6 +72,11 @@ def _build(model: str, tmp_path_factory: pytest.TempPathFactory) -> Path:
 @pytest.fixture(scope="module")
 def ni_example_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return _build("ni_example", tmp_path_factory)
+
+
+@pytest.fixture(scope="module")
+def nicr_bin(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return _build("nicr_v2_scratch", tmp_path_factory)
 
 
 def _ini(
@@ -123,11 +134,77 @@ def _aggregate(tmp_path: Path) -> dict:
     return json.loads((tmp_path / "out" / "aggregate_summary.json").read_text())
 
 
+def _log_rows(tmp_path: Path) -> list[list[str]]:
+    """Data rows of every replica's pykmc.out
+    (`step time_s dt_s n_vac k_tot k_event Ea_eV proc_id site`)."""
+    rows = []
+    for log in sorted((tmp_path / "out").glob("replica_*/pykmc.out")):
+        for line in log.read_text().splitlines():
+            if line.strip() and not line.startswith("#"):
+                rows.append(line.split())
+    return rows
+
+
+def _assert_k_tot_is_the_dt_rate(rows: list[list[str]]) -> None:
+    """dt = -log(r2) / r_tot, so dt * k_tot must be a positive Exp(1) draw on
+    every row (mean ~1) when k_tot is the total rate dt was drawn from."""
+    products = [float(r[2]) * float(r[4]) for r in rows]
+    assert products, "no logged steps"
+    assert min(products) > 0.0, "a logged k_tot is not the rate its dt was drawn from"
+    mean = sum(products) / len(products)
+    assert 0.75 < mean < 1.3, f"mean dt*k_tot = {mean:.3f}, expected ~1"
+
+
+def _nicr_reach() -> tuple[int, int]:
+    hdr = NICR_PROCLIST_H.read_text()
+    ij = re.search(r"#define PYLATKMC_V2_MAX_REACH_IJ (\d+)", hdr)
+    k = re.search(r"#define PYLATKMC_V2_MAX_REACH_K (\d+)", hdr)
+    assert ij and k, "nicr_v2_scratch proclist.h lacks the v2 reach macros"
+    return int(ij.group(1)), int(k.group(1))
+
+
+def _nicr_box(tmp_path: Path, n_surface: int) -> Path:
+    """Random Ni90Cr10 slab, n_surface x n_surface (grid_nx = grid_ny = 2*n),
+    vacuum thicker than the axial reach so only the in-plane axes can fail."""
+    pytest.importorskip("numpy")
+    _, reach_k = _nicr_reach()
+    out = tmp_path / f"box_{n_surface}.kmcinit"
+    res = subprocess.run(
+        [
+            sys.executable,
+            str(BUILD_INITIAL_CONFIG),
+            "--nx",
+            str(n_surface),
+            "--ny",
+            str(n_surface),
+            "--nz",
+            "10",
+            "--composition",
+            "Ni90_Cr10",
+            "--n-vacancies",
+            "4",
+            "--vacuum-layers",
+            str(reach_k + 3),
+            "--seed",
+            "7",
+            "-o",
+            str(out),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert res.returncode == 0, f"build_initial_config.py failed:\n{res.stderr}"
+    return out
+
+
 def test_completed_run_exits_zero(ni_example_bin: Path, tmp_path: Path) -> None:
     res, _ = _launch(ni_example_bin, _ini(tmp_path, NI_SLAB_1VAC, max_steps=200))
     assert res.returncode == 0, res.stderr
     agg = _aggregate(tmp_path)
     assert (agg["n_success"], agg["n_failed"]) == (2, 0)
+    # Without a surrogate channel k_tot is the measured r_tot, as before.
+    _assert_k_tot_is_the_dt_rate(_log_rows(tmp_path))
 
 
 def test_trapped_run_exits_zero(ni_example_bin: Path, tmp_path: Path) -> None:
@@ -159,3 +236,17 @@ def test_init_failure_on_one_rank_fails_every_rank_promptly(
     assert res.returncode != 0
     assert "[rank 1] replica_init failed" in res.stderr
     assert not (out / "replica_0000" / "pykmc.out").exists(), "rank 0 ran without rank 1"
+
+
+def test_surrogate_build_logs_total_rate(nicr_bin: Path, tmp_path: Path) -> None:
+    """Random NiCr fires mostly through the surrogate channel, where k_tot used
+    to log the measured channel only (0.0 on surrogate-only steps); it must be
+    the total rate dt was drawn from. The box is one cell pair wider than
+    2*reach so the v2 startup geometry checks accept it."""
+    reach_ij, _ = _nicr_reach()
+    box = _nicr_box(tmp_path, reach_ij + 1)
+    res, _ = _launch(nicr_bin, _ini(tmp_path, box, max_steps=200, temperature_K=600.0))
+    assert res.returncode == 0, res.stderr
+    rows = _log_rows(tmp_path)
+    assert any(r[7] == "-1" for r in rows), "no surrogate-channel step was exercised"
+    _assert_k_tot_is_the_dt_rate(rows)

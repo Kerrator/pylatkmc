@@ -36,6 +36,16 @@ All notable changes to pylatkmc are documented here, following
 
 ### Changed
 
+- **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
+  total rate the step's `dt` was drawn from and its event selected against
+  (measured + surrogate channel). It used to log the measured channel only
+  (`0.0` on surrogate-only steps), so `k_tot != 1/<dt>` there. Builds without
+  the surrogate channel (`PYLATKMC_HAS_SURROGATE` undefined: every v0.3 model,
+  `nife_v2_scratch`, and `surrogate_enable = 0` runs) are byte-identical.
+  Downstream readers checked 2026-10-21: the pub3 drivers that parse column 5
+  (`P6prep-rebuild-eval` toy12 / v2test, `P5-tier1` `connectivity_metrics.py`)
+  all read non-surrogate runs, and PyKMC_Analysis's `kmc_adapter_run_diagnostics.py`
+  reads the legacy `latkmc` log; none sees the change. (large-system-scaling/04)
 - **Process exit status.** The binary exits 1 on every rank when any rank's
   replica failed setup (bad/missing `.kmcinit`, `avail_sites` ENOMEM, a refused
   geometry, ...) or its run failed; a replica that completed or trapped
