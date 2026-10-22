@@ -239,7 +239,10 @@ Failure handling (`runtime/src/main.c`, `replica.c`):
   else, traps included, as `n_failed`.
 - **Exit status.** 0 when every replica completed or trapped (a normal
   physical end); 1 on every rank when any replica failed setup or its run, so
-  sweeps and job queues see failures such as an OOM on some ranks.
+  sweeps and job queues see failures such as an OOM on some ranks. A final
+  `MPI_Barrier` keeps every rank alive until rank 0 has written
+  `aggregate_summary.json`, so a launcher that kills the job on the first
+  non-zero exit cannot truncate it.
 
 ---
 

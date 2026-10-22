@@ -77,6 +77,13 @@ int main(int argc, char **argv) {
         fprintf(stderr, "%d of %d replica%s failed (setup or run error); exit status 1\n",
                 n_run_failed, nranks, nranks == 1 ? "" : "s");
 
+    /* No rank may exit before rank 0 has written aggregate_summary.json: with
+     * a non-zero exit status coming, a launcher that kills the job on the
+     * first failing task (mpirun's abort-on-non-zero-status, Slurm's
+     * KillOnBadExit) must not cut that write short, and MPI_Finalize is not
+     * guaranteed to synchronize. */
+    fflush(stdout);
+    MPI_Barrier(MPI_COMM_WORLD);
     MPI_Finalize();
     return n_run_failed > 0 ? 1 : 0;
 }
