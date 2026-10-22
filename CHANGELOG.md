@@ -43,6 +43,21 @@ All notable changes to pylatkmc are documented here, following
 
 ### Changed
 
+- **v2 matcher throughput.** The generated v2 `touchup_a` re-matched every
+  (pattern, orientation) once per harvested member (5.2x redundant in
+  `nife_v2_scratch`, 6.8x in `nicr_v2_scratch`) and rotated and wrapped every
+  row of every pattern through the site grid. It now resolves the anchor's
+  context ball (`v2_ball`: every row offset under every D4h op) once, matches
+  each pattern under all of its orientations at once, and enrols every member
+  proc of each matched (pattern, orientation). Enrolment is unchanged call for
+  call, so fixed-seed outputs are bitwise identical. Measured on one core, the
+  touchup phase of a step on the golden painted slabs is 65-140x faster:
+  `nife_painted` drops from 19.6 ms to 0.14 ms per step, and a 1000-step run
+  from 21.6 s to 2.2 s. `nife_v2_scratch` and
+  `nicr_v2_scratch` proclists are regenerated; in them `v2_ctx_rows` /
+  `V2_PRED_*` are replaced by `v2_match_rows` / `V2_CLS_*` and `v2_ball`, so
+  external tools that parse a v2 `proclist.c` must follow.
+  (large-system-scaling/08, 09)
 - **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
   total rate the step's `dt` was drawn from and its event selected against
   (measured + surrogate channel). It used to log the measured channel only
