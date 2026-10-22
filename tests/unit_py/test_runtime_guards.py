@@ -277,7 +277,8 @@ def test_rejected_apply_fails_the_step_without_advancing_the_clock(tmp_path: Pat
 
 #: int-width site*stride indexing, which overflows on large lattices.
 _INT_INDEX = re.compile(
-    r"\[\s*(?:(?:site|anchor)\s*\*\s*(?:N_NEIGHBOUR_CODES|3)|3\s*\*\s*(?:site|anchor))\b"
+    r"\[\s*(?:(?:site|anchor|vac_site|neigh_site|vd)\s*\*\s*(?:N_NEIGHBOUR_CODES|3)"
+    r"|3\s*\*\s*(?:site|anchor|vac_site|neigh_site|vd))\b"
 )
 
 
@@ -293,7 +294,8 @@ def test_emitted_site_indices_are_size_t() -> None:
         "lat->coord_table[(size_t)site * N_NEIGHBOUR_CODES + NC_NN1_PX]"
     )
     assert _coord_macro(CoordOffset(code="NC_ANCHOR")) == "site"
-    assert "&lat->site_ijk[(size_t)anchor * 3]" in _MEASURED_COVERS_C
+    assert "&lat->site_ijk[(size_t)vac_site * 3]" in _MEASURED_COVERS_C
+    assert "&lat->site_ijk[(size_t)neigh_site * 3]" in _MEASURED_COVERS_C
     assert _INT_INDEX.search(_MEASURED_COVERS_C) is None
     v2 = _v2_hop_proclist_c()  # v2_match + v2_apply from pattern_codegen
     assert v2.count("&lat->site_ijk[(size_t)site * 3]") == 2

@@ -26,7 +26,8 @@
 
 #include "events_base.h"   /* SP_VACANT, SP_NI, SP_FE, SP_CR */
 
-/* Covered-hop check emitted into proclist.c (measured-channel de-dup). */
+/* Covered-hop check emitted into proclist.c (measured-channel de-dup): O(1),
+ * it reads the avail_sites cover word touchup_a recorded at vac_site. */
 int pylatkmc_measured_covers_hop(const Lattice *lat, const State *st,
                                  const AvailSites *as,
                                  int32_t vac_site, int32_t neigh_site);
@@ -482,7 +483,8 @@ double surrogate_rebuild(SurrCtx *ctx, const Lattice *lat, const State *st,
                 if (D->ru_dir == du && D->rv_dir == dv && D->rw_dir == dw) { dir_idx = d; break; }
             }
             if (dir_idx < 0) continue;
-            /* de-dup vs the measured channel */
+            /* de-dup vs the measured channel (O(1): one bit of the cover word
+             * this step's touchup_a recorded at v, large-system-scaling/10) */
             if (as && pylatkmc_measured_covers_hop(lat, st, as, v, n)) continue;
 
             SurrEval ev;

@@ -3792,6 +3792,64 @@ static uint32_t v2_match_ops(const V2Pattern *pt, const uint16_t *pass)
     return ops;
 }
 
+/* ---- measured-hop covers for the Phase C surrogate channel ----
+ * (large-system-scaling/10)
+ *
+ * v2_cover_dirs[d] is the runtime-frame offset of the surrogate
+ * channel's hop direction d (its surr_dirs order). Bit d of an anchor's
+ * avail_sites cover word is set while touchup_a enrols the anchor's
+ * procs (v2_record_covers) iff a matched (pattern, op) there moves the
+ * vacancy from the anchor to the site one raw site_ijk step
+ * v2_cover_dirs[d] away; pylatkmc_measured_covers_hop reads it. */
+#define V2_N_COVER_DIRS 12
+static const int8_t v2_cover_dirs[V2_N_COVER_DIRS][3] = {
+    {-2,0,0}, {-1,1,-1}, {-1,1,1}, {0,2,0}, {-1,-1,-1}, {-1,-1,1},
+    {1,1,-1}, {1,1,1}, {0,-2,0}, {1,-1,-1}, {1,-1,1}, {2,0,0},
+};
+
+/* The cover direction from site cell `from` to site cell `to` (a raw
+ * site_ijk difference, never wrapped), or -1. */
+static int32_t v2_cover_dir(const int16_t *from, const int16_t *to)
+{
+    int32_t du = to[0] - from[0], dv = to[1] - from[1], dw = to[2] - from[2];
+    for (int32_t d = 0; d < V2_N_COVER_DIRS; ++d)
+        if (v2_cover_dirs[d][0] == du && v2_cover_dirs[d][1] == dv
+            && v2_cover_dirs[d][2] == dw)
+            return d;
+    return -1;
+}
+
+/* Record the cover bits of pattern pt matched under `ops` at `site`:
+ * its v_origin and v_dest rows resolve exactly as v2_apply resolves
+ * them, the hop must start at the anchor itself and end on a real site.
+ * A pattern whose vacancy rows are -1 covers nothing. */
+static void v2_record_covers(const Lattice *lat, AvailSites *as, int site,
+                             const V2Pattern *pt, uint32_t ops)
+{
+    if (pt->v_origin_row < 0 || pt->v_dest_row < 0) return;
+    const V2DeltaRow *ro = &v2_delta_rows[pt->delta_begin + pt->v_origin_row];
+    const V2DeltaRow *rd = &v2_delta_rows[pt->delta_begin + pt->v_dest_row];
+    const int16_t *c0 = &lat->site_ijk[(size_t)site * 3];
+    uint32_t bits = 0;
+    for (int32_t g = 0; g < 16; ++g) {
+        if (((ops >> g) & 1u) == 0) continue;
+        const int8_t *R = V2_OPS[g];
+        int32_t vo = lattice_site_at_ijk(lat,
+            c0[0] + R[0]*ro->di + R[1]*ro->dj + R[2]*ro->dk,
+            c0[1] + R[3]*ro->di + R[4]*ro->dj + R[5]*ro->dk,
+            c0[2] + R[6]*ro->di + R[7]*ro->dj + R[8]*ro->dk);
+        if (vo != site) continue;
+        int32_t vd = lattice_site_at_ijk(lat,
+            c0[0] + R[0]*rd->di + R[1]*rd->dj + R[2]*rd->dk,
+            c0[1] + R[3]*rd->di + R[4]*rd->dj + R[5]*rd->dk,
+            c0[2] + R[6]*rd->di + R[7]*rd->dj + R[8]*rd->dk);
+        if (vd >= lat->n_sites) continue;  /* the stub: no site */
+        int32_t d = v2_cover_dir(c0, &lat->site_ijk[(size_t)vd * 3]);
+        if (d >= 0) bits |= 1u << d;
+    }
+    if (bits != 0) avail_sites_cover_add(as, site, (uint16_t)bits);
+}
+
 void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)
 {
     if (!lat->site_grid || !lat->site_ijk) return;  /* grid not built */
@@ -3812,6 +3870,7 @@ void touchup_a(const Lattice *lat, const State *st, AvailSites *as, int site)
         for (int32_t p = pt->proc_begin; p < pt->proc_begin + pt->proc_n; ++p)
             if ((ops >> v2_procs[p].op) & 1u)
                 avail_sites_add(as, p, site);
+        v2_record_covers(lat, as, site, pt, ops);
     }
 }
 
@@ -13634,33 +13693,20 @@ const char *const pylatkmc_nu0_pair_policy = "harvested_pair";
 
 /* Does any enrolled MEASURED proc already do the vacancy move vac_site→neigh_site
  * (v_origin at vac_site, v_dest at neigh_site)? Used to de-dup the surrogate
- * channel against channel (a). O(N_PROCS) per call (fine for the smoke). */
-static int32_t surr_proc_vsite(const Lattice *lat, int32_t anchor, int32_t proc, int row)
-{
-    if (row < 0) return -1;
-    const V2Proc *pr = &v2_procs[proc];
-    const V2Pattern *pt = &v2_patterns[pr->pat];
-    const int8_t *R = V2_OPS[pr->op];
-    const V2DeltaRow *dr = &v2_delta_rows[pt->delta_begin + row];
-    const int16_t *c0 = &lat->site_ijk[(size_t)anchor * 3];
-    int32_t di = R[0]*dr->di + R[1]*dr->dj + R[2]*dr->dk;
-    int32_t dj = R[3]*dr->di + R[4]*dr->dj + R[5]*dr->dk;
-    int32_t dk = R[6]*dr->di + R[7]*dr->dj + R[8]*dr->dk;
-    return lattice_site_at_ijk(lat, c0[0]+di, c0[1]+dj, c0[2]+dk);
-}
+ * channel against channel (a). O(1): while touchup_a enrolled the procs at
+ * vac_site it set bit d of the site's avail_sites cover word for every such
+ * move to the site one raw site_ijk step v2_cover_dirs[d] away (the directions
+ * surrogate_rebuild matches neighbours against; no other pair is asked).
+ * avail_sites_clear zeroes the words with the enrolments, so the answer is the
+ * one a scan over every proc enrolled at vac_site gives. */
 int pylatkmc_measured_covers_hop(const Lattice *lat, const State *st,
                                  const AvailSites *as,
                                  int32_t vac_site, int32_t neigh_site)
 {
     (void)st;
-    for (int32_t p = 0; p < N_PROCS; ++p) {
-        if (avail_sites_is_enrolled(as, p, vac_site) != 1) continue;
-        const V2Pattern *pt = &v2_patterns[v2_procs[p].pat];
-        int32_t vo = surr_proc_vsite(lat, vac_site, p, pt->v_origin_row);
-        int32_t vd = surr_proc_vsite(lat, vac_site, p, pt->v_dest_row);
-        if (vo == vac_site && vd == neigh_site) return 1;
-    }
-    return 0;
+    int32_t d = v2_cover_dir(&lat->site_ijk[(size_t)vac_site * 3],
+                             &lat->site_ijk[(size_t)neigh_site * 3]);
+    return d >= 0 && ((avail_sites_cover(as, vac_site) >> d) & 1u);
 }
 
 
