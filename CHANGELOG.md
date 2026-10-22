@@ -55,6 +55,10 @@ All notable changes to pylatkmc are documented here, following
   `output_root` that would truncate the replica directory path
   (`-ENAMETOOLONG`) and an existing non-directory in its place (`-ENOTDIR`).
   (large-system-scaling/02)
+- `dt = -log(r2)/r_tot` became `+inf` when the RNG drew `r2 = 0` exactly
+  (p = 2^-53 per step). `rng_next2` now redraws an exact zero, so every
+  fixed-seed trajectory that never drew 0 is bitwise unchanged.
+  (large-system-scaling/03)
 
 Candidates for v0.4 (none committed):
 
