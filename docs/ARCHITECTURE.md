@@ -192,6 +192,39 @@ procs. The ball read and the op masks live on the stack of `touchup_a`:
 nicr_v2_scratch. Codegen refuses tables that would overflow their `uint16`
 indices, which keeps this stack use under 200 KB.
 
+### Phase C surrogate channel: per-step bookkeeping
+
+On a model with `[rate_data].surrogate_model`, each step runs
+`surrogate_rebuild` (`runtime/src/core/surrogate.c`) after the touchup. It
+takes every real-atom 1NN of every vacancy whose raw (unwrapped) `site_ijk`
+offset is one of the 12 baked hop directions, so a neighbour across a
+periodic seam is never a candidate. It skips the hops a measured proc already
+performs and rates the rest with `surrogate_eval`. `surrogate_account` then
+updates the flag registry for every live candidate.
+
+- **De-dup (large-system-scaling/10).** `touchup_a` calls the generated
+  `surr_tag_covered` once per matched pattern, after enrolling its procs
+  (`emit_pattern_tables(..., enrol_hook=...)`, passed on surrogate builds
+  only). For each matched op it resolves the pattern's vacancy-origin and
+  vacancy-destination delta rows through the site grid, as `v2_apply` does.
+  When the origin is the anchor and the destination is a real site at baked
+  direction d, it sets bit d of the anchor's `avail_sites` tag
+  (`avail_sites_tag_or`). `pylatkmc_measured_covers_hop(as, vac, d)` reads that
+  bit, so the check is O(1) and reads nothing from `slot_of`.
+  `avail_sites_clear` drops the tags with the enrolments. `avail_sites_del`
+  leaves them, so an incremental engine must rebuild a site's tag along with
+  its enrolments.
+- **Flag registry (large-system-scaling/11).** The registry is an array, in
+  insertion order (the registry index), of at most `flag_registry_capacity`
+  flags keyed by (min site, max site, direction). Once it is full, new keys are
+  dropped silently. `flag_lookup` finds a key through a linear-probing index
+  of at least 2 × capacity slots, sized at init, so a lookup is O(1). The
+  array, its order and `flag_registry.csv` (sorted by
+  `carried_flux * max(n_fired, 1)`, ties by key) are unchanged.
+
+What remains of a surrogate step is `surrogate_eval` itself, about 93 % of a
+`nicr_random` golden step.
+
 ---
 
 ## The execution plane: runtime per-step loop
@@ -238,7 +271,8 @@ int kmc_step_once(KmcContext *ctx,
 - **`AvailSites`** — per-step event-availability index. Dual-index
   `site_at[proc][k]` + `slot_of[proc][site]` for O(1) add/del. Plus
   `rates[proc]` (set once at startup) and `cum_rates[proc]` (refreshed
-  per step).
+  per step), and per-site tag bits (`avail_sites_tag_or`, cleared with the
+  enrolments) in which a surrogate build's touchup records covered hops.
 - **`ActiveFilter`** — bitmap + packed list of "sites worth running
   touchup at". Static mask (geometry-derived) + dynamic mask (vacancies
   and their 1NN).

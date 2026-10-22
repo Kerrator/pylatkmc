@@ -66,6 +66,30 @@ All notable changes to pylatkmc are documented here, following
   `V2_PRED_*` are replaced by `v2_match_rows` / `V2_CLS_*` and `v2_ball`, so
   external tools that parse a v2 `proclist.c` must follow.
   (large-system-scaling/08, 09)
+- **Surrogate-channel bookkeeping throughput (Phase C builds).** Each step the
+  surrogate channel checks every candidate (each vacancy x each real-atom 1NN
+  along a baked hop direction) against the enrolled measured procs, then
+  records every live candidate in the flag registry.
+  - The check scanned all `N_PROCS` with `avail_sites_is_enrolled` per
+    candidate. Now `touchup_a` records, while it enrols, which baked hop
+    directions the measured procs at each anchor perform, in a new per-site
+    `avail_sites` tag (`avail_sites_tag_or` / `avail_sites_tag`, cleared by
+    `avail_sites_clear`), and the check reads the tag:
+    `pylatkmc_measured_covers_hop(as, vac_site, dir_idx)` (signature changed).
+  - The registry lookup scanned up to `flag_registry_capacity` (default 65536)
+    flags per candidate. An open-addressing index beside the registry array
+    now makes it O(1).
+
+  Fixed-seed outputs are bitwise identical, `flag_registry.csv` and
+  `phasec.out` included: same registry entries, insertion order and
+  full-registry behaviour. Measured as CPU time on one E-core:
+  `nicr_painted` 2.55 -> 2.15 ms per step (-16 %), `nicr_random` 1.01 -> 0.90
+  ms (-10 %), a 32-vacancy 4000-site random slab -15 %, and a 1e4-step painted
+  run (6.5k flags) -14 %. Most of what remains is `surrogate_eval`. Only the
+  `nicr_v2_scratch` proclist is regenerated; v2 models without a surrogate
+  model and the v0.3 models are byte-identical. The surrogate channel no
+  longer reads `avail_sites`' dense `slot_of` table, which
+  large-system-scaling/12 needs. (large-system-scaling/10, 11)
 - **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
   total rate the step's `dt` was drawn from and its event selected against
   (measured + surrogate channel). It used to log the measured channel only
