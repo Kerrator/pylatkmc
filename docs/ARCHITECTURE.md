@@ -56,7 +56,8 @@ Three layers, one direction of dependency:
 
 Everything model-specific is **baked at codegen time** (Process names,
 rate constants, action specifics). The runtime hot loop is a tight
-sequence of `active_filter_rescan` → `avail_sites_clear` → per-site
+sequence of `active_filter_rescan` (vacancies only, when every process
+anchors on a vacancy) → `avail_sites_clear` → per-site
 `touchup_a` → `avail_sites_select` → `apply_table[proc]`.
 
 ---
@@ -244,7 +245,12 @@ int kmc_step_once(KmcContext *ctx,
                   int32_t *out_proc, int32_t *out_site, double *out_dt,
                   double *out_r_tot)
 {
-    active_filter_rescan(ctx->af, ctx->lat, ctx->st);
+    /* vacancies only when proclist.h's PYLATKMC_ANCHOR_SPECIES_MASK is
+     * SP_VACANT alone: same touchup order, O(n_vac) instead of O(n_sites) */
+    if ((PYLATKMC_ANCHOR_SPECIES_MASK & ~(1u << SP_VACANT)) == 0u)
+        active_filter_rescan_vacancies(ctx->af, ctx->lat, ctx->st);
+    else
+        active_filter_rescan(ctx->af, ctx->lat, ctx->st);
     avail_sites_clear(ctx->as);
     int32_t n_active = active_filter_n_active(ctx->af);
     for (int32_t i = 0; i < n_active; ++i) {

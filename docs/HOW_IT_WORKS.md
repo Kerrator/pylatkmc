@@ -282,8 +282,19 @@ site index of the +x neighbour. Reads thereafter are O(1).
 
 ### 7.1 — `active_filter_rescan(af, lat, st)`
 
-The filter's static mask flagged surface and edge sites at startup.
-Now we OR in: every vacancy + every 1NN of vacancy.
+The filter's static mask flagged surface and edge sites at startup (and
+listed them in ascending site order). Now we OR in: every vacancy + every
+1NN of vacancy, walking `vac_list` in order.
+
+When every Process anchors on a vacancy (`proclist.h` defines
+`PYLATKMC_ANCHOR_SPECIES_MASK` as `SP_VACANT` alone, as for every model
+except `ni_dissolution_demo`), `kmc_step_once` calls
+`active_filter_rescan_vacancies` instead: it lists only the vacancies, in
+the order the full rescan lists them (static vacancies ascending, then the
+walk order), because a touchup at an occupied site can never enrol
+anything there. The per-proc `avail_sites` lists come out in the same
+order, so the run is bitwise the same, at O(n_vac) instead of O(n_sites)
+per step.
 
 For our setup (1 surface vacancy at site `s`), the active set contains
 ~13 sites: `s` itself + 8 1NN of `s` + the 4-corner static-active sites

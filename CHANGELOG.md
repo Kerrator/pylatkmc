@@ -97,6 +97,31 @@ All notable changes to pylatkmc are documented here, following
     depends on the binary's code layout: other builds of the same logic ran
     `nicr_random` in 8.7-16 s from run to run, so compare timings across
     several runs.
+- **Per-step active set is O(n_vac) when every process anchors on a
+  vacancy.** Every step re-seeded the static (low-coordination) sites with a
+  pass over all `n_sites`, and `kmc_step_once` ran `touchup_a` at each of
+  them, although on such a model only vacant sites can enrol anything.
+  Codegen now writes `PYLATKMC_ANCHOR_SPECIES_MASK` into `proclist.h` (bit
+  `SP_<X>` set iff some process anchors on species X; from the `NC_ANCHOR`
+  Conditions on the v0.3 path and the pattern buckets on the v2 path). When it
+  is `SP_VACANT` alone (`ni_example`, `ni_fe_cr_v1`, `nife_v2_scratch`,
+  `nicr_v2_scratch`), the step loop lists and touches up only the vacancies
+  (`active_filter_rescan_vacancies`), in exactly the order the full rescan
+  visits them: the static vacancies in ascending site order, then the others
+  in first-appearance order of the `vac_list` walk. Every `avail_sites` list,
+  and so every fixed-seed output, is bitwise identical. `ni_dissolution_demo`
+  (its dissolution processes anchor on atoms) keeps the full active set, now
+  re-seeded from a list of the static sites built once at startup. All five
+  `proclist.h` gain the 6-line mask block (`proclist.c` is unchanged); a
+  `proclist.h` generated before the mask existed builds and runs on the full
+  rescan as before. Measured on one P-core (1 rank, min of 3) on a
+  103,680-site 72x72x20 slab with 4 vacancies: `ni_example` runs 20,100 ->
+  885,000 steps/s (rescan + touchup phase 54 -> 1.2 us per step);
+  `nicr_v2_scratch` with the surrogate on runs 1,006 -> 1,061 steps/s (phase
+  84 -> 25 us; its ~0.9 ms surrogate channel dominates);
+  `ni_dissolution_demo`'s phase drops only from 878 to 836 us, because its
+  ~10,400 surface-site touchups remain (the local-update part of
+  step-loop-full-rescan/01). (step-loop-full-rescan/01)
 - **`pykmc.out` column 5 (`k_tot`) on Phase C surrogate builds** now logs the
   total rate the step's `dt` was drawn from and its event selected against
   (measured + surrogate channel). It used to log the measured channel only

@@ -73,7 +73,8 @@ the chosen Process's actions atomically.
    ┌────────────────────────────────────────────────────────────────────────┐
    │  C runtime: per replica, per step                                      │
    │                                                                        │
-   │   active_filter_rescan(af, lat, st)                                    │
+   │   active_filter_rescan(af, lat, st)    (vacancies only when every      │
+   │                                         process anchors on a vacancy)  │
    │   avail_sites_clear(as)                                                │
    │   for s in active_filter sites:                                        │
    │       touchup_a(lat, st, as, s)        ← generated decision tree       │
@@ -291,7 +292,12 @@ Per step:
 1. **Active-site rescan** (`active_filter_rescan`). A site is "active"
    iff vacant, has a vacant 1NN, or has `nn1_degree < 12`. Bulk atoms
    with full coordination and no nearby vacancy can never have a
-   Process match — skipping them saves the touchup cost.
+   Process match — skipping them saves the touchup cost. When every
+   Process anchors on a vacancy (the generated `proclist.h`'s
+   `PYLATKMC_ANCHOR_SPECIES_MASK` is `SP_VACANT` alone), only vacant
+   sites can enrol anything, and `active_filter_rescan_vacancies` lists
+   just those, in the same relative order (see the active_filter section
+   below): O(n_vac) per step instead of O(n_sites).
 
 2. **Clear the avail_sites index** (`avail_sites_clear`). Wipes all
    `(proc, site)` enrolments from the previous step. Per-proc rate
@@ -365,10 +371,30 @@ Source: [`runtime/src/core/state_actions.c`](../runtime/src/core/state_actions.c
 ### active_filter — coord-based gate
 
 `active_filter_compute_static(af, lat)` precomputes a bitmap of
-geometry-derived active sites (anywhere `nn1_degree < bulk_threshold`).
-`active_filter_rescan(af, lat, st)` resets the dynamic part to that
-static mask, then marks every vacancy and every 1NN of vacancy.
+geometry-derived active sites (anywhere `nn1_degree < bulk_threshold`)
+and the same sites as a list in ascending site order.
+`active_filter_rescan(af, lat, st)` re-seeds the active list from the
+static list, then walks `vac_list`: each vacancy, then its 1NN in CSR
+order, each site listed where it first appears.
 O(n_vac × 12 + n_static_sites) per step.
+
+The list order matters: `avail_sites` keeps each proc's sites in
+`touchup_a` call order and BKL selection indexes into those lists, so
+reordering the touchups changes fixed-seed trajectories. The generated
+`proclist.h` defines `PYLATKMC_ANCHOR_SPECIES_MASK` (bit `SP_<X>` set iff
+some Process anchors on species X: `decision_tree.anchor_species` /
+`pattern_codegen.v2_anchor_species`). When it is `SP_VACANT` alone,
+`kmc_step_once` calls `active_filter_rescan_vacancies` instead, which
+lists only the vacancies in the order the full rescan lists them: the
+static vacancies in ascending site order, then the others in walk order
+(a vacancy that is a 1NN of an earlier `vac_list` entry comes before its
+own slot). Touchups at occupied sites never enrol anything on such a
+model, so every `avail_sites` list, and every output, is bitwise
+unchanged, at O(n_vac × 12) per step. `ni_example`, `ni_fe_cr_v1` and
+both v2 models are vacancy-anchored; `ni_dissolution_demo`'s dissolution
+Processes anchor on atoms, so it keeps the full rescan. A `proclist.h`
+generated before the mask existed also keeps the full rescan.
+(step-loop-full-rescan/01)
 
 For the production 8×8×3 slab with one surface vacancy, this gives
 ~13–20 active sites instead of all 192 — touchup cost drops by an
