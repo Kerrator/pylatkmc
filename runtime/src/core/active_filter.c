@@ -9,12 +9,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "events_base.h"   /* SP_VACANT */
+
 struct ActiveFilter {
     int32_t  n_sites;
     int32_t  bulk_threshold;
 
     uint8_t *is_active;     /* [n_sites] 1 if active, 0 if not */
     uint8_t *static_mask;   /* [n_sites] 1 if geometry-active, immutable */
+
+    /* The static sites in ascending site order, so a rescan re-seeds them
+     * without a pass over every site. */
+    int32_t *static_list;   /* [n_sites] capacity, length n_static */
+    int32_t  n_static;
 
     int32_t *active_list;   /* [n_sites] packed indices (length = n_active) */
     int32_t  n_active;
@@ -36,10 +43,12 @@ int active_filter_alloc(ActiveFilter **out, int32_t n_sites, int32_t bulk_thresh
     af->bulk_threshold = bulk_threshold;
     af->is_active      = calloc((size_t)n_sites, sizeof *af->is_active);
     af->static_mask    = calloc((size_t)n_sites, sizeof *af->static_mask);
+    af->static_list    = malloc((size_t)n_sites * sizeof *af->static_list);
     af->active_list    = malloc((size_t)n_sites * sizeof *af->active_list);
     af->list_idx       = malloc((size_t)n_sites * sizeof *af->list_idx);
 
-    if (!af->is_active || !af->static_mask || !af->active_list || !af->list_idx) {
+    if (!af->is_active || !af->static_mask || !af->static_list
+        || !af->active_list || !af->list_idx) {
         active_filter_free(af);
         return -ENOMEM;
     }
@@ -56,6 +65,7 @@ void active_filter_free(ActiveFilter *af)
     if (!af) return;
     free(af->is_active);
     free(af->static_mask);
+    free(af->static_list);
     free(af->active_list);
     free(af->list_idx);
     free(af);
@@ -64,9 +74,11 @@ void active_filter_free(ActiveFilter *af)
 void active_filter_compute_static(ActiveFilter *af, const Lattice *lat)
 {
     if (!af || !lat || !lat->nn1_offsets) return;
+    af->n_static = 0;
     for (int32_t s = 0; s < af->n_sites; ++s) {
         int32_t deg = lat->nn1_offsets[s + 1] - lat->nn1_offsets[s];
         af->static_mask[s] = (deg < af->bulk_threshold) ? 1 : 0;
+        if (af->static_mask[s]) af->static_list[af->n_static++] = s;
     }
 }
 
@@ -79,21 +91,27 @@ static inline void _append(ActiveFilter *af, int32_t site)
     af->active_list[af->n_active++] = site;
 }
 
-void active_filter_clear_dynamic(ActiveFilter *af)
+/* Internal: empty the active set. O(n_active): only listed sites are reset. */
+static void _clear(ActiveFilter *af)
 {
-    if (!af) return;
-    /* Drop everything we accumulated and re-seed from static_mask. */
     for (int32_t i = 0; i < af->n_active; ++i) {
         int32_t s = af->active_list[i];
         af->is_active[s] = 0;
         af->list_idx[s] = -1;
     }
     af->n_active = 0;
-    for (int32_t s = 0; s < af->n_sites; ++s) {
-        if (af->static_mask[s]) {
-            af->is_active[s] = 1;
-            _append(af, s);
-        }
+}
+
+void active_filter_clear_dynamic(ActiveFilter *af)
+{
+    if (!af) return;
+    /* Drop everything we accumulated and re-seed the static sites, in
+     * ascending site order (static_list; no pass over every site). */
+    _clear(af);
+    for (int32_t i = 0; i < af->n_static; ++i) {
+        int32_t s = af->static_list[i];
+        af->is_active[s] = 1;
+        _append(af, s);
     }
 }
 
@@ -145,6 +163,50 @@ void active_filter_rescan(ActiveFilter *af,
         active_filter_mark(af, s);
         for (int32_t i = lat->nn1_offsets[s]; i < lat->nn1_offsets[s + 1]; ++i) {
             active_filter_mark(af, lat->nn1_indices[i]);
+        }
+    }
+}
+
+static int cmp_site(const void *pa, const void *pb)
+{
+    int32_t a = *(const int32_t *)pa, b = *(const int32_t *)pb;
+    return (a > b) - (a < b);
+}
+
+void active_filter_rescan_vacancies(ActiveFilter *af,
+                                    const Lattice *lat,
+                                    const State *st)
+{
+    if (!af) return;
+    _clear(af);
+
+    if (!lat || !st || st->n_vac <= 0 || !st->vac_list || !st->species
+        || !lat->nn1_offsets || !lat->nn1_indices) {
+        return;
+    }
+
+    /* 1. The static vacancies, in ascending site order: active_filter_rescan
+     *    lists every static site before its vacancy walk. */
+    for (int32_t v = 0; v < st->n_vac; ++v) {
+        int32_t s = st->vac_list[v];
+        if (s < 0 || s >= af->n_sites) continue;
+        if (af->static_mask[s] && st->species[s] == SP_VACANT) active_filter_mark(af, s);
+    }
+    qsort(af->active_list, (size_t)af->n_active, sizeof *af->active_list, cmp_site);
+    for (int32_t i = 0; i < af->n_active; ++i) af->list_idx[af->active_list[i]] = i;
+
+    /* 2. active_filter_rescan's walk (each vacancy, then its 1NN in CSR
+     *    order), listing the vacant sites only, each where it first appears:
+     *    a vacancy that is a 1NN of an earlier vac_list entry is listed
+     *    there, ahead of its own vac_list slot. */
+    for (int32_t v = 0; v < st->n_vac; ++v) {
+        int32_t s = st->vac_list[v];
+        if (s < 0 || s >= af->n_sites) continue;
+        if (st->species[s] == SP_VACANT) active_filter_mark(af, s);
+        for (int32_t i = lat->nn1_offsets[s]; i < lat->nn1_offsets[s + 1]; ++i) {
+            int32_t n = lat->nn1_indices[i];
+            if (n >= 0 && n < af->n_sites && st->species[n] == SP_VACANT)
+                active_filter_mark(af, n);
         }
     }
 }

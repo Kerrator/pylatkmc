@@ -28,18 +28,37 @@
  *   is_active   : 1 byte per site, 1 = active
  *   active_list : packed list of active site indices, length n_active
  *   static_mask : precomputed bitmap of geometry-active sites (cond 3)
+ *   static_list : the same sites in ascending site order
  *
- * The static mask is computed once at lattice-load time. The dynamic
- * mask is recomputed per step from the State's vacancy list and the
- * Lattice's 1NN CSR.
+ * The static mask and list are computed once at lattice-load time. The
+ * dynamic part is recomputed per step from the State's vacancy list and
+ * the Lattice's 1NN CSR.
  *
- * Usage from the runtime:
+ * Order
+ * -----
+ *
+ * avail_sites keeps each proc's sites in touchup_a call order and BKL
+ * selection indexes into those lists, so the order of active_list is part
+ * of a fixed-seed trajectory. active_filter_rescan lists the static sites
+ * in ascending site order, then walks st->vac_list: each vacancy, then its
+ * 1NN in CSR order, each site listed where it first appears.
+ *
+ * When every process anchors on a vacancy (the generated proclist.h's
+ * PYLATKMC_ANCHOR_SPECIES_MASK is SP_VACANT alone), touchup_a enrols
+ * nothing at an occupied site, and active_filter_rescan_vacancies lists
+ * only the vacancies, in the order active_filter_rescan lists them: the
+ * static vacancies ascending, then the others in walk order. The touchup
+ * calls that can enrol anything, and so every avail_sites list, stay
+ * exactly the same, at O(n_vac * deg) per step instead of O(n_sites).
+ *
+ * Usage from the runtime (kmc.c picks the rescan from the anchor mask):
  *
  *   active_filter_alloc(&af, lat->n_sites, BULK_NN1_DEGREE);
  *   active_filter_compute_static(af, lat);             // once at startup
  *
  *   for each KMC step:
- *       active_filter_rescan(af, lat, st);             // O(n_vac * deg)
+ *       active_filter_rescan(af, lat, st);             // O(n_static + n_vac * deg)
+ *    or active_filter_rescan_vacancies(af, lat, st);   // O(n_vac * deg)
  *       avail_sites_clear(as);
  *       for i in [0, active_filter_n_active(af)):
  *           touchup_a(active_filter_site_at(af, i));   // generated code
@@ -57,21 +76,32 @@ int  active_filter_alloc(ActiveFilter **out, int32_t n_sites,
                          int32_t bulk_threshold);
 void active_filter_free(ActiveFilter *af);
 
-/* Precompute the static (geometry-derived) active mask from `lat`'s 1NN
- * CSR. Idempotent. */
+/* Precompute the static (geometry-derived) active mask, and the list of
+ * static sites in ascending order, from `lat`'s 1NN CSR. Idempotent. */
 void active_filter_compute_static(ActiveFilter *af, const Lattice *lat);
 
-/* Full rescan: union of static_mask, vacant sites, and 1NN of vacant.
- * O(n_vac * <degree>) plus a one-time linear pass over static_mask. */
+/* Full rescan: union of the static sites, vacant sites, and 1NN of vacant,
+ * in the order described above ("Order"). O(n_static + n_vac * <degree>). */
 void active_filter_rescan(ActiveFilter *af,
                           const Lattice *lat,
                           const State *st);
+
+/* Vacancy-only rescan, for models whose every process anchors on a vacancy:
+ * exactly the vacant sites active_filter_rescan lists, in the same relative
+ * order (the static vacancies ascending, then the others in vac_list walk
+ * order, so a vacancy that is a 1NN of an earlier vac_list entry comes
+ * before its own vac_list slot). O(n_vac * <degree> + k log k) for k static
+ * vacancies, independent of n_sites. */
+void active_filter_rescan_vacancies(ActiveFilter *af,
+                                    const Lattice *lat,
+                                    const State *st);
 
 /* Manual marking (for incremental rebuild after an event).
  * `mark`: idempotently sets the site active and appends to active_list if
  *   it wasn't already there.
  * `unmark`: clears the bit and removes from active_list (O(1) via swap-last).
- * `clear_dynamic`: resets the active set to the static mask alone. */
+ * `clear_dynamic`: resets the active set to the static sites alone
+ *   (ascending site order). */
 void active_filter_mark           (ActiveFilter *af, int32_t site);
 void active_filter_unmark         (ActiveFilter *af, int32_t site);
 void active_filter_clear_dynamic  (ActiveFilter *af);

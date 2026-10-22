@@ -37,7 +37,8 @@ struct SurrCtx;
  *   - lat: lattice + coord_table (built once at startup)
  *   - st:  per-replica state (species, vac_list, time, step, MSD)
  *   - as:  avail_sites index (cleared and rebuilt every step)
- *   - af:  active_filter (re-scanned every step)
+ *   - af:  active_filter (re-scanned every step; vacancies only when every
+ *          process anchors on a vacancy, see kmc.c)
  *   - rng: per-replica RNG
  *   - temperature_K: the runtime Arrhenius temperature. Per-proc rates are
  *     computed at startup as prefactor_Hz * exp(-Ea_eV/(kB*T)) from this T
@@ -56,7 +57,8 @@ typedef struct {
 } KmcContext;
 
 /* One rejection-free step:
- *   1. active_filter_rescan(af, lat, st)
+ *   1. active_filter_rescan(af, lat, st), or active_filter_rescan_vacancies
+ *      when proclist.h's PYLATKMC_ANCHOR_SPECIES_MASK is SP_VACANT alone
  *   2. avail_sites_clear(as)
  *   3. for each active site: touchup_a(lat, st, as, site)
  *   4. avail_sites_refresh_cum_rates(as)
