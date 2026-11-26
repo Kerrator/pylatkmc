@@ -58,12 +58,31 @@
  *   target = r1 * r_tot;
  *   avail_sites_select(as, target, &p, &s);
  *
- * once per KMC step. Incremental rebuild (only the touchup-stencil sites)
- * is a future optimisation — M1-style full-rebuild semantics are correct
- * and acceptable for v0.2.
+ * once per KMC step. Builds with PYLATKMC_INCREMENTAL do that on the first
+ * step only; later steps use avail_sites_del_site and re-touch just the
+ * anchors that the last step's changed sites reach (incremental.h).
  */
 
 typedef struct AvailSites AvailSites;
+
+#ifdef PYLATKMC_INCREMENTAL
+/* Per-site enrolment index (incremental builds), kept beside the dense table:
+ *
+ *   site_procs[site * AVAIL_SITES_MAX_PER_SITE + j], j in [0, n_at_site[site])
+ *       The Processes enrolled at `site`, in no particular order.
+ *
+ * add and del maintain it and clear resets it. An add past the cap stops the
+ * run (message, then abort): a dropped entry would leave a stale enrolment.
+ */
+#define AVAIL_SITES_MAX_PER_SITE 64
+
+/* Remove every enrolment at `site`; returns how many there were. */
+int32_t avail_sites_del_site(AvailSites *as, int32_t site);
+
+/* Introspection of the index. proc_at_site returns -1 if j is out of range. */
+int32_t avail_sites_count_at_site(const AvailSites *as, int32_t site);
+int32_t avail_sites_proc_at_site (const AvailSites *as, int32_t site, int32_t j);
+#endif
 
 /* Allocate. n_procs and n_sites must be > 0.
  * Returns 0 on success; -EINVAL on bad args; -ENOMEM on allocation failure.
@@ -101,6 +120,11 @@ double avail_sites_r_tot(const AvailSites *as);
  * to [0, r_tot). Returns 0 on success; -ENODATA if r_tot == 0. */
 int avail_sites_select(const AvailSites *as, double target,
                        int32_t *out_proc, int32_t *out_site);
+
+#ifdef PYLATKMC_REPLAY_ORDER
+/* The packed slot of an enrolled pair returned by avail_sites_select. */
+int32_t avail_sites_slot_of(const AvailSites *as, int32_t proc, int32_t site);
+#endif
 
 /* Introspection (also useful for testing). */
 int32_t avail_sites_n_procs   (const AvailSites *as);

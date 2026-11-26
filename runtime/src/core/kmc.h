@@ -8,6 +8,9 @@
 #include "rng.h"
 #include "avail_sites.h"
 #include "active_filter.h"
+#ifdef PYLATKMC_INCREMENTAL
+#include "incremental.h"
+#endif
 
 /* Per-run config (paths, step caps). Same shape as M1; just the meaning
  * of which paths are read changed (no .kmcrt anymore). */
@@ -45,6 +48,10 @@ typedef struct {
     const KmcRunConfig *cfg;
     double            temperature_K;
     double            overpotential_phi_eV;  /* electrochemical overpotential Phi (eV); 0 = thermal */
+#ifdef PYLATKMC_INCREMENTAL
+    /* Initially NULL. Created on the first step and released by its caller. */
+    Incremental      *inc;
+#endif
 } KmcContext;
 
 /* One rejection-free step:
@@ -57,8 +64,17 @@ typedef struct {
  *   7. apply_table[proc](st, lat, site) → HopOutcome
  *   8. update unwrapped_xyz for the moved vacancy (single-vacancy hop heuristic)
  *
+ * With PYLATKMC_INCREMENTAL, steps 1-3 run in full on the first call only;
+ * later calls re-match just the anchors whose reach holds a site changed
+ * since the last call (incremental.h).
+ *
  * Writes (proc, site, dt) to the out parameters if non-NULL. Returns
- * 0 on success, -ENODATA if trapped (r_tot == 0), -EINVAL on bad args.
+ * 0 on success, -ENODATA if trapped (r_tot <= 0), or -EINVAL on bad args.
+ * Incremental startup also returns -EINVAL for an asymmetric 1NN list.
+ * A failed allocation during incremental startup or for the oracle's
+ * reference table or pair lists returns -ENOMEM.
+ * An oracle mismatch or an enrolled site missing from the replay traversal
+ * returns -EILSEQ.
  */
 int kmc_step_once(KmcContext *ctx,
                   int32_t *out_proc, int32_t *out_site, double *out_dt);

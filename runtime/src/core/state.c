@@ -26,6 +26,13 @@ int state_alloc(State *st, int32_t n_sites, int32_t n_vac_max)
         state_free(st);
         return -ENOMEM;
     }
+#ifdef PYLATKMC_INCREMENTAL
+    /* Here, not on first use: state_apply_actions must not allocate. */
+    if (changed_sites_alloc(&st->changed, n_sites) != 0) {
+        state_free(st);
+        return -ENOMEM;
+    }
+#endif
     for (int32_t i = 0; i < n_sites; ++i) st->vac_idx_of[i] = -1;
     /* Sentinel: 255 doesn't match SP_VACANT/SP_NI/SP_FE/SP_CR (0..3). */
     st->species[n_sites] = (uint8_t)255;
@@ -39,6 +46,9 @@ void state_free(State *st)
     free(st->vac_idx_of);     st->vac_idx_of     = NULL;
     free(st->vac_list);       st->vac_list       = NULL;
     free(st->unwrapped_xyz);  st->unwrapped_xyz  = NULL;
+#ifdef PYLATKMC_INCREMENTAL
+    changed_sites_free(st->changed);  st->changed = NULL;
+#endif
     st->n_vac = 0;
     st->n_vac_max = 0;
 }
@@ -65,4 +75,8 @@ void state_swap_vacancy(State *st, int32_t a, int32_t b)
     st->vac_list[v_idx]        = occupied;
     st->vac_idx_of[occupied]   = v_idx;
     st->vac_idx_of[vacant]     = -1;
+#ifdef PYLATKMC_INCREMENTAL
+    changed_sites_add(st->changed, vacant);
+    changed_sites_add(st->changed, occupied);
+#endif
 }

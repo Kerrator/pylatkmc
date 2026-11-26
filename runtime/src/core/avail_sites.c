@@ -20,6 +20,9 @@
 
 #include <assert.h>
 #include <errno.h>
+#ifdef PYLATKMC_INCREMENTAL
+#include <stdio.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -43,6 +46,12 @@ struct AvailSites {
     /* Per-proc cumulative running sum of rates[j] * n_sites_per_proc[j].
      * Populated by avail_sites_refresh_cum_rates. */
     double  *cum_rates;
+
+#ifdef PYLATKMC_INCREMENTAL
+    /* Per-site index: [n_sites * AVAIL_SITES_MAX_PER_SITE] and [n_sites]. */
+    int32_t *site_procs;
+    uint8_t *n_at_site;
+#endif
 };
 
 static inline size_t pair_idx(const AvailSites *as, int32_t proc, int32_t key)
@@ -74,6 +83,15 @@ int avail_sites_alloc(AvailSites **out, int32_t n_procs, int32_t n_sites)
         return -ENOMEM;
     }
 
+#ifdef PYLATKMC_INCREMENTAL
+    as->site_procs = malloc((size_t)n_sites * AVAIL_SITES_MAX_PER_SITE * sizeof *as->site_procs);
+    as->n_at_site  = calloc((size_t)n_sites, sizeof *as->n_at_site);
+    if (!as->site_procs || !as->n_at_site) {
+        avail_sites_free(as);
+        return -ENOMEM;
+    }
+#endif
+
     /* slot_of starts as -1 everywhere (no site enrolled for any proc). */
     for (size_t i = 0; i < pair; ++i) as->slot_of[i] = -1;
     /* site_at content is undefined while not enrolled; clear for cleanliness. */
@@ -91,6 +109,10 @@ void avail_sites_free(AvailSites *as)
     free(as->n_sites_per_proc);
     free(as->rates);
     free(as->cum_rates);
+#ifdef PYLATKMC_INCREMENTAL
+    free(as->site_procs);
+    free(as->n_at_site);
+#endif
     free(as);
 }
 
@@ -116,6 +138,9 @@ void avail_sites_clear(AvailSites *as)
         for (int32_t k = 0; k < n; ++k) {
             int32_t s = as->site_at[pair_idx(as, p, k)];
             as->slot_of[pair_idx(as, p, s)] = -1;
+#ifdef PYLATKMC_INCREMENTAL
+            as->n_at_site[s] = 0;
+#endif
         }
         as->n_sites_per_proc[p] = 0;
         as->cum_rates[p] = 0.0;
@@ -132,6 +157,20 @@ void avail_sites_add(AvailSites *as, int32_t proc, int32_t site)
     assert(as->slot_of[pair_idx(as, proc, site)] == -1
            && "avail_sites_add: (proc, site) already enrolled");
     if (as->slot_of[pair_idx(as, proc, site)] != -1) return;
+
+#ifdef PYLATKMC_INCREMENTAL
+    uint8_t at_site = as->n_at_site[site];
+    if (at_site >= AVAIL_SITES_MAX_PER_SITE) {
+        fprintf(stderr,
+                "[avail_sites] per-site enrolment index overflow at site %d: "
+                "%d Processes enrolled, and adding Process %d passes the limit "
+                "AVAIL_SITES_MAX_PER_SITE = %d; stopping\n",
+                (int)site, (int)at_site, (int)proc, AVAIL_SITES_MAX_PER_SITE);
+        abort();
+    }
+    as->site_procs[(size_t)site * AVAIL_SITES_MAX_PER_SITE + at_site] = proc;
+    as->n_at_site[site] = (uint8_t)(at_site + 1);
+#endif
 
     int32_t k = as->n_sites_per_proc[proc];
     as->site_at[pair_idx(as, proc, k)] = site;
@@ -158,7 +197,41 @@ void avail_sites_del(AvailSites *as, int32_t proc, int32_t site)
     /* Mark our slot vacant; whoever moved into it is already pointed at by slot_of. */
     as->slot_of[pair_idx(as, proc, site)] = -1;
     as->n_sites_per_proc[proc] = last;
+#ifdef PYLATKMC_INCREMENTAL
+    int32_t *procs = as->site_procs + (size_t)site * AVAIL_SITES_MAX_PER_SITE;
+    for (int32_t j = as->n_at_site[site] - 1; j >= 0; --j) {
+        if (procs[j] == proc) {
+            procs[j] = procs[--as->n_at_site[site]];    /* swap-last */
+            break;
+        }
+    }
+#endif
 }
+
+#ifdef PYLATKMC_INCREMENTAL
+int32_t avail_sites_del_site(AvailSites *as, int32_t site)
+{
+    if (!as || site < 0 || site >= as->n_sites) return 0;
+    const int32_t *procs = as->site_procs + (size_t)site * AVAIL_SITES_MAX_PER_SITE;
+    int32_t n = as->n_at_site[site];
+    /* From the back, so each del pops the last entry. */
+    for (int32_t j = n - 1; j >= 0; --j) avail_sites_del(as, procs[j], site);
+    return n;
+}
+
+int32_t avail_sites_count_at_site(const AvailSites *as, int32_t site)
+{
+    if (!as || site < 0 || site >= as->n_sites) return 0;
+    return as->n_at_site[site];
+}
+
+int32_t avail_sites_proc_at_site(const AvailSites *as, int32_t site, int32_t j)
+{
+    if (!as || site < 0 || site >= as->n_sites) return -1;
+    if (j < 0 || j >= as->n_at_site[site]) return -1;
+    return as->site_procs[(size_t)site * AVAIL_SITES_MAX_PER_SITE + (size_t)j];
+}
+#endif
 
 void avail_sites_refresh_cum_rates(AvailSites *as)
 {
@@ -214,6 +287,15 @@ int avail_sites_select(const AvailSites *as, double target,
     *out_site = as->site_at[pair_idx(as, proc, k)];
     return 0;
 }
+
+#ifdef PYLATKMC_REPLAY_ORDER
+int32_t avail_sites_slot_of(const AvailSites *as, int32_t proc, int32_t site)
+{
+    if (!as || proc < 0 || proc >= as->n_procs || site < 0 || site >= as->n_sites)
+        return -1;
+    return as->slot_of[pair_idx(as, proc, site)];
+}
+#endif
 
 int32_t avail_sites_n_procs(const AvailSites *as)   { return as ? as->n_procs : 0; }
 int32_t avail_sites_n_sites(const AvailSites *as)   { return as ? as->n_sites : 0; }

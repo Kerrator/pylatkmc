@@ -33,6 +33,11 @@
  * mask is recomputed per step from the State's vacancy list and the
  * Lattice's 1NN CSR.
  *
+ * In PYLATKMC_INCREMENTAL builds only active_filter_is_static,
+ * active_filter_n_sites and active_filter_bulk_thr are valid after the first
+ * step: the dynamic getters (is_active, n_active, site_at) go stale, except
+ * just after an oracle check.
+ *
  * Usage from the runtime:
  *
  *   active_filter_alloc(&af, lat->n_sites, BULK_NN1_DEGREE);
