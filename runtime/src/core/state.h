@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include "lattice.h"
+#ifdef PYLATKMC_INCREMENTAL
+#include "changed_sites.h"
+#endif
 
 /* Mutable per-replica simulation state. Kept synchronised as a triple:
  *   species[s]   = SP_VACANT iff s is vacant
@@ -33,6 +36,10 @@ typedef struct State {
      * rate_table entry is electrochemical. Appended at the END of the struct so
      * the ctypes test mirrors (which read a prefix) stay valid. */
     uint64_t  n_dissolution;
+#ifdef PYLATKMC_INCREMENTAL
+    /* Collected after species validation, consumed by the next step. */
+    ChangedSites *changed;
+#endif
 } State;
 
 int  state_alloc(State *st, int32_t n_sites, int32_t n_vac_max);

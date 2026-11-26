@@ -22,6 +22,22 @@
 /* The generated proclist.h provides pylatkmc_n_procs and pylatkmc_rate_table. */
 #include "proclist.h"
 
+#ifdef PYLATKMC_INCREMENTAL
+/* PYLATKMC_BUILD_HASH; written by CMake, included by absolute path. */
+#include PYLATKMC_BUILD_INFO_HEADER
+#ifdef PYLATKMC_REPLAY_ORDER
+#define PYLATKMC_REBUILD_MODE "incremental_replay_order"
+#else
+#define PYLATKMC_REBUILD_MODE "incremental"
+#endif
+
+static void write_rebuild_metadata(FILE *fp)
+{
+    fprintf(fp, ",\n  \"rebuild_mode\": \"" PYLATKMC_REBUILD_MODE "\",\n"
+                "  \"build_hash\": \"%s\"", PYLATKMC_BUILD_HASH);
+}
+#endif
+
 /* FCC bulk 1NN coordination. Sites with fewer 1NN are static-active in
  * the active_filter (surface, edge, corner). Hardcoded for FCC; if/when
  * we add BCC/HCP we'll plumb this through ModelSpec. */
@@ -51,7 +67,11 @@ int replica_init(ReplicaContext *rep, const InputConfig *cfg, int rank, int nran
 
 static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
                                     const Lattice *lat, const State *st,
-                                    double T_K, const InputConfig *cfg)
+                                    double T_K, const InputConfig *cfg
+#ifdef PYLATKMC_INCREMENTAL_ORACLE
+                                    , const Incremental *inc
+#endif
+                                    )
 {
     FILE *fp = fopen(path, "w");
     if (!fp) return;
@@ -68,13 +88,25 @@ static void write_per_rank_summary(const char *path, const ReplicaContext *rep,
             "  \"mean_msd_A2\": %.6e,\n"
             "  \"n_dissolution\": %llu,\n"
             "  \"run_rc\": %d,\n"
-            "  \"n_procs\": %d\n"
-            "}\n",
+#ifdef PYLATKMC_INCREMENTAL
+            "  \"n_procs\": %d",
+#else
+            "  \"n_procs\": %d\n}\n",
+#endif
             rep->rank, lat->n_sites, st->n_vac, T_K,
             (unsigned long long)cfg->base_seed,
             (unsigned long long)s->n_steps, s->total_time_s,
             s->mean_msd_A2, (unsigned long long)s->n_dissolution,
             s->run_rc, (int)pylatkmc_n_procs);
+#ifdef PYLATKMC_INCREMENTAL
+    write_rebuild_metadata(fp);
+#ifdef PYLATKMC_INCREMENTAL_ORACLE
+    fprintf(fp, ",\n  \"oracle_checks\": %llu,\n  \"oracle_failures\": %llu",
+            (unsigned long long)incremental_oracle_checks(inc),
+            (unsigned long long)incremental_oracle_failures(inc));
+#endif
+    fputs("\n}\n", fp);
+#endif
     fclose(fp);
 }
 
@@ -182,7 +214,14 @@ int replica_run(ReplicaContext *rep, const InputConfig *cfg)
     /* motif_counts / direction_counts are zeroed (cube-era fields, kept for
      * MPI-ABI compatibility but no longer populated in v0.2). */
 
+#ifdef PYLATKMC_INCREMENTAL_ORACLE
+    write_per_rank_summary(summary_path, rep, &lat, &st, cfg->temperature_K, cfg, ctx.inc);
+#else
     write_per_rank_summary(summary_path, rep, &lat, &st, cfg->temperature_K, cfg);
+#endif
+#ifdef PYLATKMC_INCREMENTAL
+    incremental_free(ctx.inc);
+#endif
 
     active_filter_free(af);
     avail_sites_free(as);
@@ -287,7 +326,13 @@ int replica_aggregate(ReplicaContext *rep, const InputConfig *cfg)
                 (unsigned long long)gathered[i].n_dissolution,
                 (i == N - 1) ? "" : ",");
     }
+#ifdef PYLATKMC_INCREMENTAL
+    fputs("  ]", fp);
+    write_rebuild_metadata(fp);
+    fputs("\n}\n", fp);
+#else
     fputs("  ]\n}\n", fp);
+#endif
     fclose(fp);
 
     printf("[rank 0] wrote %s  (n=%d, %d ok / %d failed)\n",

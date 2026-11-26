@@ -8,6 +8,10 @@ All notable changes to pylatkmc are documented here, following
 
 ### Added
 
+- Optional incremental event-table updates for supported generated models.
+  `PYLATKMC_REPLAY_ORDER` preserves seeded full-rebuild draws.
+  `PYLATKMC_INCREMENTAL_ORACLE` checks enrolments and total rate against a full scan.
+
 - **Electrochemical dissolution events (Erlebacher/MESOSIM).** A new analytical,
   non-conservative event type: a surface atom leaves the lattice (its site
   becomes `Vacant`) with the coordination- and potential-dependent rate

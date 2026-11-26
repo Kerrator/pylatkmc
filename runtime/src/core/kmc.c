@@ -31,6 +31,14 @@
  *
  *   9. step++, time += dt; record stats
  *
+ * In incremental builds (PYLATKMC_INCREMENTAL) 1-3 are a full build on the
+ * first step only. Each later step instead updates the active set from the
+ * sites changed since the last one, deletes the enrolments of the anchors
+ * whose reach holds one of them (K), and runs touchup_a on the active anchors
+ * in K (incremental.h). 4-9 are the same. Oracle builds
+ * (PYLATKMC_INCREMENTAL_ORACLE) compare with a separate full rebuild after 5,
+ * before the RNG draws, and stop on a mismatch.
+ *
  * The generated `proclist.c` provides:
  *   - touchup_a() — the decision tree
  *   - apply_table[] — dispatch from proc id to apply function
@@ -125,6 +133,18 @@ int kmc_step_once(KmcContext *ctx,
     if (!ctx || !ctx->lat || !ctx->st || !ctx->as || !ctx->af || !ctx->rng)
         return -EINVAL;
 
+#ifdef PYLATKMC_INCREMENTAL
+    /* 1-3, incremental: a full build on the first step, then only the anchors
+     * reached by the sites changed since the last step. */
+    if (!ctx->inc) {
+        int inc_rc = incremental_start(&ctx->inc, ctx->lat, ctx->st, ctx->as, ctx->af);
+        if (inc_rc != 0) return inc_rc;
+    } else {
+        incremental_update(ctx->inc, ctx->lat, ctx->st, ctx->as, ctx->af);
+    }
+    /* The next step will consume changes from the event about to run. */
+    changed_sites_clear(ctx->st->changed);
+#else
     /* 1. Rescan the active set. */
     active_filter_rescan(ctx->af, ctx->lat, ctx->st);
 
@@ -139,12 +159,22 @@ int kmc_step_once(KmcContext *ctx,
         int32_t s = active_filter_site_at(ctx->af, i);
         touchup_a(ctx->lat, ctx->st, ctx->as, s);
     }
+#endif
 
     /* 4. Refresh cum_rates. */
     avail_sites_refresh_cum_rates(ctx->as);
 
     /* 5. Total rate. */
     double r_tot = avail_sites_r_tot(ctx->as);
+#ifdef PYLATKMC_INCREMENTAL_ORACLE
+    /* After the update and before the RNG draws, and before the trap test so
+     * that a wrongly empty table is a failure rather than a trap: an empty
+     * table is checked whatever the cadence. */
+    if (r_tot <= 0.0 || ctx->st->step % (uint64_t)PYLATKMC_ORACLE_EVERY == 0) {
+        int oracle_rc = incremental_oracle(ctx->inc, ctx->lat, ctx->st, ctx->as, ctx->af);
+        if (oracle_rc != 0) return oracle_rc;
+    }
+#endif
     if (r_tot <= 0.0) return -ENODATA;
 
     /* 6. Draw RNG. */
@@ -157,6 +187,12 @@ int kmc_step_once(KmcContext *ctx,
     int32_t proc = -1, site = -1;
     int rc = avail_sites_select(ctx->as, target, &proc, &site);
     if (rc != 0) return rc;
+
+#ifdef PYLATKMC_REPLAY_ORDER
+    rc = incremental_replay_site(ctx->inc, ctx->lat, ctx->st, ctx->af,
+                                 ctx->as, proc, &site);
+    if (rc != 0) return rc;
+#endif
 
     /* 8. Apply. */
     apply_event(ctx, proc, site);

@@ -65,6 +65,10 @@ int state_apply_actions(State *st,
 
     /* --- Pass 4: mutate species[]. --- */
     for (int32_t i = 0; i < n_actions; ++i) {
+#ifdef PYLATKMC_INCREMENTAL
+        if (actions[i].after != actions[i].before)
+            changed_sites_add(st->changed, actions[i].site);
+#endif
         st->species[actions[i].site] = actions[i].after;
     }
 

@@ -418,6 +418,46 @@ If `step % cfg->sample_every == 0`, write the trajectory frame
 
 ---
 
+
+### Incremental builds
+
+The default binary rebuilds the active-site list and all process enrolments at
+each step. An incremental build does the full scan at startup, records which
+sites each generated process matcher reads, and subsequently rematches only
+anchors whose inputs may have changed. One MPI rank still runs one replica.
+
+```sh
+cmake -S . -B build_replay -DMODEL="$model" \
+    -DPYLATKMC_INCREMENTAL=ON -DPYLATKMC_REPLAY_ORDER=ON
+cmake --build build_replay
+```
+
+The generated model must be a single `proclist.c` with a supported
+`touchup_a` matcher. Configure checks every read in that function.
+First-neighbour shell counts and direct coordinate lookups are supported.
+Second-neighbour shell counts require the default full rebuild. Incremental
+startup verifies that each first-neighbour edge is present in both directions.
+The per-site index supports up to 64 enrolled processes at one site.
+
+With replay order enabled, a draw selects the same process and packed slot
+as the full rebuild. The selector reconstructs that process's original site
+order using the static sites, current vacancy-list positions and neighbour
+row order. Matching initial state, seed, rates and floating-point behaviour
+then reproduces the event stream. With incremental updates alone, swap-last
+deletions can change which site a given draw selects.
+
+For verification, add `-DPYLATKMC_INCREMENTAL_ORACLE=ON`. This builds a
+second event table and checks the active set, enrolled process/site pairs and
+total rate. Checks run every step by default. Set `-DPYLATKMC_ORACLE_EVERY=N`
+to check every N steps and when the table has zero total rate. A mismatch
+sets a nonzero per-replica `run_rc`.
+
+Both summaries record the build hash and rebuild mode. The build directory's
+`BUILD-MANIFEST.txt` includes the model, build options and hashes of both
+generated sources, the derived header and the binary. When building from a
+source archive, supply its revision with `-DPYLATKMC_BUILD_HASH=<commit>`.
+Use a fresh output directory for each comparison.
+
 ## Stage 8 — pykmc.out logged
 
 For our example step at step=100:

@@ -69,6 +69,11 @@ mpirun -n 4 ../../../build/pylatkmc_ni_fe_cr_v1 input.ini
 cat output/aggregate_summary.json
 ```
 
+For supported models that use first-neighbour shell counts, you can keep the
+eligible event table between steps and reproduce the full-rebuild event order.
+Configure a separate build directory with `-DPYLATKMC_INCREMENTAL=ON` and
+`-DPYLATKMC_REPLAY_ORDER=ON`. [Incremental build and model requirements](docs/HOW_IT_WORKS.md#incremental-builds)
+
 To inspect the catalogue translation without compiling:
 
 ```bash
